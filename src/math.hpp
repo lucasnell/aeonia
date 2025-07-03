@@ -1,5 +1,5 @@
-# ifndef __PSEUDOGAMEOFCLONES_MATH_H
-# define __PSEUDOGAMEOFCLONES_MATH_H
+# ifndef __AEONIA_MATH_H
+# define __AEONIA_MATH_H
 
 
 #include <RcppArmadillo.h>
@@ -7,7 +7,7 @@
 #include <random>
 
 #include <pcg/pcg_random.hpp>   // pcg prng
-#include "pseudogameofclones_types.hpp"
+#include "aeonia_types.hpp"
 #include "pcg.hpp"              // runif_ab fxn
 
 

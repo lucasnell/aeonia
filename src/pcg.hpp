@@ -1,5 +1,5 @@
-#ifndef __PSEUDOGAMEOFCLONES_PCG_H
-#define __PSEUDOGAMEOFCLONES_PCG_H
+#ifndef __AEONIA_PCG_H
+#define __AEONIA_PCG_H
 
 #include <RcppArmadillo.h>
 #include <vector>
@@ -7,7 +7,7 @@
 #include <pcg/pcg_extras.hpp>  // pcg 128-bit integer type
 #include <pcg/pcg_random.hpp> // pcg prng
 
-#include "pseudogameofclones_types.hpp"
+#include "aeonia_types.hpp"
 
 using namespace Rcpp;
 
