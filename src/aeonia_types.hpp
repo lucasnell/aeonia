@@ -1,5 +1,5 @@
-# ifndef __PSEUDOGAMEOFCLONES_TYPES_H
-# define __PSEUDOGAMEOFCLONES_TYPES_H
+# ifndef __AEONIA_TYPES_H
+# define __AEONIA_TYPES_H
 
 
 /*

@@ -1,12 +1,12 @@
-#ifndef __PSEUDOGAMEOFCLONES_UTIL_H
-#define __PSEUDOGAMEOFCLONES_UTIL_H
+#ifndef __AEONIA_UTIL_H
+#define __AEONIA_UTIL_H
 
 #include <RcppArmadillo.h>
 #include <vector>
 #include <string>
 #include <RcppThread.h>         // multithreading
 
-#include "pseudogameofclones_types.hpp"
+#include "aeonia_types.hpp"
 
 
 using namespace Rcpp;

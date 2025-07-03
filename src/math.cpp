@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "math.hpp"
-#include "vectorpushpull_types.hpp"
+#include "aeonia_types.hpp"
 
 using namespace Rcpp;
 

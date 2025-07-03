@@ -1,5 +1,5 @@
 ## usethis namespace: start
-#' @useDynLib vectorpushpull, .registration = TRUE
+#' @useDynLib aeonia, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
 ## usethis namespace: end
 NULL
