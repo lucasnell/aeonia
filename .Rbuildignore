@@ -1,2 +1,6 @@
 ^aeonia\.Rproj$
 ^\.Rproj\.user$
+^LICENSE\.md$
+^\.Rprofile$
+^README\.
+^.*\.svg$
