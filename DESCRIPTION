@@ -1,15 +1,39 @@
 Package: aeonia
 Title: Alate Effects On Nonpersistent Infection Advancement
 Version: 0.0.0.9000
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
 Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+Authors@R: person(c("Lucas", "A."), "Nell", email = "lucnell@gmail.com",
+                  role = c("cph", "aut", "cre"),
+                  comment = c(ORCID = "0000-0003-3209-0517"))
+License: GPL (>= 3)
 Encoding: UTF-8
+LazyData: true
+ByteCompile: true
+Imports:
+    dplyr,
+    ggplot2,
+    methods,
+    purrr,
+    R (>= 4.1.0),
+    Rcpp (>= 1.0.0),
+    tidyr
+LinkingTo:
+    Rcpp (>= 1.0.0),
+    RcppArmadillo,
+    RcppThread
+SystemRequirements: GNU make, C++11
+NeedsCompilation: yes
+URL: https://github.com/lucasnell/aeonia
+BugReports: https://github.com/lucasnell/aeonia/issues
+RemoteType: github
+RemoteHost: api.github.com
+RemoteRepo: aeonia
+RemoteUsername: lucasnell
+GithubRepo: aeonia
+GithubUsername: lucasnell
+Suggests:
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
-LinkingTo: 
-    Rcpp
-Imports: 
-    Rcpp
