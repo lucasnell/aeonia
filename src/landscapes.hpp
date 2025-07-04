@@ -1,15 +1,16 @@
-#ifndef __PSEUDOGAMEOFCLONES_ABM_TARGETS_H
-#define __PSEUDOGAMEOFCLONES_ABM_TARGETS_H
+#ifndef __AEONIA_LANDSCAPES_H
+#define __AEONIA_LANDSCAPES_H
 
 #include <RcppArmadillo.h>
 #include <vector>
 #include <deque>
 #include <string>
 #include <limits>
+#include <numeric>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 
-#include "pseudogameofclones_types.hpp"
+#include "aeonia_types.hpp"
 #include "pcg.hpp"              // runif_ab fxn
 
 
@@ -103,9 +104,19 @@ public:
 
 
 
+
+
+/*
+ ==============================================================================
+ ==============================================================================
+ ==============================================================================
+ ==============================================================================
+ */
+
 /*
  Sample locations from a vector of probabilities, where probabilities
  get updated as samples are chosen.
+ For one plant type (virus- or Pseudomonas-infected)
  */
 class LocationSampler {
 
@@ -158,8 +169,15 @@ public:
                         const double& wt_val) {
         if (wt_val == 1) return;
         uint32 n_changed = 0;
+        bool not_exceeded;
         for (const uint32& k : indices) {
-            if (weights(k) > 0 && weights(k) < max_wt) {
+            /*
+             Only change weight if it's greater than zero and either
+             the weight will decrease or the weight will increase but
+             hasn't already exceeded the maximum allowed value.
+             */
+            not_exceeded = weights(k) < max_wt && wt_val > 1;
+            if (weights(k) > 0 && (not_exceeded || wt_val < 1)) {
                 weights(k) *= wt_val;
                 if (weights(k) > max_wt) weights(k) = max_wt;
                 n_changed++;
@@ -170,7 +188,8 @@ public:
     }
     void update_weights(const uint32& k,
                         const double& wt_val) {
-        if (weights(k) > 0 && weights(k) < max_wt && wt_val != 1) {
+        bool not_exceeded = weights(k) < max_wt && wt_val > 1;
+        if (wt_val != 1 && weights(k) > 0 && (not_exceeded || wt_val < 1)) {
             weights(k) *= wt_val;
             if (weights(k) > max_wt) weights(k) = max_wt;
             needs_recalc  = true;
@@ -193,164 +212,144 @@ public:
 };
 
 
+
+
+
+
+
+/*
+ ==============================================================================
+ ==============================================================================
+ ==============================================================================
+ ==============================================================================
+ */
+
+/*
+ Do all sampling for a single landscape.
+ */
 class LandSimmer {
 
     arma::mat wt_mat;
-    arma::ivec n_samples;
-    uint32 n_types;
-    uint32 n_points;
-    int x_size;
-    int y_size;
-    bool allow_overlap;
+    std::vector<uint32> n_samples;
+    uint32 n_plants;
+    uint32 x_size;
+    uint32 y_size;
 
-    // One location sampler for each type:
+    // One location sampler for each type (virus and Pseudomonas):
     std::vector<LocationSampler> samplers;
 
     // Convert coordinates between 1D and 2D:
     DimensionConverter dim_conv;
 
-    // Object collecting samples:
-    std::vector<std::vector<uint32>> samps;
+    // Object collecting sampled type for each plant:
+    std::vector<uint32> out_types;
 
     // Random number generator
     pcg32 eng;
 
-    // Number of points assigned to 1 or more types (used to define output)
-    uint32 n_used_pts;
+
+    // Use bit assignment to quickly assign types:
+    void put_type(const uint32& type, const uint32& k) {
+        out_types[k] = out_types[k] | ((uint32)1 << type);
+        return;
+    }
 
 
 public:
 
-    // Note: not reserving storage for each item in `samps` upon initialization.
-    // I do it below when an item in `samps` is assigned its first item.
-    // Doing it this way saves a bit of memory.
-
     LandSimmer(const arma::mat& wt_mat_,
-               const arma::ivec& n_samples_,
-               int x_size_,
-               int y_size_,
-               const bool& allow_overlap_)
+               const uint32& n_virus_,
+               const uint32& n_pseudo_,
+               const uint32& x_size_,
+               const uint32& y_size_)
     : wt_mat(wt_mat_),
-      n_samples(n_samples_),
-      n_types(wt_mat_.n_rows),
-      n_points(x_size_ * y_size_),
+      n_samples({n_virus_, n_pseudo_}),
+      n_plants(x_size_ * y_size_),
       x_size(x_size_),
       y_size(y_size_),
-      allow_overlap(allow_overlap_),
-      samplers(n_types, LocationSampler(n_points)),
+      samplers(2, LocationSampler(n_plants)),
       dim_conv(x_size, y_size),
-      samps(n_points),
-      eng(),
-      n_used_pts(0U) {
+      out_types(n_plants, 0U),
+      eng() {
         seed_pcg(eng);
       }
 
 
     void run(RcppThread::ProgressBar& prog_bar, const bool& show_progress) {
 
-        int32_t total_samps = arma::accu(n_samples);
-        uint32 n = 0;// for iterating
+        uint32 total_samps = std::accumulate(n_samples.begin(), n_samples.end(), 0U);
+        // Because `put_type` is assigning individual bits, and `uint32` only
+        // have 32 bits:
+        if (n_samples.size() > 32)
+            stop("INTERNAL ERROR: Cannot bit-assign with >32 types");
 
-        // # sims done for each type (also doubles as indices for output):
-        arma::ivec sims_done(n_types, arma::fill::zeros);
+        // Vector of vector types that will be shuffled to avoid having one
+        // type always sampled first:
+        std::vector<uint32> type_to_samp;
+        type_to_samp.reserve(total_samps);
+        for (uint32 i = 0; i < n_samples.size(); i++) {
+            for (uint32 j = 0; j < n_samples[i]; j++) {
+                type_to_samp.push_back(i);
+            }
+        }
+        // Fast shuffle:
+        for (uint32 i = type_to_samp.size(); i > 1; i--) {
+            uint32 j = runif_01(eng) * i;
+            std::swap(type_to_samp[i-1], type_to_samp[j]);
+        }
+        if (type_to_samp.size() != total_samps)
+            stop("INTERNAL ERROR: type_to_samp.size() != total_samps");
+
         uint32 x, y, k;
         std::vector<uint32> neighbors;
         neighbors.reserve(9); // highest number of neighbors possible
+        uint32 n = 0; // for error checking
 
-        while (total_samps > 0) {
-            for (uint32 i = 0; i < n_types; i++) {
 
-                if (sims_done(i) >= n_samples(i)) continue;
+        for (const uint32& i : type_to_samp) {
 
-                k = samplers[i].sample(eng);
-                dim_conv.to_2d(x, y, k); // assign new x and y based on k
+            k = samplers[i].sample(eng);
+            dim_conv.to_2d(x, y, k); // assign new x and y based on k
 
-                // reserve memory so that it doesn't have to be moved after this:
-                if (samps[k].empty()) {
-                    n_used_pts++;
-                    samps[k].reserve(n_types);
-                }
-                // add to output:
-                samps[k].push_back(i+1); //+1 to convert to R's 1-based indexing
+            // add to output:
+            put_type(i, k);
 
-                // Adjust sampling probabilities:
-                dim_conv.get_neighbors(neighbors, k); // fill neighbors vector
-                for (uint32 j = 0; j < n_types; j++) {
-                    samplers[j].update_weights(neighbors, wt_mat(i,j));
-                    if (!allow_overlap) samplers[j].update_weights(k, 0.0);
-                }
-                /*
-                 Note: You don't have to update `k`th prob to zero after the call
-                 to `update_weights` on `neighbors` even though the latter also
-                 updates `k` because `update_weights` never updates weights that
-                 are already set to zero.
-                 */
-                samplers[i].update_weights(k, 0.0);
-
-                // Iterate sample numbers:
-                sims_done(i)++;
-                total_samps--;
-                n++;
-
-                if (show_progress) prog_bar++;
-                if (n % 10 == 0) RcppThread::checkUserInterrupt();
+            // Adjust sampling probabilities:
+            dim_conv.get_neighbors(neighbors, k); // fill neighbors vector
+            for (uint32 j = 0; j < n_samples.size(); j++) {
+                samplers[j].update_weights(neighbors, wt_mat(i,j));
             }
+            /*
+             Note: You don't have to update `k`th prob to zero after the call
+             to `update_weights` on `neighbors` even though the latter also
+             updates `k` because `update_weights` never updates weights that
+             are already set to zero.
+             */
+            samplers[i].update_weights(k, 0.0);
+
+            n++;
+
+            if (show_progress) prog_bar++;
+            if (n % 10 == 0) RcppThread::checkUserInterrupt();
+
         }
 
         return;
     }
 
-    DataFrame create_output(const bool& fill_all) {
 
-        if (fill_all) n_used_pts = n_points;
+    // Fill an output cube with the matrix for this landscape's output.
+    // `s` refers to the slice index for this landscape
+    void fill_output(arma::ucube& out, const uint32& s) {
 
-        // Create output dataframe:
-        DataFrame out_df = DataFrame::create(
-            _["x"] = IntegerVector(n_used_pts),
-            _["y"] = IntegerVector(n_used_pts),
-            _["type"] = CharacterVector(n_used_pts));
-        // References to columns:
-        IntegerVector out_x = out_df[0];
-        IntegerVector out_y = out_df[1];
-        CharacterVector out_type = out_df[2];
+        uint32 x, y;
 
-        if (fill_all) {
-            for (uint32 k = 0; k < samps.size(); k++) {
-                out_type(k) = "";
-                if (!samps[k].empty()) {
-                    std::sort(samps[k].begin(), samps[k].end());
-                    for (uint32 s = 0; s < samps[k].size(); s++) {
-                        out_type(k) += std::to_string(samps[k][s]);
-                        if (s < samps[k].size() - 1) out_type(k) += "_";
-                    }
-                }
-                dim_conv.to_2d(out_x(k), out_y(k), k);
-                // Convert from 0- to 1-based indexing:
-                out_x(k)++;
-                out_y(k)++;
-            }
-        } else {
-            uint32 i = 0;
-            for (uint32 k = 0; k < samps.size(); k++) {
-                if (!samps[k].empty()) {
-                    std::sort(samps[k].begin(), samps[k].end());
-                    out_type(i) = "";
-                    for (uint32 s = 0; s < samps[k].size(); s++) {
-                        out_type(k) += std::to_string(samps[k][s]);
-                        if (s < samps[k].size() - 1) out_type(k) += "_";
-                    }
-                    dim_conv.to_2d(out_x(i), out_y(i), k);
-                    out_x(i)++;
-                    out_y(i)++;
-                    i++;
-                }
-            }
+        for (uint32 k = 0; k < out_types.size(); k++) {
+            dim_conv.to_2d(x, y, k);
+            out(x, y, s) = out_types[k];
         }
 
-        out_df.attr("class") = CharacterVector({"tbl_df", "tbl", "data.frame"});
-
-        return out_df;
-
+        return;
 
     }
 
