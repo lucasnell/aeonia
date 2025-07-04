@@ -5,7 +5,7 @@
 #include <iterator>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "pseudogameofclones_types.hpp"  // integer types
+#include "aeonia_types.hpp"  // integer types
 #include "pcg.hpp"                       // runif_01, seed_rng functions
 
 using namespace Rcpp;
@@ -228,3 +228,4 @@ DataFrame alate_infect_sims(const int& x_size,
     return out_df;
 
 }
+
