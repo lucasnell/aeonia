@@ -10,12 +10,10 @@
 #include <math.h>
 #include <algorithm>
 #include <pcg/pcg_random.hpp>   // pcg prng
-#include <RcppThread.h>         // multithreading
 
 #include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY
 #include "pcg.hpp"              // runif_01 fxn
-#include "util.hpp"             // thread_check fxn
 
 
 
@@ -29,84 +27,7 @@ using namespace Rcpp;
 /*
  Info to create flight paths for alates.
  */
-struct AlateFlightInfo {
-
-    AlateFlightInfo(const uint32& max_t_
-                    const arma::umat& landscape_,
-                    const double& radius,
-                    const double& alpha_,
-                    const double& beta_,
-                    const double& epsilon_,
-                    const double& w_)
-        : max_t(max_t_),
-          landscape(landscape_),
-          neigh_dxdy(),
-          dim_conv(landscape_.n_rows, landscape_.n_cols),
-          alpha(alpha_),
-          beta(beta_),
-          epsilon(epsilon_),
-          w(w_),
-          weights(),
-          cs_probs() {
-
-        // Fill `neigh_dxdy` based on radius:
-        uint32 total_rows = 0;
-        int32 fl_radius = std::floor(radius);
-        std::vector<arma::imat> dxdy_vec;
-        dxdy_vec.reserve(fl_radius * 2U + 1U);
-        int32 max_dy;
-        arma::imat dxdy_i;
-        double radius2 = radius * radius;
-        for (int32 dx = -fl_radius; dx <= fl_radius; dx++) {
-            max_dy = std::floor(std::sqrt(radius2 - static_cast<double>(dx * dx)));
-            dxdy_i.set_size(max_dy * 2U + 1U, 2U);
-            uint32 i = 0;
-            for (int32 dy = -max_dy; dy <= max_dy; dy++) {
-                dxdy_i(i,0) = dx;
-                dxdy_i(i,1) = dy;
-                i++;
-            }
-            dxdy_vec.push_back(dxdy_i);
-            total_rows += dxdy_i.n_rows;
-        }
-
-        neigh_dxdy.set_size(total_rows, 2U);
-        uint32 k = 0;
-        for (const arma::imat& dxdy : dxdy_vec) {
-            for (uint32 j = 0; j < dxdy.n_rows; j++) {
-                neigh_dxdy(k,0) = dxdy(j,0);
-                neigh_dxdy(k,1) = dxdy(j,1);
-                k++;
-            }
-        }
-
-        weights.set_size(total_rows);
-        cs_probs.set_size(total_rows);
-    }
-
-
-    // Have this alate fly and eventually settle.
-    // This function also handles reserving sufficient memory for `out` such
-    // that it should never be reallocated.
-    void fly(std::vector<XY>& out, const uint32& x0, const uint32& y0) {
-        uint32 x = x0;
-        uint32 y = y0;
-        if (out.capacity() < (max_t+1U)) out.reserve(max_t+1U);
-        out.clear();
-        out.push_back(XY(x,y));
-        bool stop = false;
-        uint32 t = 0;
-        while (t < max_t && !stop) {
-            stop = this->iterate(x, y);
-            // Add new coordinates to output:
-            out.push_back(XY(x, y));
-            t++;
-        }
-        return;
-    }
-
-
-private:
+class AlateFlightInfo {
 
     uint32 max_t;
 
@@ -212,6 +133,84 @@ private:
         return;
 
     }
+
+
+public:
+
+    AlateFlightInfo(const uint32& max_t_
+                    const arma::umat& landscape_,
+                    const double& radius,
+                    const double& alpha_,
+                    const double& beta_,
+                    const double& epsilon_,
+                    const double& w_)
+        : max_t(max_t_),
+          landscape(landscape_),
+          neigh_dxdy(),
+          dim_conv(landscape_.n_rows, landscape_.n_cols),
+          alpha(alpha_),
+          beta(beta_),
+          epsilon(epsilon_),
+          w(w_),
+          weights(),
+          cs_probs() {
+
+        // Fill `neigh_dxdy` based on radius:
+        uint32 total_rows = 0;
+        int32 fl_radius = std::floor(radius);
+        std::vector<arma::imat> dxdy_vec;
+        dxdy_vec.reserve(fl_radius * 2U + 1U);
+        int32 max_dy;
+        arma::imat dxdy_i;
+        double radius2 = radius * radius;
+        for (int32 dx = -fl_radius; dx <= fl_radius; dx++) {
+            max_dy = std::floor(std::sqrt(radius2 - static_cast<double>(dx * dx)));
+            dxdy_i.set_size(max_dy * 2U + 1U, 2U);
+            uint32 i = 0;
+            for (int32 dy = -max_dy; dy <= max_dy; dy++) {
+                dxdy_i(i,0) = dx;
+                dxdy_i(i,1) = dy;
+                i++;
+            }
+            dxdy_vec.push_back(dxdy_i);
+            total_rows += dxdy_i.n_rows;
+        }
+
+        neigh_dxdy.set_size(total_rows, 2U);
+        uint32 k = 0;
+        for (const arma::imat& dxdy : dxdy_vec) {
+            for (uint32 j = 0; j < dxdy.n_rows; j++) {
+                neigh_dxdy(k,0) = dxdy(j,0);
+                neigh_dxdy(k,1) = dxdy(j,1);
+                k++;
+            }
+        }
+
+        weights.set_size(total_rows);
+        cs_probs.set_size(total_rows);
+    }
+
+
+    // Have this alate fly and eventually settle.
+    // This function also handles reserving sufficient memory for `out` such
+    // that it should never be reallocated.
+    void fly(std::vector<XY>& out, const uint32& x0, const uint32& y0) {
+        uint32 x = x0;
+        uint32 y = y0;
+        if (out.capacity() < (max_t+1U)) out.reserve(max_t+1U);
+        out.clear();
+        out.push_back(XY(x,y));
+        bool stop = false;
+        uint32 t = 0;
+        while (t < max_t && !stop) {
+            stop = this->iterate(x, y);
+            // Add new coordinates to output:
+            out.push_back(XY(x, y));
+            t++;
+        }
+        return;
+    }
+
 
 
 };
