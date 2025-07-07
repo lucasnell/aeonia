@@ -11,6 +11,7 @@
 
 
 #include "aeonia_types.hpp"
+#include "convert-dims.hpp"     // DimensionConverter class
 #include "pcg.hpp"              // runif_ab fxn
 
 
@@ -20,98 +21,6 @@ using namespace Rcpp;
 
 
 
-/*
- Class to convert back and forth between 2D to 1D indices.
- It assumes that x and y coordinates are sorted first by y coordinates, then
- by x coordinates.
- It also assumes 0-based indices.
- An example matrix of x and y coordinates might start like this:
-
- #>      x y
- #> [0,] 0 0
- #> [1,] 1 0
- #> [2,] 2 0
- #> [3,] 3 0
- #> [4,] 4 0
- #> [5,] 5 0
-
- */
-class DimensionConverter {
-
-    std::vector<uint32> neigh_x;
-    std::vector<uint32> neigh_y;
-
-    uint32 x_size;
-    uint32 y_size;
-
-public:
-
-    DimensionConverter(const uint32& x_size_, const uint32& y_size_)
-        : neigh_x(), neigh_y(), x_size(x_size_), y_size(y_size_) {
-        neigh_x.reserve(3);
-        neigh_y.reserve(3);
-    }
-
-    // Convert from 1D to 2D:
-    void to_2d(uint32& x, uint32& y, const uint32& k) const {
-        x = k - y_size * (k / y_size);
-        y = k / y_size;
-        return;
-    }
-    // Overloaded for signed ints (for use with Rcpp::IntegerVector)
-    void to_2d(int& x, int& y, const uint32& k) const {
-        x = k - y_size * (k / y_size);
-        y = k / y_size;
-        return;
-    }
-    // Convert from 2D to 1D:
-    void to_1d(uint32& k, const uint32& x, const uint32& y) const {
-        k = (y * x_size + x);
-        return;
-    }
-    /*
-     Return indices (in 1D) for all neighbors based on a 1D input coordinate.
-     NOTE:
-        - It clears `indices` before adding to it
-        - It also returns an index for the focal point
-     */
-    void get_neighbors(std::vector<uint32>& indices,
-                       const uint32& k) {
-        uint32 x0 = k - y_size * (k / y_size);
-        uint32 y0 = k / y_size;
-        indices.clear();
-        neigh_x.clear();
-        neigh_y.clear();
-        if (x0 > 0) neigh_x.push_back(x0-1);
-        neigh_x.push_back(x0);
-        if (x0 < x_size-1) neigh_x.push_back(x0+1);
-        if (y0 > 0) neigh_y.push_back(y0-1);
-        neigh_y.push_back(y0);
-        if (y0 < x_size-1) neigh_y.push_back(y0+1);
-        uint32 k_out;
-        for (const uint32& x : neigh_x) {
-            for (const uint32& y : neigh_y) {
-                to_1d(k_out, x, y);
-                indices.push_back(k_out);
-            }
-        }
-        return;
-    }
-
-
-};
-
-
-
-
-
-
-/*
- ==============================================================================
- ==============================================================================
- ==============================================================================
- ==============================================================================
- */
 
 /*
  Sample locations from a vector of probabilities, where probabilities
@@ -315,7 +224,7 @@ public:
             put_type(i, k);
 
             // Adjust sampling probabilities:
-            dim_conv.get_neighbors(neighbors, k); // fill neighbors vector
+            dim_conv.nextdoor_neighbors(neighbors, k); // fill neighbors vector
             for (uint32 j = 0; j < n_samples.size(); j++) {
                 samplers[j].update_weights(neighbors, wt_mat(i,j));
             }

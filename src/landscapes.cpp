@@ -84,7 +84,7 @@ using namespace Rcpp;
 //'     `1` indicates a virus infected plant (no *Pseudomonas*),
 //'     `2` indicates a *Pseudomonas*-infected plant (no virus), and
 //'     `3` indicates a plant with both virus and *Pseudomonas*.
-//'     See `landscape_list` for converting this to a list of length `n_lands`,
+//'     See [land_cube2list()] for converting this to a list of length `n_lands`,
 //'     where each item is a [`tibble`][tibble::tbl_df] with columns
 //'     `x`, `y`, and `type`.
 //'
@@ -92,14 +92,14 @@ using namespace Rcpp;
 //' @export
 //'
 //[[Rcpp::export]]
-arma::ucube landscape_sims(const uint32& n_x,
-                           const uint32& n_y,
-                           const arma::mat& wt_mat,
-                           const uint32& n_virus,
-                           const uint32& n_pseudo,
-                           const uint32& n_lands = 1,
-                           const bool& show_progress = false,
-                           uint32 n_threads = 1) {
+arma::ucube sim_plant_types(const uint32& n_x,
+                            const uint32& n_y,
+                            const arma::mat& wt_mat,
+                            const uint32& n_virus,
+                            const uint32& n_pseudo,
+                            const uint32& n_lands = 1,
+                            const bool& show_progress = false,
+                            uint32 n_threads = 1) {
 
     if (n_x < 2) stop("n_x must be >= 2");
     if (n_x > 1e6) stop("n_x must be <= 1e6");
@@ -147,14 +147,14 @@ arma::ucube landscape_sims(const uint32& n_x,
 
 //' Convert a landscape cube to a list of dataframes.
 //'
-//' @param land_cube Cube containing landscape info, output from `landscape_sims`.
+//' @param land_cube Cube containing landscape info, output from [sim_plant_types()].
 //'
 //' @return A list of length `dim(land_cube)[3]`, where each item is a
 //'     [`tibble`][tibble::tbl_df] with columns
 //'     `x`, `y`, and `type`.
 //'
 //[[Rcpp::export]]
-List landscape_list(const arma::ucube& land_cube) {
+List land_cube2list(const arma::ucube& land_cube) {
 
     uint32 n_x = land_cube.n_rows;
     uint32 n_y = land_cube.n_cols;

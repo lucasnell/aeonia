@@ -56,27 +56,27 @@
 #'     `1` indicates a virus infected plant (no *Pseudomonas*),
 #'     `2` indicates a *Pseudomonas*-infected plant (no virus), and
 #'     `3` indicates a plant with both virus and *Pseudomonas*.
-#'     See `landscape_list` for converting this to a list of length `n_lands`,
+#'     See [land_cube2list()] for converting this to a list of length `n_lands`,
 #'     where each item is a [`tibble`][tibble::tbl_df] with columns
 #'     `x`, `y`, and `type`.
 #'
 #'
 #' @export
 #'
-landscape_sims <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, show_progress = FALSE, n_threads = 1L) {
-    .Call(`_aeonia_landscape_sims`, n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, show_progress, n_threads)
+sim_plant_types <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, show_progress = FALSE, n_threads = 1L) {
+    .Call(`_aeonia_sim_plant_types`, n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, show_progress, n_threads)
 }
 
 #' Convert a landscape cube to a list of dataframes.
 #'
-#' @param land_cube Cube containing landscape info, output from `landscape_sims`.
+#' @param land_cube Cube containing landscape info, output from [sim_plant_types()].
 #'
 #' @return A list of length `dim(land_cube)[3]`, where each item is a
 #'     [`tibble`][tibble::tbl_df] with columns
 #'     `x`, `y`, and `type`.
 #'
-landscape_list <- function(land_cube) {
-    .Call(`_aeonia_landscape_list`, land_cube)
+land_cube2list <- function(land_cube) {
+    .Call(`_aeonia_land_cube2list`, land_cube)
 }
 
 #' Logit and inverse logit functions.
