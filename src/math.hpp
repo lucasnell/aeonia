@@ -37,6 +37,15 @@ inline void inv_logit__(const double& a, double& out) {
     return;
 }
 
+inline double logit__(double& p) {
+    a = std::log(p / (1-p));
+    return a;
+}
+inline double inv_logit__(double& a) {
+    double p = 1 / (1 + std::exp(-a));
+    return p;
+}
+
 
 
 
