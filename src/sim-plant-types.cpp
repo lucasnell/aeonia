@@ -18,10 +18,10 @@
 #include <RcppThread.h>         // multithreading
 
 
-#include "aeonia_types.hpp"  // integer types
+#include "aeonia_types.hpp"     // integer types
 #include "pcg.hpp"              // runif_01, seed_rng functions
-#include "landscapes.hpp"      // DimensionConverter and LocationSampler classes
-#include "util.hpp"      // thread_check
+#include "sim-plant-types.hpp"  // DimensionConverter and LocationSampler classes
+#include "util.hpp"             // thread_check
 
 
 
@@ -116,10 +116,10 @@ arma::ucube sim_plant_types(const uint32& n_x,
     thread_check(n_threads); // Check that # threads isn't too high
 
 
-    std::vector<LandSimmer> simmers;
+    std::vector<OnePlantTypeSimmer> simmers;
     simmers.reserve(n_lands);
     for (uint32 i = 0; i < n_lands; i++) {
-        simmers.push_back(LandSimmer(wt_mat, n_virus, n_pseudo, n_x, n_y));
+        simmers.push_back(OnePlantTypeSimmer(wt_mat, n_virus, n_pseudo, n_x, n_y));
     }
 
     RcppThread::ProgressBar prog_bar(n_lands * (n_virus + n_pseudo), 1);
