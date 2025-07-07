@@ -136,7 +136,7 @@ public:
 /*
  Do all sampling for a single landscape.
  */
-class LandSimmer {
+class OnePlantTypeSimmer {
 
     arma::mat wt_mat;
     std::vector<uint32> n_samples;
@@ -166,7 +166,7 @@ class LandSimmer {
 
 public:
 
-    LandSimmer(const arma::mat& wt_mat_,
+    OnePlantTypeSimmer(const arma::mat& wt_mat_,
                const uint32& n_virus_,
                const uint32& n_pseudo_,
                const uint32& x_size_,
