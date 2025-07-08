@@ -33,12 +33,12 @@ class Populations {
 
     // constants:
     double r;  // aphid population growth rate
-    double a;  // aphid density dependence
+    double alpha;  // aphid density dependence
     double B;  // effect of Pseudomonas bacteria on aphid growth
-    double pred_0;  // intercept for predators ~ log10(aphid density)
-    double pred_1;  // intercept for predators ~ log10(aphid density)
-    double pred_c;  // "proportionality constant" for predators ~ log10(aphid density)
-    double pred_k;  // power for effect of predators on aphids
+    double pred_a;  // predator attack rate
+    double pred_h;  // predator handling time
+    double pred_c;  // consumption efficiency for predators
+    double pred_m;  // predator mortality
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
     double alate_1; // intercept for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
@@ -46,12 +46,12 @@ class Populations {
 public:
 
     Populations(const double& r_,
-                const double& a_,
+                const double& alpha_,
                 const double& B_,
-                const double& pred_0_,
-                const double& pred_1_,
+                const double& pred_a_,
+                const double& pred_h_,
                 const double& pred_c_,
-                const double& pred_k_,
+                const double& pred_m_,
                 const double& alate_0_,
                 const double& alate_1_,
                 const double& fly_p_,
@@ -60,12 +60,12 @@ public:
                 const double& P0)
         : distr(1, 0.5),
           r(r_),
-          a(a_),
+          alpha(alpha_),
           B(B_),
-          pred_0(pred_0_),
-          pred_1(pred_1_),
           pred_c(pred_c_),
-          pred_k(pred_k_),
+          pred_a(pred_a_),
+          pred_h(pred_h_),
+          pred_m(pred_m_),
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
@@ -77,24 +77,33 @@ public:
     uint32 iterate(pcg32& eng) {
 
         double z = A + W;
+        // Proportion of new aphids (from apterous females) that are alates
         double alate_p = inv_logit__(alate_0 + alate_1 * z);
+        // predator per-capita consumption per prey:
+        double consumpt = pred_a / (1 + pred_a * pred_h * z);
         // proportional abundance change for both winged and non-winged aphids
         // (i.e., (X_t+1 - X_t) / X_t, where X is W and A):
-        double pac = std::exp(r - a * z - std::pow(P, pred_k) - B) - 1;
+        double pac = std::exp(r - alpha * z - consumpt * P - B) - 1;
         double dA = A * pac;
         double dW = W * pac;
         if (pac > 0) {
-            dW += (dA * alate_p);
+            /*
+             Next two lines are because alates produce only apterous aphids,
+             so the only new alates come from apterous mothers.
+             */
+            dA += dW;
+            dW = dA * alate_p; // << should be `=`, NOT `+=`
+            // To balance number of new aphids:
             dA *= (1 - alate_p);
         }
         A += dA;
         W += dW;
-        P = pred_c * std::exp(pred_0 + pred_1 * std::log10(z));
+        P *= std::exp(pred_c * consumpt * z - pred_m)
 
         uint32 n_alates = 0;
-        uint32 distr_n = std::floor(W);
-        if (distr_n > 0) {
-            distr.param(BinomParams(distr_n, fly_p));
+        uint32 binom_n = std::floor(W);
+        if (binom_n > 0) {
+            distr.param(BinomParams(binom_n, fly_p));
             n_alates = distr(eng);
             W -= static_cast<double>(n_alates);
         }
