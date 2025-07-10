@@ -5,7 +5,7 @@
 #include <iterator>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "aeonia_types.hpp"  // integer types
+#include "aeonia-types.hpp"  // integer types
 #include "pcg.hpp"                       // runif_01, seed_rng functions
 
 using namespace Rcpp;

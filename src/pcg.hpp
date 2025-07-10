@@ -7,7 +7,7 @@
 #include <pcg/pcg_extras.hpp>  // pcg 128-bit integer type
 #include <pcg/pcg_random.hpp> // pcg prng
 
-#include "aeonia_types.hpp"
+#include "aeonia-types.hpp"
 
 using namespace Rcpp;
 

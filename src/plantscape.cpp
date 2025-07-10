@@ -17,7 +17,7 @@
 #include <RcppThread.h>         // multithreading
 
 
-#include "aeonia_types.hpp"     // integer types
+#include "aeonia-types.hpp"     // integer types
 #include "plantscape.hpp"       // PlantScape class
 #include "pcg.hpp"              // mt_seeds fxn
 #include "util.hpp"             // thread_check fxn
