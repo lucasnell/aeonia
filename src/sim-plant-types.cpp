@@ -18,7 +18,7 @@
 #include <RcppThread.h>         // multithreading
 
 
-#include "aeonia_types.hpp"     // integer types
+#include "aeonia-types.hpp"     // integer types
 #include "pcg.hpp"              // runif_01, seed_rng functions
 #include "sim-plant-types.hpp"  // DimensionConverter and LocationSampler classes
 #include "util.hpp"             // thread_check

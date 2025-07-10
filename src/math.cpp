@@ -2,7 +2,7 @@
 #include <cmath>
 
 #include "math.hpp"
-#include "aeonia_types.hpp"
+#include "aeonia-types.hpp"
 
 using namespace Rcpp;
 

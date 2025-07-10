@@ -10,7 +10,7 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 
-#include "aeonia_types.hpp"
+#include "aeonia-types.hpp"
 #include "convert-dims.hpp"     // DimensionConverter class
 #include "pcg.hpp"              // runif_ab fxn
 
