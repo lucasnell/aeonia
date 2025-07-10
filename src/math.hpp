@@ -7,7 +7,7 @@
 #include <random>
 
 #include <pcg/pcg_random.hpp>   // pcg prng
-#include "aeonia-types.hpp"
+#include "aeonia_types.hpp"
 #include "pcg.hpp"              // runif_ab fxn
 
 
