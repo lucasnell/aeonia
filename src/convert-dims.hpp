@@ -4,7 +4,7 @@
 #include <RcppArmadillo.h>
 #include <vector>
 
-#include "aeonia-types.hpp"
+#include "aeonia_types.hpp"
 
 
 using namespace Rcpp;

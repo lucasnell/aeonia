@@ -6,7 +6,7 @@
 #include <string>
 #include <RcppThread.h>         // multithreading
 
-#include "aeonia-types.hpp"
+#include "aeonia_types.hpp"
 
 
 using namespace Rcpp;

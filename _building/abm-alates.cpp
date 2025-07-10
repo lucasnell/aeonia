@@ -11,7 +11,7 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 #include <RcppThread.h>         // multithreading
 
-#include "aeonia-types.hpp"  // integer types
+#include "aeonia_types.hpp"  // integer types
 #include "pcg.hpp"              // runif_01 fxn
 #include "util.hpp"              // thread_check fxn
 #include "abm.hpp"              // classes for ABM

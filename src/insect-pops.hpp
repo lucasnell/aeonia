@@ -12,7 +12,7 @@
 #include <random>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "aeonia-types.hpp"     // integer types
+#include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY
 #include "pcg.hpp"              // runif_01 fxn
 
