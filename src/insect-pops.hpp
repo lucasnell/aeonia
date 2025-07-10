@@ -24,7 +24,7 @@ using namespace Rcpp;
 
 
 
-class Populations {
+class InsectPops {
 
     typedef std::binomial_distribution<uint32> Binom;
     typedef std::binomial_distribution<uint32>::param_type BinomParams;
@@ -32,9 +32,9 @@ class Populations {
     Binom distr;
 
     // constants:
-    double r;  // aphid population growth rate
-    double alpha;  // aphid density dependence
-    double B;  // effect of Pseudomonas bacteria on aphid growth
+    double r;       // aphid population growth rate
+    double K;       // aphid carrying capacity (in absence of predators / Pseudomonas)
+    double B;       // effect of Pseudomonas bacteria on aphid growth
     double pred_a;  // predator attack rate
     double pred_h;  // predator handling time
     double pred_c;  // consumption efficiency for predators
@@ -45,22 +45,22 @@ class Populations {
 
 public:
 
-    Populations(const double& r_,
-                const double& alpha_,
-                const double& B_,
-                const double& pred_a_,
-                const double& pred_h_,
-                const double& pred_c_,
-                const double& pred_m_,
-                const double& alate_0_,
-                const double& alate_1_,
-                const double& fly_p_,
-                const double& A0,
-                const double& W0,
-                const double& P0)
+    InsectPops(const double& r_,
+               const double& K_,
+               const double& B_,
+               const double& pred_a_,
+               const double& pred_h_,
+               const double& pred_c_,
+               const double& pred_m_,
+               const double& alate_0_,
+               const double& alate_1_,
+               const double& fly_p_,
+               const double& A0,
+               const double& W0,
+               const double& P0)
         : distr(1, 0.5),
           r(r_),
-          alpha(alpha_),
+          K(K_),
           B(B_),
           pred_c(pred_c_),
           pred_a(pred_a_),
@@ -71,9 +71,16 @@ public:
           fly_p(fly_p_),
           A(A0),
           W(W0),
-          P(P0) {}
+          P(P0) {};
 
-    // iterate and output number of alates moving from this patch:
+    InsectPops(const InsectPops& other)
+    : distr(other.distr), r(other.r), K(other.K), B(other.B),
+      pred_c(other.pred_c), pred_a(other.pred_a), pred_h(other.pred_h),
+      pred_m(other.pred_m), alate_0(other.alate_0), alate_1(other.alate_1),
+      fly_p(other.fly_p), A(other.A), W(other.W), P(other.P) {};
+
+
+    // iterate and output number of alates moving from this population:
     uint32 iterate(pcg32& eng) {
 
         double z = A + W;
@@ -83,7 +90,7 @@ public:
         double consumpt = pred_a / (1 + pred_a * pred_h * z);
         // proportional abundance change for both winged and non-winged aphids
         // (i.e., (X_t+1 - X_t) / X_t, where X is W and A):
-        double pac = std::exp(r - alpha * z - consumpt * P - B) - 1;
+        double pac = std::exp(r * (1 - z / K) - consumpt * P - B) - 1;
         double dA = A * pac;
         double dW = W * pac;
         if (pac > 0) {
@@ -109,6 +116,16 @@ public:
         }
 
         return n_alates;
+    }
+
+    /*
+     Set B, which is useful for using a single InsectPops to population
+     everything, then going back and changing some values of `B` based on
+     the landscape:
+     */
+    void set_B(const double& new_B) {
+        B = new_B;
+        return;
     }
 
 

@@ -12,7 +12,7 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 #include "aeonia_types.hpp"     // integer types
-#include "convert-dims.hpp"     // XY
+#include "convert-dims.hpp"     // XY and get_bit_bool
 #include "pcg.hpp"              // runif_01 fxn
 
 
@@ -29,17 +29,14 @@ using namespace Rcpp;
  */
 class AlateFlightInfo {
 
-    uint32 max_t;
+    uint32 max_fly_t;
 
-    arma::umat landscape;
     arma::imat neigh_dxdy;
 
     double alpha;
     double beta;
     double epsilon;
     double w;
-
-    pcg32 eng;  // Random number generator
 
     arma::vec weights;      // sampling weights
     arma::vec cs_probs;     // cumulative sum of sampling probabilities
@@ -48,9 +45,13 @@ class AlateFlightInfo {
     bool pseudo;
 
 
-    // Iterate one time step. Adjusts `x` and `y` for new coordinates, and
-    // returns true if sims should stop bc alate settles.
-    bool iterate(uint32& x, uint32& y) {
+    /*
+     Iterate one time step (after the first one). Adjusts `x` and `y` for new
+     coordinates, and returns true if sims should keep going bc alate has
+     not settled.
+     It also adds new coordinates to `path`.
+     */
+    bool iterate(uint32& x, uint32& y, pcg32& eng) {
 
         set_virus(x, y);
 
@@ -58,38 +59,48 @@ class AlateFlightInfo {
         double feed_p = w;
         if (virus) feed_p *= epsilon;
         if (runif_01(eng) < feed_p) {
-            return true;
+            return false;
         }
 
         set_pseudo(x, y);
 
         // Sample for new location (this function also updates x and y):
-        sample_location(x, y);
+        sample_location(x, y, eng);
 
-        return false;
+        // add new coordinates to `path`:
+        path.push_back(XY(x, y));
 
+        return true;
+
+    }
+
+    /*
+     Do first iteration where the alate ALWAYS leaves the plant.
+     This function also clears `path` for a fresh start.
+     */
+    void first_iterate(uint32& x, uint32& y, pcg32& eng) {
+        set_virus(x, y);
+        set_pseudo(x, y);
+        sample_location(x, y, eng);
+        path.clear();
+        path.push_back(XY(x, y));
+        return;
     }
 
     // Is current plant infected with virus?
     void set_virus(const uint32& x, const uint32& y) {
-        set_bit_bool(virus, 0U, landscape(x, y));
+        virus = get_bit_bool(0U, landscape(x, y));
         return;
     }
     // Does current plant have Pseudomonas?
     void set_pseudo(const uint32& x, const uint32& y) {
-        set_bit_bool(pseudo, 1U, landscape(x, y));
-        return;
-    }
-
-    // Get the kth bit of n and cast to bool:
-    inline bool set_bit_bool(bool& b, const uint32& k, const uint32& n) {
-        b = (n & ( 1 << k )) >> k;
+        pseudo = get_bit_bool(1U, landscape(x, y));
         return;
     }
 
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
-    void sample_location(uint32& x, uint32& y) {
+    void sample_location(uint32& x, uint32& y, pcg32& eng) {
 
         // First calculate new sampling weights based on current location:
         uint32 xi, yi;
@@ -137,15 +148,17 @@ class AlateFlightInfo {
 
 public:
 
-    AlateFlightInfo(const uint32& max_t_
+    arma::umat landscape;
+    std::vector<XY> path; // flight path to be accessed after running `fly`
+
+    AlateFlightInfo(const uint32& max_fly_t_
                     const arma::umat& landscape_,
                     const double& radius,
                     const double& alpha_,
                     const double& beta_,
                     const double& epsilon_,
                     const double& w_)
-        : max_t(max_t_),
-          landscape(landscape_),
+        : max_fly_t(max_fly_t_),
           neigh_dxdy(),
           dim_conv(landscape_.n_rows, landscape_.n_cols),
           alpha(alpha_),
@@ -153,7 +166,11 @@ public:
           epsilon(epsilon_),
           w(w_),
           weights(),
-          cs_probs() {
+          cs_probs(),
+          landscape(landscape_),
+          path() {
+
+        path.reserve(max_fly_t+1U);
 
         // Fill `neigh_dxdy` based on radius:
         uint32 total_rows = 0;
@@ -191,21 +208,24 @@ public:
     }
 
 
-    // Have this alate fly and eventually settle.
-    // This function also handles reserving sufficient memory for `out` such
-    // that it should never be reallocated.
-    void fly(std::vector<XY>& out, const uint32& x0, const uint32& y0) {
+    /*
+     Have this alate fly and eventually settle.
+     The higher-level function can then use the public `path` field from
+     this object to access the plants the alate visited.
+     Note: the `path` vector does NOT include the plant the alate started at.
+     */
+    void fly(const uint32& x0,
+             const uint32& y0,
+             pcg32& eng) {
         uint32 x = x0;
         uint32 y = y0;
-        if (out.capacity() < (max_t+1U)) out.reserve(max_t+1U);
-        out.clear();
-        out.push_back(XY(x,y));
-        bool stop = false;
-        uint32 t = 0;
-        while (t < max_t && !stop) {
-            stop = this->iterate(x, y);
-            // Add new coordinates to output:
-            out.push_back(XY(x, y));
+        // Do first iteration where alate has to leave plant:
+        first_iterate(x, y, eng);
+        // Do remaining iterations:
+        bool keep_going = false;
+        uint32 t = 1;
+        while (t < max_fly_t && keep_going) {
+            keep_going = this->iterate(x, y, eng);
             t++;
         }
         return;
@@ -217,7 +237,7 @@ public:
 
 
 //
-// void check_a_s_args(const uint32& max_t,
+// void check_a_s_args(const uint32& max_fly_t,
 //                     const arma::imat& plant_xy,
 //                     const arma::ivec& plant_types,
 //                     const double& alpha,
@@ -237,8 +257,8 @@ public:
 //     // Check that # threads isn't too high:
 //     thread_check(n_threads);
 //
-//     if (max_t == 0) stop("max_t == 0");
-//     if (max_t > 1000000000U) stop("max_t > 1e9");
+//     if (max_fly_t == 0) stop("max_fly_t == 0");
+//     if (max_fly_t > 1000000000U) stop("max_fly_t > 1e9");
 //
 //     if (plant_xy.n_cols != 2) stop("ncol(plant_xy) != 2");
 //     if (plant_xy.n_rows < 2) stop("nrow(plant_xy) < 2");
@@ -513,7 +533,7 @@ public:
 // //' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
 // //'
 // //'
-// //' @param max_t Single integer indicating the number of time steps to simulate.
+// //' @param max_fly_t Single integer indicating the number of time steps to simulate.
 // //' @param plant_xy Two-column integer matrix containing x and y coordinates
 // //'     for plants. Note that all locations from 1 to the max in each dimension
 // //'     must be represented by a plant.
@@ -584,7 +604,7 @@ public:
 // //' @export
 // //'
 // //[[Rcpp::export]]
-// DataFrame alate_search_sims(const uint32& max_t,
+// DataFrame alate_search_sims(const uint32& max_fly_t,
 //                             const arma::imat& plant_xy,
 //                             const arma::ivec& plant_types,
 //                             const double& alpha,
@@ -605,7 +625,7 @@ public:
 //     arma::imat landscape;
 //
 //     // Check arguments, fill `landscape`, and optionally set x0 and y0:
-//     check_a_s_args(max_t, plant_xy, plant_types, alpha, beta, epsilon, w, radius,
+//     check_a_s_args(max_fly_t, plant_xy, plant_types, alpha, beta, epsilon, w, radius,
 //                    xy0, randomize_xy0, landscape, x0, y0, n_alates, summarize, n_threads);
 //
 //     arma::mat v;  // Binary variable for whether a plant has virus
@@ -620,7 +640,7 @@ public:
 //     std::vector<OneAlate> alates;
 //     alates.reserve(n_alates);
 //     for (uint32 i = 0; i < n_alates; i++) {
-//         alates.push_back(OneAlate(max_t, x0, y0, landscape, v, b,
+//         alates.push_back(OneAlate(max_fly_t, x0, y0, landscape, v, b,
 //                                   neigh_dxdy, alpha, beta, epsilon, w,
 //                                   randomize_xy0));
 //     }
