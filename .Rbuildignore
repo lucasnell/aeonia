@@ -4,3 +4,4 @@
 ^\.Rprofile$
 ^README\.
 ^.*\.svg$
+^data-raw$
