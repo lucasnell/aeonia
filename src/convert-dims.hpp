@@ -15,6 +15,7 @@ using namespace Rcpp;
 struct XY {
     uint32 x;
     uint32 y;
+    XY(const uint32& x_, const uint32& y_) : x(x_), y(y_) {};
 };
 
 
