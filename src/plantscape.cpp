@@ -117,13 +117,6 @@ SEXP make_insect_ptr(const double& r,
 //'     have the same number of rows and columns as `landscapes`.
 //'     The matrix can also be 1x1, in which case it's assumed that all plants
 //'     start with the same density of predators.
-//' @param max_fly_t Single integer indicating the maximum number of visits
-//'     an alate can have before it's forced to settle. This is mostly
-//'     to avoid computationally troublesome situations when alates simply do
-//'     not ever settle, like if `w` is very low.
-//' @param radius Max distance that alates will travel between plants.
-//'     Defaults to `7.336451`, which is based on previous work.
-//'     See "Radius" section below for details.
 //' @param alpha Effect of virus infection on alate alighting.
 //'     Values `> 0` cause alates to be attracted to virus-infected plants,
 //'     while values `< 0` cause them to be repelled by virus-infected plants.
@@ -136,9 +129,6 @@ SEXP make_insect_ptr(const double& r,
 //'     while values `< 1` cause them to be less likely to stay and feed on
 //'     virus-infected plants.
 //'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
-//' @param w Probability that an alate accepts a plant, meaning that
-//'     it stays to feed on it indefinitely.
-//'     Must be `> 0` and `< 1`. Defaults to `0.2`.
 //' @param delta_a Single numeric indicating the probability that an
 //'     uninoculated alate is loaded with a virus if it interacts with an
 //'     inoculated plant.
@@ -150,13 +140,31 @@ SEXP make_insect_ptr(const double& r,
 //'     not able to pass it on) to infectious (able to infect other plants).
 //'     A value of `0` means that an alate inoculating a plant causes that
 //'     plant to be infectious the same day.
+//'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
+//'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
+//'     relationships, and seed transmission" (Davis & Hampton, 1986).
+//' @param w Probability that an alate accepts a plant, meaning that
+//'     it stays to feed on it indefinitely.
+//'     Must be `> 1e-4` and `< 1`.
+//'     The lower limit is because a very small value of `w` causes alates to
+//'     fly to so many plants that it becomes computationally problematic.
+//'     This is the same reason that I check for (and return and error) if
+//'     `w*epsilon < 1e-4`.
+//'     Defaults to `0.2`.
+//' @param radius Max distance that alates will travel between plants.
+//'     Defaults to `7.336451`, which is based on previous work.
+//'     See "Radius" section below for details.
 //' @param out_by_plant Single logical for whether to split output by plant
 //'     instead of summing across the entire landscape.
+//'     Defaults to `TRUE`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
 //'     Ignored if `dim(landscapes)[3] == 1`.
 //'     Defaults to `1L`.
+//'
+//'
+//' @export
 //'
 //[[Rcpp::export]]
 DataFrame sim_plantscape(const arma::ucube& landscapes,
@@ -165,16 +173,15 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const arma::mat& A0,
                          const arma::mat& W0,
                          const arma::mat& P0,
-                         const uint32& max_fly_t,
-                         const double& radius,
                          const double& alpha,
                          const double& beta,
                          const double& epsilon,
-                         const double& w,
                          const double& delta_a,
                          const double& delta_p,
-                         const uint32& total_exp_days,
-                         const bool& out_by_plant,
+                         const uint32& total_exp_days = 7,
+                         const double& w = 0.2,
+                         const double& radius = 7.336451,
+                         const bool& out_by_plant = true,
                          const bool& show_progress = false,
                          uint32 n_threads = 1) {
 
@@ -196,20 +203,35 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     if (arma::size(A0) != arma::size(P0)) stop("A0, W0, and P0 must be same size");
 
     if (max_sim_t == 0 || max_sim_t > 1e6) stop("max_sim_t == 0 || max_sim_t > 1e6");
-    if (max_fly_t == 0 || max_fly_t > 1e6) stop("max_fly_t == 0 || max_fly_t > 1e6");
     if (radius < 1) stop("radius < 1");
     if (epsilon < 0) stop("epsilon < 0");
-    if (w < 0 || w > 1) stop("w < 0 || w > 1");
+    if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
     if ((w*epsilon) > 1) stop("w*epsilon > 1");
+    if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
     if (delta_p < 0 || delta_p > 1) stop("delta_p < 0 || delta_p > 1");
     if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
 
     thread_check(n_threads); // Check that # threads isn't too high
 
+    // Set a maximum on # plants an alate can fly to such that the probability
+    // that it reaches this threshold < 1e-9:
+    uint32 max_fly_t = 100;
+    double max_leave_p = 1 - std::min(w, epsilon * w); // max Pr(leave plant)
+    while (std::pow(max_leave_p, max_fly_t) > (double)1e-9) {
+        max_fly_t *= 10;
+        if (max_fly_t > (uint32)1000000) stop("INTERNAL ERROR: max_fly_t too high");
+    }
+
+    // Make sure output object won't be too big for R:
+    uint32 n_rows = n_reps * (max_sim_t + (uint32)1U);
+    if (out_by_plant) n_rows *= (n_x * n_y);
+    if (n_rows > (uint32)2147483647)
+        stop("This combo of parameters will produce too large of an output for R");
+
     // Base for all insect populations to start with:
-    XPtr<InsectPops> insects_xptr(insects_ptr);
-    const InsectPops& insects0(*insects_xptr);
+    XPtr<InsectPops> insect_xptr(insect_ptr);
+    const InsectPops& insects0(*insect_xptr);
 
     std::vector<std::vector<uint64>> seeds = mt_seeds(n_reps);
     std::vector<PlantScape> plantscapes;
@@ -242,11 +264,12 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     std::vector<double> virus;
     std::vector<double> aphids;
     std::vector<double> alates;
-    std::vector<double> preds;
+    std::vector<double> enemies;
+
     if (out_by_plant) {
+
         std::vector<uint32> plant_x;
         std::vector<uint32> plant_y;
-        uint32 n_rows = n_reps * (max_sim_t + (uint32)1U) * n_x * n_y;
 
         rep.reserve(n_rows);
         time.reserve(n_rows);
@@ -255,10 +278,10 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         virus.reserve(n_rows);
         aphids.reserve(n_rows);
         alates.reserve(n_rows);
-        preds.reserve(n_rows);
+        enemies.reserve(n_rows);
 
         for (uint32 r = 0; r < n_reps; r++) {
-            const arma::mat& rep_out(plantscapes[r].output);
+            const arma::cube& rep_out(plantscapes[r].output);
             for (uint32 t = 0; t < rep_out.n_slices; t++) {
                 for (uint32 i = 0; i < rep_out.n_rows; i++) {
                     rep.push_back(r+1);
@@ -268,7 +291,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                     virus.push_back(rep_out(i,2,t));
                     aphids.push_back(rep_out(i,3,t));
                     alates.push_back(rep_out(i,4,t));
-                    preds.push_back(rep_out(i,5,t));
+                    enemies.push_back(rep_out(i,5,t));
                 }
             }
         }
@@ -276,30 +299,32 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
                                    _["x"] = plant_x, _["y"] = plant_y,
                                    _["virus"] = virus, _["aphids"] = aphids,
-                                   _["alates"] = alates, _["preds"] = preds);
+                                   _["alates"] = alates, _["enemies"] = enemies);
 
     } else {
-        uint32 n_rows = n_reps * (max_sim_t + (uint32)1U);
+
         rep.reserve(n_rows);
         time.reserve(n_rows);
         virus.reserve(n_rows);
         aphids.reserve(n_rows);
         alates.reserve(n_rows);
-        preds.reserve(n_rows);
+        enemies.reserve(n_rows);
+
         for (uint32 r = 0; r < n_reps; r++) {
-            const arma::mat& rep_out(plantscapes[r].output);
+            const arma::cube& rep_out(plantscapes[r].output);
             for (uint32 t = 0; t < rep_out.n_slices; t++) {
                 rep.push_back(r+1);
                 time.push_back(t+1);
                 virus.push_back(rep_out(0,0,t));
                 aphids.push_back(rep_out(0,1,t));
                 alates.push_back(rep_out(0,2,t));
-                preds.push_back(rep_out(0,3,t));
+                enemies.push_back(rep_out(0,3,t));
             }
         }
+
         out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
                                    _["virus"] = virus, _["aphids"] = aphids,
-                                   _["alates"] = alates, _["preds"] = preds);
+                                   _["alates"] = alates, _["enemies"] = enemies);
     }
 
 
