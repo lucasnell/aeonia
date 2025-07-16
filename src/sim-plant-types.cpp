@@ -101,15 +101,19 @@ arma::ucube sim_plant_types(const uint32& n_x,
                             const bool& show_progress = false,
                             uint32 n_threads = 1) {
 
-    if (n_x < 2) stop("n_x must be >= 2");
+    if (n_x < 1) stop("n_x must be >= 1");
     if (n_x > 1e6) stop("n_x must be <= 1e6");
-    if (n_y < 2) stop("n_y must be >= 2");
+    if (n_y < 1) stop("n_y must be >= 1");
     if (n_y > 1e6) stop("n_y must be <= 1e6");
+    if (n_x * n_y < 2) stop("n_x * n_y must be >= 2");
     if (wt_mat.n_rows != 2 || wt_mat.n_cols != 2) stop("wt_mat must be 2x2");
     if (arma::any(arma::vectorise(wt_mat) < 0)) stop("wt_mat cannot contain values < 0");
-    if (n_virus <= 0) stop("n_virus cannot be <= 0");
+    if ((n_virus + n_pseudo) < 1) {
+        std::string err_msg = "n_virus + n_pseudo cannot be < 1; ";
+        err_msg += "just use an array of zeros instead of using this function.";
+        stop(err_msg.c_str());
+    }
     if (n_virus > n_x * n_y) stop("n_virus cannot be > n_x * n_y");
-    if (n_pseudo <= 0) stop("n_pseudo cannot be <= 0");
     if (n_pseudo > n_x * n_y) stop("n_pseudo cannot be > n_x * n_y");
     if (n_lands < 1) stop("n_lands must be >= 1");
     if (n_lands >= 1e6) stop("n_lands must be < 1e6");
