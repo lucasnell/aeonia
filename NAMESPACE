@@ -2,6 +2,9 @@
 
 export(inv_logit)
 export(logit)
+export(make_insect_ptr)
 export(sim_plant_types)
+export(sim_plantscape)
+export(test_insect_pops)
 importFrom(Rcpp,sourceCpp)
 useDynLib(aeonia, .registration = TRUE)
