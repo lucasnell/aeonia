@@ -2,7 +2,7 @@
 #define __AEONIA_APHID_POPULATION_H
 
 /*
- This contains code for aphid and predator population dynamics in a single patch.
+ This contains code for aphid and natural enemy population dynamics in a single patch.
  */
 
 #include <RcppArmadillo.h>
@@ -14,6 +14,7 @@
 
 #include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY
+#include "math.hpp"              // inv_logit__ and sad_leslie__ fxns
 #include "pcg.hpp"              // runif_01 fxn
 
 
@@ -32,26 +33,62 @@ class InsectPops {
     Binom distr;
 
     // constants:
-    double r;       // aphid population growth rate
-    double K;       // aphid carrying capacity (in absence of predators / Pseudomonas)
+    arma::mat L;    // transition matrix
+    double K;       // aphid density dependence
     double B;       // effect of Pseudomonas bacteria on aphid growth
-    double pred_a;  // predator attack rate
-    double pred_h;  // predator handling time
-    double pred_c;  // consumption efficiency for predators
-    double pred_m;  // predator mortality
+    double a;       // natural enemy attack rate
+    double h;       // natural enemy handling time
+    double k;       // natural enemy aggregation parameter
+    double s;       // natural enemy daily survival
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
     double alate_1; // intercept for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
 
+
+    // Deterministic  portion of `iterate`, updates `A`, `W`, and `P` without
+    // producing alates:
+    void determ_iterate() {
+
+        // Total aphids:
+        double z = arma::accu(X);
+        // Density dependence:
+        double S = 1 / (1 + z / K);
+        // survival from natural enemies:
+        double attack_surv = std::pow(1 + a * P / (k * (h * z + 1)), -k);
+
+        // Proportion of new aphids (from apterous females) that are alates
+        double alate_p = inv_logit__(alate_0 + alate_1 * z);
+        // Now adjust Leslie matrix for alate proportion:
+        L(0,1) = L(0,3) * (1 - alate_p); // non-winged offspring from winged adults
+        L(2,1) = L(0,3) * alate_p; // winged offspring from non-winged adults
+        // Note: because all offspring from winged adults are non-winged,
+        // L(0,3) is always the "full-strength" fecundity
+
+        arma::vec LX = L * X;
+
+        P *= s; // daily survival of existing
+        P += arma::accu((1 - B) * S * (1 - attack_surv) * LX); // new individuals
+
+        X = (1 - B) * S * attack_surv * LX;
+
+        return;
+
+    }
+
+
+
 public:
 
-    InsectPops(const double& r_,
+    InsectPops(const double& surv_j,
+               const double& surv_a,
+               const double& recruit,
+               const double& fecund,
                const double& K_,
                const double& B_,
-               const double& pred_a_,
-               const double& pred_h_,
-               const double& pred_c_,
-               const double& pred_m_,
+               const double& a_,
+               const double& h_,
+               const double& k_,
+               const double& s_,
                const double& alate_0_,
                const double& alate_1_,
                const double& fly_p_,
@@ -59,68 +96,70 @@ public:
                const double& W0,
                const double& P0)
         : distr(1, 0.5),
-          r(r_),
+          L(4, 4, arma::fill::zeros),
           K(K_),
           B(B_),
-          pred_c(pred_c_),
-          pred_a(pred_a_),
-          pred_h(pred_h_),
-          pred_m(pred_m_),
+          a(a_),
+          h(h_),
+          k(k_),
+          s(s_),
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
-          A(A0),
-          W(W0),
-          P(P0) {};
+          X(4, arma::fill::zeros),
+          P(P0) {
+
+        L(0,0) = surv_j;
+        L(2,2) = surv_j;
+        L(1,1) = surv_a;
+        L(3,3) = surv_a;
+        /*
+         Note: changing these next two lines doesn't change the beginning
+         densities further below because I'm separately specifying winged
+         vs non-winged aphid abundance.
+         */
+        L(0,1) = fecund * 0.5;
+        L(2,1) = fecund * 0.5;
+        L(0,3) = fecund;
+        L(1,0) = recruit;
+        L(3,2) = recruit;
+
+        set_aphids(A0, W0);
+
+    };
 
     InsectPops(const InsectPops& other)
-    : distr(other.distr), r(other.r), K(other.K), B(other.B),
-      pred_c(other.pred_c), pred_a(other.pred_a), pred_h(other.pred_h),
-      pred_m(other.pred_m), alate_0(other.alate_0), alate_1(other.alate_1),
-      fly_p(other.fly_p), A(other.A), W(other.W), P(other.P) {};
+        : distr(other.distr), L(other.L), K(other.K), B(other.B),
+          a(other.a), h(other.h), k(other.k), s(other.s),
+          alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
+          X(other.X), P(other.P) {};
 
 
-    // iterate and output number of alates moving from this population:
-    uint32 iterate(pcg32& eng) {
+    // iterate and set number of alates moving from this population:
+    void iterate(uint32& n_alates, pcg32& eng) {
 
-        double z = A + W;
-        // Proportion of new aphids (from apterous females) that are alates
-        double alate_p = inv_logit__(alate_0 + alate_1 * z);
-        // predator per-capita consumption per prey:
-        double consumpt = pred_a / (1 + pred_a * pred_h * z);
-        // proportional abundance change for both winged and non-winged aphids
-        // (i.e., (X_t+1 - X_t) / X_t, where X is W and A):
-        double pac = std::exp(r * (1 - z / K) - consumpt * P - B) - 1;
-        double dA = A * pac;
-        double dW = W * pac;
-        if (pac > 0) {
-            /*
-             Next two lines are because alates produce only apterous aphids,
-             so the only new alates come from apterous mothers.
-             */
-            dA += dW;
-            dW = dA * alate_p; // << should be `=`, NOT `+=`
-            // To balance number of new aphids:
-            dA *= (1 - alate_p);
-        }
-        A += dA;
-        W += dW;
-        P *= std::exp(pred_c * consumpt * z - pred_m)
+        determ_iterate();
 
-        uint32 n_alates = 0;
-        uint32 binom_n = std::floor(W);
-        if (binom_n > 0) {
+        n_alates = 0;
+        double& adult_winged(X(3));
+        uint32 binom_n = std::floor(adult_winged);
+        if (binom_n > 0 && fly_p > 0) {
             distr.param(BinomParams(binom_n, fly_p));
             n_alates = distr(eng);
-            W -= static_cast<double>(n_alates);
+            adult_winged -= static_cast<double>(n_alates);
         }
 
-        return n_alates;
+        return;
+    }
+    // Overloaded for not using RNG or output object (used in `test_insect_pops`)
+    void iterate() {
+        determ_iterate();
+        return;
     }
 
     /*
-     Set B, which is useful for using a single InsectPops to population
-     everything, then going back and changing some values of `B` based on
+     Set B, which is useful for using a single InsectPops to populate a vector
+     of them, then going back and changing some values of `B` based on
      the landscape:
      */
     void set_B(const double& new_B) {
@@ -129,9 +168,36 @@ public:
     }
 
 
-    double A;  // non-winged aphid population density
-    double W;  // winged aphid population density
-    double P;  // predator population density
+    // Get non-winged aphid population density:
+    double A() const {
+        return arma::accu(X.head(2));
+    }
+    // Get winged aphid population density:
+    double W() const {
+        return arma::accu(X.tail(2));
+    }
+    double& winged_adults() {
+        return X.back();
+    }
+
+    // Fill non-winged and winged aphids using stable age distributions,
+    // for each separately:
+    void set_aphids(const double& A0, const double& W0) {
+        if (A0 <= 0 && W0 <= 0) return;
+        arma::vec dens;
+        sad_leslie__(L, dens);
+        if (A0 > 0) {
+            X.head(2) = A0 * dens.head(2) / arma::accu(dens.head(2));
+        }
+        if (W0 > 0) {
+            X.tail(2) = W0 * dens.tail(2) / arma::accu(dens.tail(2));
+        }
+        return;
+    }
+
+
+    arma::vec X;    // aphids by stage
+    double P;       // natural enemy population density
 
 };
 
