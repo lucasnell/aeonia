@@ -33,5 +33,17 @@ inline void thread_check(uint32& n_threads) {
 }
 
 
+// Retrieve dataset named `dataset` of type `T` from this package
+template <typename T>
+T retrieve_dataset(const std::string& dataset) {
+
+    Environment pkg("package:aeonia");
+    T data = pkg[dataset];
+    return data;
+}
+
+
+
+
 
 #endif

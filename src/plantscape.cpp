@@ -31,63 +31,6 @@ using namespace Rcpp;
 
 
 
-//' Create a pointer object in which to store insect population info.
-//'
-//'
-//'
-//' @param r Single numeric indicating the growth rate of the aphid population.
-//' @param K Single numeric indicating the carrying capacity (no including
-//'     predators or *Pseudomonas*) of the aphid population.
-//' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
-//'     population growth.
-//' @param pred_a Single numeric indicating the predator attack rate.
-//' @param pred_h Single numeric indicating the predator handling time.
-//' @param pred_c Single numeric indicating the predator conversion efficiency.
-//' @param pred_m Single numeric indicating the predator mortality rate.
-//' @param alate_0 Single numeric.
-//'     The proportion of winged offspring from apterous aphids is
-//'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
-//'     aphids on that plant.
-//' @param alate_1 Single numeric affecting how strongly aphid density
-//'     influences alate production. See `alate_0` above for the equation.
-//' @param fly_p Single numeric indicating the proportion of alates that fly
-//'     off plants each day.
-//'
-//' @export
-//'
-//[[Rcpp::export]]
-SEXP make_insect_ptr(const double& r,
-                     const double& K,
-                     const double& B,
-                     const double& pred_a,
-                     const double& pred_h,
-                     const double& pred_c,
-                     const double& pred_m,
-                     const double& alate_0,
-                     const double& alate_1,
-                     const double& fly_p) {
-
-    if (r <= 0) stop("r <= 0");
-    if (K <= 0) stop("K <= 0");
-    if (B < 0) stop("B < 0");
-    if (pred_a < 0) stop("pred_a < 0");
-    if (pred_h < 0) stop("pred_h < 0");
-    if (pred_c < 0) stop("pred_c < 0");
-    if (pred_m < 0) stop("pred_m < 0");
-    if (alate_1 < 0) stop("alate_1 < 0");
-    if (fly_p < 0 || fly_p > 1) stop("fly_p < 0 || fly_p > 1");
-    // Densities will be set later:
-    double A0 = 0;
-    double W0 = 0;
-    double P0 = 0;
-
-    XPtr<InsectPops> insect_xptr(new InsectPops(r, K, B, pred_a, pred_h, pred_c,
-                                                pred_m, alate_0, alate_1, fly_p,
-                                                A0, W0, P0), true);
-
-    return insect_xptr;
-}
-
 
 
 //' Simulation plant landscapes with virus spread.
