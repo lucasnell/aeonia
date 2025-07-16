@@ -35,6 +35,17 @@ using namespace Rcpp;
 
 //' Simulation plant landscapes with virus spread.
 //'
+//' @details # Radius
+//' From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
+//' a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
+//' follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
+//'
+//' The default for the `radius` argument uses the median of this
+//' distribution.
+//' I'm dividing by 0.75 to convert from meters to plant locations that are
+//' 0.75 meters apart (typical spacing for pea):
+//' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
+//'
 //' @param landscapes Integer cube with the types of each plant in each
 //'     landscape. It's assumed that rows are x the dimension,
 //'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)

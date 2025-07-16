@@ -60,14 +60,14 @@ struct OnePlant {
           infectious(infectious_),
           pseudo(pseudo_),
           exp_days(0),
-          total_exp_days(total_exp_days_),
-          insects(insects_) {
+          insects(insects_),
+          total_exp_days(total_exp_days_) {
         if (!pseudo) insects.set_B(0.0);
     }
 
     // iterate and output number of alates moving from this plant:
-    uint32 iterate(pcg32& eng) {
-        uint32 n_alates = insects.iterate(eng);
+    void iterate(uint32& n_alates, pcg32& eng) {
+        insects.iterate(n_alates, eng);
         if (exposed) {
             exp_days++;
             if (exp_days >= total_exp_days) {
@@ -76,9 +76,10 @@ struct OnePlant {
                 exp_days = 0;
             }
         }
-        return n_alates;
+        return;
     }
 
+    friend class PlantScape;
 
 
 private:
@@ -160,18 +161,18 @@ class PlantScape {
                 // If it starts on an infectious plant, then sample for whether
                 // the alate is virus-bearing:
                 if (first_plant.infectious) {
-                    u = runif_01(rng);
+                    u = runif_01(eng);
                     has_virus = u < delta_a;
                 } else has_virus = false;
                 for (uint32 i = 0; i < flight.path.size(); i++) {
                     const XY& coord(flight.path[i]);
-                    const OnePlant& new_plant(plants[coord.x][coord.y]);
+                    OnePlant& new_plant(plants[coord.x][coord.y]);
                     /*
                      If alate is non-virus-bearing and plant is
                      infectious, sample for whether alate is inoculated:
                      */
                     if (!has_virus && new_plant.infectious) {
-                        u = runif_01(rng);
+                        u = runif_01(eng);
                         if (u < delta_a) has_virus = true;
                     }
                     /*
@@ -182,7 +183,7 @@ class PlantScape {
                      alates can be inoculated by this plant the same day.
                      */
                     if (has_virus && !new_plant.infectious && !new_plant.exposed) {
-                        u = runif_01(rng);
+                        u = runif_01(eng);
                         if (u < delta_p) {
                             if (new_plant.total_exp_days > 0U) {
                                 new_plant.exposed = true;
@@ -197,7 +198,7 @@ class PlantScape {
                 }
                 // Adding alate to winged population of plant settled on:
                 const XY& final_coord(flight.path.back());
-                plants[final_coord.x][final_coord.y].W += 1;
+                plants[final_coord.x][final_coord.y].insects.winged_adults() += 1;
 
             }
 
@@ -244,8 +245,8 @@ class PlantScape {
                     output(k,0,out_idx) = static_cast<double>(x+1U);
                     output(k,1,out_idx) = static_cast<double>(y+1U);
                     output(k,2,out_idx) = static_cast<double>(plant.infectious);
-                    output(k,3,out_idx) = plant.insects.A;
-                    output(k,4,out_idx) = plant.insects.W;
+                    output(k,3,out_idx) = plant.insects.A();
+                    output(k,4,out_idx) = plant.insects.W();
                     output(k,5,out_idx) = plant.insects.P;
                     k++;
                 }
@@ -255,8 +256,8 @@ class PlantScape {
                 for (uint32 y = 0; y < n_y; y++) {
                     const OnePlant& plant(plants[x][y]);
                     output(0,0,out_idx) += static_cast<double>(plant.infectious);
-                    output(0,1,out_idx) += plant.insects.A;
-                    output(0,2,out_idx) += plant.insects.W;
+                    output(0,1,out_idx) += plant.insects.A();
+                    output(0,2,out_idx) += plant.insects.W();
                     output(0,3,out_idx) += plant.insects.P;
                 }
             }
@@ -286,12 +287,11 @@ class PlantScape {
             for (uint32 y = 0; y < n_y; y++) {
                 OnePlant& plant_xy(plants[x][y]);
                 infectious0 = plant_xy.infectious;
-                n_alates(x,y) = plant_xy.iterate(pcg32& eng);
+                plant_xy.iterate(n_alates(x,y), eng);
                 if (n_alates(x,y) > 0) alate_plants.push_back(XY(x,y));
                 // If newly infectious, update landscape:
                 if (!infectious0 && plant_xy.infectious) {
-                    // I do this by setting the first bit to 1:
-                    bit_set1(0U, flight.landscape(x,y));
+                    flight.virus[x][y] = true;
                 }
             }
         }
@@ -362,14 +362,13 @@ public:
                                             insects_));
                 InsectPops& insects(plants_x.back().insects);
                 if (A0.n_elem == 1) {
-                    insects.A = A0(0,0);
-                    insects.W = W0(0,0);
+                    insects.set_aphids(A0(0,0), W0(0,0));
                     insects.P = P0(0,0);
                 } else {
-                    insects.A = A0(x,y);
-                    insects.W = W0(x,y);
+                    insects.set_aphids(A0(x,y), W0(x,y));
                     insects.P = P0(x,y);
                 }
+                if (!pseudo) insects.set_B(0.0);
             }
         }
 
