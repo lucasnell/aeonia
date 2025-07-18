@@ -50,7 +50,7 @@ using namespace Rcpp;
 //'     landscape. It's assumed that rows are x the dimension,
 //'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)
 //'     indicate separate landscapes.
-//' @param max_sim_t Single integer giving the maximum time the simulations run.
+//' @param max_t Single integer giving the maximum time the simulations run.
 //' @param insect_ptr External pointer to a C++ object with insect population
 //'     information, output from function [make_insect_ptr()].
 //' @param A0 Numeric matrix indicating the starting aphid (non-winged) population
@@ -111,6 +111,9 @@ using namespace Rcpp;
 //' @param out_by_plant Single logical for whether to split output by plant
 //'     instead of summing across the entire landscape.
 //'     Defaults to `TRUE`.
+//' @param infect_stop Single logical for whether to stop simulations
+//'     when all plants are infected with virus.
+//'     Defaults to `TRUE`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
@@ -122,7 +125,7 @@ using namespace Rcpp;
 //'
 //[[Rcpp::export]]
 DataFrame sim_plantscape(const arma::ucube& landscapes,
-                         const uint32& max_sim_t,
+                         const uint32& max_t,
                          SEXP insect_ptr,
                          const arma::mat& A0,
                          const arma::mat& W0,
@@ -136,6 +139,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const double& w = 0.2,
                          const double& radius = 7.336451,
                          const bool& out_by_plant = true,
+                         const bool& infect_stop = true,
                          const bool& show_progress = false,
                          uint32 n_threads = 1) {
 
@@ -156,7 +160,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     if (arma::size(A0) != arma::size(W0)) stop("A0, W0, and P0 must be same size");
     if (arma::size(A0) != arma::size(P0)) stop("A0, W0, and P0 must be same size");
 
-    if (max_sim_t == 0 || max_sim_t > 1e6) stop("max_sim_t == 0 || max_sim_t > 1e6");
+    if (max_t == 0 || max_t > 1e6) stop("max_t == 0 || max_t > 1e6");
     if (radius < 1) stop("radius < 1");
     if (epsilon < 0) stop("epsilon < 0");
     if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
@@ -178,7 +182,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     }
 
     // Make sure output object won't be too big for R:
-    uint32 n_rows = n_reps * (max_sim_t + (uint32)1U);
+    uint32 n_rows = n_reps * (max_t + (uint32)1U);
     if (out_by_plant) n_rows *= (n_x * n_y);
     if (n_rows > (uint32)2147483647)
         stop("This combo of parameters will produce too large of an output for R");
@@ -192,22 +196,22 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     plantscapes.reserve(n_reps);
 
     for (uint32 i = 0; i < n_reps; i++) {
-        plantscapes.push_back(PlantScape(max_sim_t, out_by_plant, max_fly_t,
+        plantscapes.push_back(PlantScape(max_t, out_by_plant, max_fly_t,
                                          landscapes.slice(i), radius, alpha,
                                          beta, epsilon, w, delta_a, delta_p,
                                          total_exp_days, insects0, A0, W0, P0,
                                          seeds[i]));
     }
 
-    RcppThread::ProgressBar prog_bar(n_reps * max_sim_t, 1);
+    RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
 
     if (n_threads > 1U && n_reps > 1U) {
         RcppThread::parallelFor(0, n_reps, [&] (uint32 i) {
-            plantscapes[i].run(prog_bar, show_progress);
+            plantscapes[i].run(infect_stop, prog_bar, show_progress);
         }, n_threads);
     } else {
         for (uint32 i = 0; i < n_reps; i++) {
-            plantscapes[i].run(prog_bar, show_progress);
+            plantscapes[i].run(infect_stop, prog_bar, show_progress);
         }
     }
 
@@ -219,6 +223,16 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     std::vector<double> aphids;
     std::vector<double> alates;
     std::vector<double> enemies;
+
+    // // If sims stop when all plants are infected, update `n_rows`:
+    // if (infect_stop) {
+    //     n_rows = 0;
+    //     for (uint32 r = 0; r < n_reps; r++) {
+    //         for (uint32 t = 0; t < plantscapes[r].output.size(); t++) {
+    //             n_rows += plantscapes[r].output[t].n_rows;
+    //         }
+    //     }
+    // }
 
     if (out_by_plant) {
 
@@ -235,17 +249,17 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         enemies.reserve(n_rows);
 
         for (uint32 r = 0; r < n_reps; r++) {
-            const arma::cube& rep_out(plantscapes[r].output);
-            for (uint32 t = 0; t < rep_out.n_slices; t++) {
+            for (uint32 t = 0; t < plantscapes[r].output.size(); t++) {
+                const arma::mat& rep_out(plantscapes[r].output[t]);
                 for (uint32 i = 0; i < rep_out.n_rows; i++) {
                     rep.push_back(r+1);
                     time.push_back(t+1);
-                    plant_x.push_back(rep_out(i,0,t));
-                    plant_y.push_back(rep_out(i,1,t));
-                    virus.push_back(rep_out(i,2,t));
-                    aphids.push_back(rep_out(i,3,t));
-                    alates.push_back(rep_out(i,4,t));
-                    enemies.push_back(rep_out(i,5,t));
+                    plant_x.push_back(rep_out(i,0));
+                    plant_y.push_back(rep_out(i,1));
+                    virus.push_back(rep_out(i,2));
+                    aphids.push_back(rep_out(i,3));
+                    alates.push_back(rep_out(i,4));
+                    enemies.push_back(rep_out(i,5));
                 }
             }
         }
@@ -265,14 +279,14 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         enemies.reserve(n_rows);
 
         for (uint32 r = 0; r < n_reps; r++) {
-            const arma::cube& rep_out(plantscapes[r].output);
-            for (uint32 t = 0; t < rep_out.n_slices; t++) {
+            for (uint32 t = 0; t < plantscapes[r].output.size(); t++) {
+                const arma::mat& rep_out(plantscapes[r].output[t]);
                 rep.push_back(r+1);
                 time.push_back(t+1);
-                virus.push_back(rep_out(0,0,t));
-                aphids.push_back(rep_out(0,1,t));
-                alates.push_back(rep_out(0,2,t));
-                enemies.push_back(rep_out(0,3,t));
+                virus.push_back(rep_out(0,0));
+                aphids.push_back(rep_out(0,1));
+                alates.push_back(rep_out(0,2));
+                enemies.push_back(rep_out(0,3));
             }
         }
 

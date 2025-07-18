@@ -65,7 +65,7 @@ struct OnePlant {
         if (!pseudo) insects.set_B(0.0);
     }
 
-    // iterate and output number of alates moving from this plant:
+    // iterate and set number of alates moving from this plant:
     void iterate(uint32& n_alates, pcg32& eng) {
         insects.iterate(n_alates, eng);
         if (exposed) {
@@ -121,10 +121,10 @@ class PlantScape {
     uint32 n_y;
     pcg32 eng;
 
-    // Index within `output` we're on and whether to output
-    // separately by plant:
-    uint32 out_idx;
+    // Whether to output separately by plant:
     bool out_by_plant;
+    // Max time points to simulate:
+    uint32 max_t;
 
 
     /*
@@ -234,36 +234,35 @@ class PlantScape {
      */
     void fill_output() {
 
-        if (out_idx >= output.n_slices)
-            stop("INTERNAL ERROR: out_idx >= output.n_slices");
-
         if (out_by_plant) {
+            output.push_back(arma::mat(n_x * n_y, 6, arma::fill::none));
+            arma::mat& output_t(output.back());
             uint32 k = 0;
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
                     const OnePlant& plant(plants[x][y]);
-                    output(k,0,out_idx) = static_cast<double>(x+1U);
-                    output(k,1,out_idx) = static_cast<double>(y+1U);
-                    output(k,2,out_idx) = static_cast<double>(plant.infectious);
-                    output(k,3,out_idx) = plant.insects.A();
-                    output(k,4,out_idx) = plant.insects.W();
-                    output(k,5,out_idx) = plant.insects.P;
+                    output_t(k,0) = static_cast<double>(x+1U);
+                    output_t(k,1) = static_cast<double>(y+1U);
+                    output_t(k,2) = static_cast<double>(plant.infectious);
+                    output_t(k,3) = plant.insects.A();
+                    output_t(k,4) = plant.insects.W();
+                    output_t(k,5) = plant.insects.P;
                     k++;
                 }
             }
         } else {
+            output.push_back(arma::mat(1, 4, arma::fill::zeros));
+            arma::mat& output_t(output.back());
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
                     const OnePlant& plant(plants[x][y]);
-                    output(0,0,out_idx) += static_cast<double>(plant.infectious);
-                    output(0,1,out_idx) += plant.insects.A();
-                    output(0,2,out_idx) += plant.insects.W();
-                    output(0,3,out_idx) += plant.insects.P;
+                    output_t(0,0) += static_cast<double>(plant.infectious);
+                    output_t(0,1) += plant.insects.A();
+                    output_t(0,2) += plant.insects.W();
+                    output_t(0,3) += plant.insects.P;
                 }
             }
         }
-
-        out_idx++;
 
         return;
     }
@@ -273,15 +272,18 @@ class PlantScape {
 
     /*
      ==========================================================================*
-     Iterate for one time point:
+     Iterate for one time point, and return bool for whether all plants
+     are infected.
      ==========================================================================*
      */
-    void iterate() {
+    bool iterate() {
 
         alate_plants.clear();
 
         // Go through once, calculating and extracting alates, and updating
         // population dynamics and infectiousness
+        // (Infectiousness only changes here due to plants transitioning
+        // from exposed to infectious.)
         bool infectious0;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
@@ -302,7 +304,20 @@ class PlantScape {
         // Fill `output` with current conditions:
         fill_output();
 
-        return;
+        // Lastly, go through and check whether all plants are infected:
+        bool all_infected = true;
+        for (uint32 x = 0; x < n_x; x++) {
+            for (uint32 y = 0; y < n_y; y++) {
+                const OnePlant& plant_xy(plants[x][y]);
+                if (!plant_xy.infectious) {
+                    all_infected = false;
+                    break;
+                }
+            }
+            if (!all_infected) break;
+        }
+
+        return all_infected;
 
     }
 
@@ -311,10 +326,10 @@ class PlantScape {
 public:
 
     // Output object:
-    arma::cube output;
+    std::vector<arma::mat> output;
 
 
-    PlantScape(const uint32& max_sim_t_,
+    PlantScape(const uint32& max_t_,
                const bool& out_by_plant_,
                const uint32& max_fly_t_,
                const arma::umat& landscape_,
@@ -340,8 +355,8 @@ public:
           n_x(landscape_.n_rows),
           n_y(landscape_.n_cols),
           eng(),
-          out_idx(0U),
           out_by_plant(out_by_plant_),
+          max_t(max_t_),
           output() {
 
         alate_plants.reserve(landscape_.n_elem);
@@ -372,11 +387,8 @@ public:
             }
         }
 
-        if (out_by_plant_) {
-            output.set_size(n_x * n_y, 6, max_sim_t_+1U);
-        } else {
-            output.zeros(1, 4, max_sim_t_+1U);
-        }
+        // Reserve max memory required:
+        output.reserve(max_t_+1U);
         // fill starting conditions:
         fill_output();
 
@@ -388,9 +400,13 @@ public:
      Run this PlantScape:
      ==========================================================================*
      */
-    void run(RcppThread::ProgressBar& prog_bar, const bool& show_progress) {
-        for (uint32 t = 1; t < output.n_slices; t++) {
-            this->iterate();
+    void run(const bool& infect_stop,
+             RcppThread::ProgressBar& prog_bar,
+             const bool& show_progress) {
+        bool all_infected = false;
+        for (uint32 t = 0; t < max_t; t++) {
+            all_infected = iterate();
+            if (infect_stop && all_infected) break;
             if (show_progress) prog_bar++;
             if (t % 10 == 0) RcppThread::checkUserInterrupt();
         }
