@@ -5,7 +5,7 @@
 \title{Test population dynamics for insects for a set of parameters.}
 \usage{
 test_insect_pops(
-  max_sim_t,
+  max_t,
   A0,
   W0,
   P0,
@@ -24,7 +24,7 @@ test_insect_pops(
 )
 }
 \arguments{
-\item{max_sim_t}{Single integer giving the maximum time the simulations run.}
+\item{max_t}{Single integer giving the maximum time the simulations run.}
 
 \item{A0}{Numeric matrix indicating the starting aphid (non-winged) population
 density for each plant.

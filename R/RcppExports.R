@@ -57,8 +57,8 @@ make_insect_ptr <- function(B, a, h, k, s, fly_p, surv_j = NA_real_, surv_a = NA
 #'
 #' @export
 #'
-test_insect_pops <- function(max_sim_t, A0, W0, P0, B, a, h, k, s, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_sim_t, A0, W0, P0, B, a, h, k, s, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1)
+test_insect_pops <- function(max_t, A0, W0, P0, B, a, h, k, s, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, a, h, k, s, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1)
 }
 
 #' Logit and inverse logit functions.
@@ -95,7 +95,7 @@ inv_logit <- function(a) {
 #'     landscape. It's assumed that rows are x the dimension,
 #'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)
 #'     indicate separate landscapes.
-#' @param max_sim_t Single integer giving the maximum time the simulations run.
+#' @param max_t Single integer giving the maximum time the simulations run.
 #' @param insect_ptr External pointer to a C++ object with insect population
 #'     information, output from function [make_insect_ptr()].
 #' @param A0 Numeric matrix indicating the starting aphid (non-winged) population
@@ -156,6 +156,9 @@ inv_logit <- function(a) {
 #' @param out_by_plant Single logical for whether to split output by plant
 #'     instead of summing across the entire landscape.
 #'     Defaults to `TRUE`.
+#' @param infect_stop Single logical for whether to stop simulations
+#'     when all plants are infected with virus.
+#'     Defaults to `TRUE`.
 #' @param show_progress Single logical for whether to show progress bar.
 #'     Defaults to `FALSE`.
 #' @param n_threads Single integer for the number of threads to use.
@@ -165,8 +168,8 @@ inv_logit <- function(a) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_sim_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, out_by_plant = TRUE, show_progress = FALSE, n_threads = 1L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_sim_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, out_by_plant, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, out_by_plant = TRUE, infect_stop = TRUE, show_progress = FALSE, n_threads = 1L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, out_by_plant, infect_stop, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

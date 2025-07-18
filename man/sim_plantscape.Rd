@@ -6,7 +6,7 @@
 \usage{
 sim_plantscape(
   landscapes,
-  max_sim_t,
+  max_t,
   insect_ptr,
   A0,
   W0,
@@ -20,6 +20,7 @@ sim_plantscape(
   w = 0.2,
   radius = 7.336451,
   out_by_plant = TRUE,
+  infect_stop = TRUE,
   show_progress = FALSE,
   n_threads = 1L
 )
@@ -30,7 +31,7 @@ landscape. It's assumed that rows are x the dimension,
 columns are the y dimension, and "slices" (i.e., \code{dim(landscapes)[3]})
 indicate separate landscapes.}
 
-\item{max_sim_t}{Single integer giving the maximum time the simulations run.}
+\item{max_t}{Single integer giving the maximum time the simulations run.}
 
 \item{insect_ptr}{External pointer to a C++ object with insect population
 information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
@@ -103,6 +104,10 @@ See "Radius" section below for details.}
 
 \item{out_by_plant}{Single logical for whether to split output by plant
 instead of summing across the entire landscape.
+Defaults to \code{TRUE}.}
+
+\item{infect_stop}{Single logical for whether to stop simulations
+when all plants are infected with virus.
 Defaults to \code{TRUE}.}
 
 \item{show_progress}{Single logical for whether to show progress bar.
