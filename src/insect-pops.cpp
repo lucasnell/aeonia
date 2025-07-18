@@ -141,7 +141,7 @@ SEXP make_insect_ptr(const double& B,
 //' @export
 //'
 //[[Rcpp::export]]
-DataFrame test_insect_pops(const uint32& max_sim_t,
+DataFrame test_insect_pops(const uint32& max_t,
                            const double& A0,
                            const double& W0,
                            const double& P0,
@@ -160,7 +160,7 @@ DataFrame test_insect_pops(const uint32& max_sim_t,
 
     fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1);
 
-    if (max_sim_t > (uint32)1e9) stop("max_sim_t > 1e9");
+    if (max_t > (uint32)1e9) stop("max_t > 1e9");
     if (A0 < 0) stop("A0 < 0");
     if (W0 < 0) stop("W0 < 0");
     if (P0 < 0) stop("P0 < 0");
@@ -185,16 +185,16 @@ DataFrame test_insect_pops(const uint32& max_sim_t,
     std::vector<double> aphids;
     std::vector<double> alates;
     std::vector<double> enemies;
-    time.reserve(max_sim_t+1);
-    aphids.reserve(max_sim_t+1);
-    alates.reserve(max_sim_t+1);
-    enemies.reserve(max_sim_t+1);
+    time.reserve(max_t+1);
+    aphids.reserve(max_t+1);
+    alates.reserve(max_t+1);
+    enemies.reserve(max_t+1);
     time.push_back(0);
     aphids.push_back(A0);
     alates.push_back(W0);
     enemies.push_back(P0);
 
-    for (uint32 t = 0; t < max_sim_t; t++) {
+    for (uint32 t = 0; t < max_t; t++) {
         insects.iterate();
         time.push_back(t+1);
         aphids.push_back(insects.A());
