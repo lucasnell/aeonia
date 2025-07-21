@@ -163,12 +163,13 @@ inv_logit <- function(a) {
 #'     Defaults to `FALSE`.
 #' @param n_threads Single integer for the number of threads to use.
 #'     Ignored if `dim(landscapes)[3] == 1`.
-#'     Defaults to `1L`.
+#'     Defaults to `0L`, in which case it takes the value from
+#'     `options("mc.cores")` if assigned, and `1L` if not assigned.
 #'
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, out_by_plant = TRUE, infect_stop = TRUE, show_progress = FALSE, n_threads = 1L) {
+sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, out_by_plant = TRUE, infect_stop = TRUE, show_progress = FALSE, n_threads = 0L) {
     .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, out_by_plant, infect_stop, show_progress, n_threads)
 }
 
@@ -218,7 +219,8 @@ sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, bet
 #' @param n_threads Single integer for the number of threads to use.
 #'     Multithreading happens across different landscapes, so this is
 #'     ignored if `n_lands == 1`.
-#'     Defaults to `1L`.
+#'     Defaults to `0L`, in which case it takes the value from
+#'     `options("mc.cores")` if assigned, and `1L` if not assigned.
 #'
 #' @return A cube where rows indicate the x coordinate, columns indicate the
 #'     y coordinate, and slices indicate the landscape number.
@@ -234,7 +236,7 @@ sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, bet
 #'
 #' @export
 #'
-sim_plant_types <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, show_progress = FALSE, n_threads = 1L) {
+sim_plant_types <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, show_progress = FALSE, n_threads = 0L) {
     .Call(`_aeonia_sim_plant_types`, n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, show_progress, n_threads)
 }
 

@@ -12,7 +12,7 @@ sim_plant_types(
   n_pseudo,
   n_lands = 1L,
   show_progress = FALSE,
-  n_threads = 1L
+  n_threads = 0L
 )
 }
 \arguments{
@@ -59,7 +59,8 @@ Defaults to \code{FALSE}.}
 \item{n_threads}{Single integer for the number of threads to use.
 Multithreading happens across different landscapes, so this is
 ignored if \code{n_lands == 1}.
-Defaults to \code{1L}.}
+Defaults to \code{0L}, in which case it takes the value from
+\code{options("mc.cores")} if assigned, and \code{1L} if not assigned.}
 }
 \value{
 A cube where rows indicate the x coordinate, columns indicate the

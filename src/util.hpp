@@ -12,12 +12,27 @@
 using namespace Rcpp;
 
 
+// Get # of cores from options("mc.cores")
+inline void assign_mc_cores(uint32& cores) {
+
+    Rcpp::Environment base("package:base");
+    Rcpp::Function get_option = base["getOption"];
+    Rcpp::Nullable<Rcpp::IntegerVector> mc_cores = get_option("mc.cores");
+
+    if (mc_cores != R_NilValue) cores = as<uint32>(mc_cores);
+
+    return;
+}
+
+
 /*
  Check that the number of threads doesn't exceed the number available.
+ If `n_threads == 0`, use `options("mc.cores")`, which will assign 1 if that
+ option isn't assigned.
  */
 inline void thread_check(uint32& n_threads) {
 
-    if (n_threads == 0) n_threads = 1;
+    if (n_threads == 0) assign_mc_cores(n_threads);
 
     uint32 max_threads = std::thread::hardware_concurrency();
 
