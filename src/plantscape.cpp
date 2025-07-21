@@ -195,9 +195,10 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
 
     if (n_threads > 1U && n_reps > 1U) {
-        RcppThread::parallelFor(0, n_reps, [&] (uint32 i) {
-            plantscapes[i].run(infect_stop, prog_bar, show_progress);
-        }, n_threads);
+        auto job = [&] (PlantScape& plantscape) {
+            plantscape.run(infect_stop, prog_bar, show_progress);
+        };
+        RcppThread::parallelForEach(plantscapes, job, n_threads);
     } else {
         for (uint32 i = 0; i < n_reps; i++) {
             plantscapes[i].run(infect_stop, prog_bar, show_progress);
