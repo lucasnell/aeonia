@@ -108,6 +108,7 @@ arma::ucube sim_plant_types(const uint32& n_x,
     if (n_lands >= 1e6) stop("n_lands must be < 1e6");
     thread_check(n_threads); // Check that # threads isn't too high
 
+    RcppThread::ProgressBar prog_bar(n_lands * (n_virus + n_pseudo), 1);
 
     std::vector<OnePlantTypeSimmer> simmers;
     simmers.reserve(n_lands);
@@ -115,12 +116,12 @@ arma::ucube sim_plant_types(const uint32& n_x,
         simmers.push_back(OnePlantTypeSimmer(wt_mat, n_virus, n_pseudo, n_x, n_y));
     }
 
-    RcppThread::ProgressBar prog_bar(n_lands * (n_virus + n_pseudo), 1);
 
     if (n_threads > 1U && n_lands > 1U) {
-        RcppThread::parallelFor(0, n_lands, [&] (uint32 i) {
-            simmers[i].run(prog_bar, show_progress);
-        }, n_threads);
+        auto job = [&] (OnePlantTypeSimmer& simmer) {
+            simmer.run(prog_bar, show_progress);
+        };
+        RcppThread::parallelForEach(simmers, job, n_threads);
     } else {
         for (uint32 i = 0; i < n_lands; i++) {
             simmers[i].run(prog_bar, show_progress);
