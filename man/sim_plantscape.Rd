@@ -22,7 +22,7 @@ sim_plantscape(
   out_by_plant = TRUE,
   infect_stop = TRUE,
   show_progress = FALSE,
-  n_threads = 1L
+  n_threads = 0L
 )
 }
 \arguments{
@@ -115,7 +115,8 @@ Defaults to \code{FALSE}.}
 
 \item{n_threads}{Single integer for the number of threads to use.
 Ignored if \code{dim(landscapes)[3] == 1}.
-Defaults to \code{1L}.}
+Defaults to \code{0L}, in which case it takes the value from
+\code{options("mc.cores")} if assigned, and \code{1L} if not assigned.}
 }
 \description{
 Simulation plant landscapes with virus spread.

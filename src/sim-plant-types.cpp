@@ -64,7 +64,8 @@ using namespace Rcpp;
 //' @param n_threads Single integer for the number of threads to use.
 //'     Multithreading happens across different landscapes, so this is
 //'     ignored if `n_lands == 1`.
-//'     Defaults to `1L`.
+//'     Defaults to `0L`, in which case it takes the value from
+//'     `options("mc.cores")` if assigned, and `1L` if not assigned.
 //'
 //' @return A cube where rows indicate the x coordinate, columns indicate the
 //'     y coordinate, and slices indicate the landscape number.
@@ -88,7 +89,7 @@ arma::ucube sim_plant_types(const uint32& n_x,
                             const uint32& n_pseudo,
                             const uint32& n_lands = 1,
                             const bool& show_progress = false,
-                            uint32 n_threads = 1) {
+                            uint32 n_threads = 0) {
 
     if (n_x < 1) stop("n_x must be >= 1");
     if (n_x > 1e6) stop("n_x must be <= 1e6");

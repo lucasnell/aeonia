@@ -107,7 +107,8 @@ using namespace Rcpp;
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
 //'     Ignored if `dim(landscapes)[3] == 1`.
-//'     Defaults to `1L`.
+//'     Defaults to `0L`, in which case it takes the value from
+//'     `options("mc.cores")` if assigned, and `1L` if not assigned.
 //'
 //'
 //' @export
@@ -130,7 +131,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const bool& out_by_plant = true,
                          const bool& infect_stop = true,
                          const bool& show_progress = false,
-                         uint32 n_threads = 1) {
+                         uint32 n_threads = 0) {
 
     uint32 n_x = landscapes.n_rows;
     uint32 n_y = landscapes.n_cols;
