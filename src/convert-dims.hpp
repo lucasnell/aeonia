@@ -70,21 +70,26 @@ public:
     }
 
     // Convert from 1D to 2D:
-    void to_2d(uint32& x, uint32& y, const uint32& k) const {
+    inline void to_2d(uint32& x, uint32& y, const uint32& k) const {
         x = k - n_y * (k / n_y);
         y = k / n_y;
         return;
     }
     // Overloaded for signed ints (for use with Rcpp::IntegerVector)
-    void to_2d(int& x, int& y, const uint32& k) const {
+    inline void to_2d(int& x, int& y, const uint32& k) const {
         x = k - n_y * (k / n_y);
         y = k / n_y;
         return;
     }
     // Convert from 2D to 1D:
-    void to_1d(uint32& k, const uint32& x, const uint32& y) const {
+    inline void to_1d(uint32& k, const uint32& x, const uint32& y) const {
         k = (y * n_x + x);
         return;
+    }
+    // Overloaded to return instead of assign
+    inline uint32 to_1d(const uint32& x, const uint32& y) const {
+        uint32 k = (y * n_x + x);
+        return k;
     }
     /*
      Fill indices (in 1D) for all "next door" neighbors based on a 1D

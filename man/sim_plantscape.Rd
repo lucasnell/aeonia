@@ -85,6 +85,8 @@ for a plant to transition from exposed (inoculated with virus but
 not able to pass it on) to infectious (able to infect other plants).
 A value of \code{0} means that an alate inoculating a plant causes that
 plant to be infectious the same day.
+Because this is not realistic and computationally troublesome,
+only values \verb{>1} are allowed.
 Defaults to \code{7}, which is based on the paper "Cucumber mosaic virus
 isolates seedborne in \emph{Phaseolus vulgaris}: serology, host-pathogen
 relationships, and seed transmission" (Davis & Hampton, 1986).}

@@ -15,7 +15,7 @@
 
 #include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY and get_bit_bool
-#include "insect-pops.hpp"      // InsectPops class
+#include "one-plant.hpp"        // OnePlant class
 #include "alate-dispersal.hpp"  // AlateFlightInfo class
 #include "pcg.hpp"              // runif_01 fxn
 
@@ -29,77 +29,6 @@ using namespace Rcpp;
 
 
 
-/*
- ==============================================================================*
- ==============================================================================*
- OnePlant class
- ==============================================================================*
- ==============================================================================*
- */
-
-
-struct OnePlant {
-
-    // virus: exposed but not yet infectious?
-    bool exposed;
-    // virus: infectious?
-    bool infectious;
-    // contains Pseudomonas?
-    bool pseudo;
-    // days since exposure (ignored if not exposed):
-    uint32 exp_days;
-
-    // Insect populations:
-    InsectPops insects;
-
-    OnePlant(const bool& infectious_,
-             const bool& pseudo_,
-             const uint32& total_exp_days_,
-             const InsectPops& insects_)
-        : exposed(false),
-          infectious(infectious_),
-          pseudo(pseudo_),
-          exp_days(0),
-          insects(insects_),
-          total_exp_days(total_exp_days_) {
-        if (!pseudo) insects.set_B(0.0);
-    }
-
-    // iterate and set number of alates moving from this plant:
-    void iterate(uint32& n_alates, pcg32& eng) {
-        insects.iterate(n_alates, eng);
-        if (exposed) {
-            exp_days++;
-            if (exp_days >= total_exp_days) {
-                infectious = true;
-                exposed = false;
-                exp_days = 0;
-            }
-        }
-        return;
-    }
-
-    friend class PlantScape;
-
-
-private:
-
-    uint32 total_exp_days; // days since exposure required to transition to infected
-
-};
-
-
-
-
-
-/*
- ==============================================================================*
- ==============================================================================*
- PlantScape class
- ==============================================================================*
- ==============================================================================*
- */
-
 class PlantScape {
 
     AlateFlightInfo flight;
@@ -107,10 +36,10 @@ class PlantScape {
 
     // Probability that an uninoculated alate is loaded with a virus if it
     // probes an infectious plant:
-    const double& delta_a;
+    double delta_a;
     // Probability that an uninfected plant is loaded with a virus if it
     // is probed by a virus-bearing aphid:
-    const double& delta_p;
+    double delta_p;
 
     // for storing numbers of alates per plant:
     arma::umat n_alates;
@@ -126,87 +55,6 @@ class PlantScape {
     // Max time points to simulate:
     uint32 max_t;
 
-
-    /*
-     ==========================================================================*
-     After updating populations, infectiousness, and numbers of alates
-     (including `alate_plants`, which stores coordinates for plants that
-     have produced at least one alate), this function...
-        1) Moves alates around in random order among plants to
-           avoid strange patterns due to the order of plants
-        2) Simulates virus-inoculation of alates and plants.
-     ==========================================================================*
-     */
-    void spread_virus() {
-        if (alate_plants.empty()) return;
-        // Fast-shuffle `alate_plants` first:
-        for (uint32 i = alate_plants.size(); i > 1; i--) {
-            uint32 j = runif_01(eng) * i;
-            std::swap(alate_plants[i-1], alate_plants[j]);
-        }
-        double u;
-        bool has_virus;
-        // Now go through in this random order to sample virus spread:
-        for (const XY& alate_coords : alate_plants) {
-
-            const uint32& x(alate_coords.x);
-            const uint32& y(alate_coords.y);
-            const uint32& n_alates_xy(n_alates(x,y));
-            OnePlant& first_plant(plants[x][y]);
-
-            for (uint32 a = 0; a < n_alates_xy; a++) {
-
-                // Note: `flight.path` does NOT include the starting plant.
-                flight.fly(x, y, eng);
-                // If it starts on an infectious plant, then sample for whether
-                // the alate is virus-bearing:
-                if (first_plant.infectious) {
-                    u = runif_01(eng);
-                    has_virus = u < delta_a;
-                } else has_virus = false;
-                for (uint32 i = 0; i < flight.path.size(); i++) {
-                    const XY& coord(flight.path[i]);
-                    OnePlant& new_plant(plants[coord.x][coord.y]);
-                    /*
-                     If alate is non-virus-bearing and plant is
-                     infectious, sample for whether alate is inoculated:
-                     */
-                    if (!has_virus && new_plant.infectious) {
-                        u = runif_01(eng);
-                        if (u < delta_a) has_virus = true;
-                    }
-                    /*
-                     If alate is virus-bearing and plant is not infectious
-                     (or exposed), sample for whether plant is exposed.
-                     If `total_exp_days` == 0, then it gets immediately
-                     converted to infectious, in which case subsequent
-                     alates can be inoculated by this plant the same day.
-                     */
-                    if (has_virus && !new_plant.infectious && !new_plant.exposed) {
-                        u = runif_01(eng);
-                        if (u < delta_p) {
-                            if (new_plant.total_exp_days > 0U) {
-                                new_plant.exposed = true;
-                                new_plant.infectious = false;
-                            } else {
-                                new_plant.exposed = false;
-                                new_plant.infectious = true;
-                            }
-                            new_plant.exp_days = 0U;
-                        }
-                    }
-                }
-                // Adding alate to winged population of plant settled on:
-                const XY& final_coord(flight.path.back());
-                plants[final_coord.x][final_coord.y].insects.winged_adults() += 1;
-
-            }
-
-        }
-
-        return;
-
-    }
 
 
     /*
@@ -282,8 +130,8 @@ class PlantScape {
 
         // Go through once, calculating and extracting alates, and updating
         // population dynamics and infectiousness
-        // (Infectiousness only changes here due to plants transitioning
-        // from exposed to infectious.)
+        // (Infectiousness changes here due to plants transitioning
+        //  from exposed to infectious.)
         bool infectious0;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
@@ -291,15 +139,16 @@ class PlantScape {
                 infectious0 = plant_xy.infectious;
                 plant_xy.iterate(n_alates(x,y), eng);
                 if (n_alates(x,y) > 0) alate_plants.push_back(XY(x,y));
-                // If newly infectious, update landscape:
+                // If newly infectious, update landscape and let `flight` know
+                // that samplers need to be updated:
                 if (!infectious0 && plant_xy.infectious) {
-                    flight.virus[x][y] = true;
+                    flight.newly_infected(x, y);
                 }
             }
         }
 
         // Now go back through and simulate virus spread:
-        spread_virus();
+        flight.infest(delta_a, delta_p, alate_plants, plants, n_alates, eng);
 
         // Fill `output` with current conditions:
         fill_output();
