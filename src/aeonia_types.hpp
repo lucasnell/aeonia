@@ -11,6 +11,10 @@
 #include <RcppArmadillo.h>
 #include <cstdint>
 
+
+#include <RcppThread.h>         // multithreading
+
+
 /*
  Armadillo docs:
  > the default width [of integers] is 32 bits when using Armadillo in the R

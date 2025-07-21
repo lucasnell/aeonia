@@ -6,17 +6,6 @@
 #include <iterator>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#ifndef RCPPTHREAD_OVERRIDE_COUT
-#define RCPPTHREAD_OVERRIDE_COUT 1    // std::cout override
-#endif
-#ifndef RCPPTHREAD_OVERRIDE_CERR
-#define RCPPTHREAD_OVERRIDE_CERR 1    // std::cerr override
-#endif
-// #ifndef RCPPTHREAD_OVERRIDE_THREAD
-// #define RCPPTHREAD_OVERRIDE_THREAD 1  // std::thread override
-// #endif
-#include <RcppThread.h>         // multithreading
-
 
 #include "aeonia_types.hpp"     // integer types
 #include "pcg.hpp"              // runif_01, seed_rng functions
