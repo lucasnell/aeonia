@@ -12,8 +12,9 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 #include "aeonia_types.hpp"     // integer types
-#include "convert-dims.hpp"     // XY and get_bit_bool
-#include "pcg.hpp"              // runif_01 fxn
+#include "convert-dims.hpp"     // DimensionConverter, XY, and get_bit_bool
+#include "one-plant.hpp"        // OnePlant class
+#include "pcg.hpp"              // pcg type, runif_01 fxn
 
 
 
@@ -24,148 +25,172 @@ using namespace Rcpp;
 
 
 
+class AliasSampler {
+public:
+    AliasSampler() : W0(), Prob(), Alias(), n(0) {};
+    AliasSampler(const std::vector<double>& weights)
+        : W0(weights), Prob(weights.size()), Alias(weights.size()), n(weights.size()) {
+        construct();
+    }
+    AliasSampler(arma::vec weights)
+        : W0(arma::conv_to<std::vector<double>>::from(weights)),
+          Prob(weights.n_elem), Alias(weights.n_elem), n(weights.n_elem) {
+        construct();
+    }
+    // Copy constructor
+    AliasSampler(const AliasSampler& other)
+        : W0(other.W0), Prob(other.Prob), Alias(other.Alias), n(other.n) {}
+
+    // Actual alias sampling
+    inline uint32 sample(pcg32& eng) const {
+        // Fair dice roll from n-sided die
+        uint32 i = runif_01(eng) * n;
+        // uniform in range (0,1)
+        double u = runif_01(eng);
+        if (u < Prob[i]) return(i);
+        return Alias[i];
+    };
+
+    // Reconstruct using an entirely new vector:
+    void reconstruct(const std::vector<double>& new_wts) {
+        n = new_wts.size();
+        W0 = new_wts;
+        construct();
+        return;
+    }
+
+
+private:
+
+    std::vector<double> W0; // weights to start
+    std::vector<double> Prob;
+    std::vector<uint32> Alias;
+    uint32 n;
+
+
+    void construct() {
+
+        if (Prob.size() != n) Prob.resize(n);
+        if (Alias.size() != n) Alias.resize(n);
+
+        // make sure they sum to `n`:
+        double mult = static_cast<double>(n) / std::accumulate(W0.begin(), W0.end(), 0.0);
+        std::vector<double> p;
+        p.reserve(W0.size());
+        for (double& w : W0) p.push_back(w * mult);
+
+        std::deque<uint32> Small;
+        std::deque<uint32> Large;
+        for (uint32 i = 0; i < n; i++) {
+            if (p[i] < 1.0) {
+                Small.push_back(i);
+            } else Large.push_back(i);
+        }
+
+        uint32 l, g;
+        while (!Small.empty() && !Large.empty()) {
+            l = Small.front();
+            Small.pop_front();
+            g = Large.front();
+            Large.pop_front();
+            Prob[l] = p[l];
+            Alias[l] = g;
+            p[g] = (p[g] + p[l]) - 1.0;
+            if (p[g] < 1.0) {
+                Small.push_back(g);
+            } else Large.push_back(g);
+        }
+        while (!Large.empty()) {
+            g = Large.front();
+            Large.pop_front();
+            Prob[g] = 1.0;
+        }
+        while (!Small.empty()) {
+            l = Small.front();
+            Small.pop_front();
+            Prob[l] = 1.0;
+        }
+
+        return;
+    }
+};
+
+
+
+
 /*
+ ==============================================================================*
+ ==============================================================================*
  Info to create flight paths for alates.
+ ==============================================================================*
+ ==============================================================================*
  */
 class AlateFlightInfo {
 
-    uint32 max_fly_t;
+    DimensionConverter dim_conv;
 
-    arma::imat neigh_dxdy;
+    /*
+     Logical for whether any plants have changed to infectious, and
+     vector to keep track of which plants need to have their samplers updated.
+     */
+    bool any_changed;
+    std::vector<bool> update_sampler;
+
+    // Vector of which other plants alates can travel to from each plant:
+    std::vector<std::vector<uint32>> neighbors;
+
+    // Vector of sampling weights for each plant:
+    std::vector<double> land_wts;
+
+    // Alias sampler for each plant:
+    std::vector<AliasSampler> samplers;
 
     double alpha;
     double beta;
     double epsilon;
     double w;
 
-    arma::vec weights;      // sampling weights
-    arma::vec cs_probs;     // cumulative sum of sampling probabilities
+    uint32 max_fly_t;
 
     // Bounds of landscape:
     uint32 n_x;
     uint32 n_y;
+    uint32 n_plants; // Total plants (n_x * n_y)
+    uint32 n_neigh; // Max neighbors
 
 
-    /*
-     Iterate one time step (after the first one). Adjusts `x` and `y` for new
-     coordinates, and returns true if sims should keep going bc alate has
-     not settled.
-     It also adds new coordinates to `path`.
-     */
-    bool iterate(uint32& x, uint32& y, pcg32& eng) {
-
-        // Sample for whether alate will stay to feed at this plant:
-        double feed_p = w;
-        if (virus[x][y]) feed_p *= epsilon;
-        if (runif_01(eng) < feed_p) {
-            return false;
-        }
-
-        // Sample for new location (this function also updates x and y):
-        sample_location(x, y, eng);
-
-        // add new coordinates to `path`:
-        path.push_back(XY(x, y));
-
-        return true;
-
-    }
 
     /*
-     Do first iteration where the alate ALWAYS leaves the plant.
-     This function also clears `path` for a fresh start.
+     Fill statuses (`virus` and `pseudo`), plus `samplers` and related objects
+     (notably `land_wts` and `neighbors`).
      */
-    void first_iterate(uint32& x, uint32& y, pcg32& eng) {
-        sample_location(x, y, eng);
-        path.clear();
-        path.push_back(XY(x, y));
-        return;
-    }
+    void fill_status_samplers(const arma::umat& landscape_, const double& radius);
 
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
-    void sample_location(uint32& x, uint32& y, pcg32& eng) {
-
-        // First calculate new sampling weights based on current location:
-        double wt_tmp;
-        double wt_sum = 0;
-        uint32 xi, yi;
-        for (uint32 i = 0; i < weights.n_elem; i++) {
-            const int32& dx(neigh_dxdy(i,0));
-            const int32& dy(neigh_dxdy(i,1));
-            xi = x+dx;
-            yi = y+dy;
-            /*
-             These first two checks prevent (1) integer overflow and
-             (2) going past bounds of landscape matrix.
-             The checks need to happen in this order because if the first check
-             is true, `xi` and `yi` are massive numbers near 4e9.
-             I'm marking these weights as negative in case the weights sum
-             to zero. See below (immediately after this for loop) for more info.
-             */
-            if ((dx < 0 && std::abs(dx) > x) || (dy < 0 && std::abs(dy) > y)) {
-                weights(i) = -1.0;
-            } else if ((x + dx) >= n_x || (y + dy) >= n_y) {
-                weights(i) = -1.0;
-            } else {
-                wt_tmp = 0.0;
-                if (virus[xi][yi]) wt_tmp += alpha;
-                if (pseudo[xi][yi]) wt_tmp += beta;
-                weights(i) = std::exp(wt_tmp);
-                wt_sum += weights(i);
-            }
-        }
-        /*
-         For very low values of alpha or beta (e.g., -1e6), weights can be
-         zero. If all weights sum to zero, then we have to choose a
-         plant randomly but don't want to choose one outside the landscape!
-         That's why we marked locations outside the landscape as negative.
-         Here, if sum(weights) == 0, then we set all weights equal to zero to
-         one and ignore the ones set to negative values.
-         In all cases, we set the negative values to zero after the check.
-         */
-        if (wt_sum <= 0) {
-            for (double& w : weights) {
-                if (w == 0) {
-                    w = 1;
-                    wt_sum += 1;
-                } else w = 0;
-            }
-        } else {
-            for (double& w : weights) {
-                if (w < 0) w = 0;
-            }
-        }
-
-
-        // Now make `cs_probs` into a vector that's the cumulative sum of
-        // weights / sum(weights). The last value in `cs_probs` should always be 1.
-        cs_probs(0) = weights(0) / wt_sum;
-        for (uint32 i = 1; i < cs_probs.n_elem; i++) {
-            cs_probs(i) = cs_probs(i-1) + weights(i) / wt_sum;
-        }
-
-        // Now sample for a new location:
-        double u = runif_01(eng);
-        uint32 k = 0;
-        uint32 n = cs_probs.n_elem;
-        while (k < n && cs_probs(k) < u) k++;
-
-        // Use `k` to update `x` and `y`:
-        x += neigh_dxdy(k,0);
-        y += neigh_dxdy(k,1);
-
-        return;
-
+    void sample(uint32& new_k, const uint32& k, pcg32& eng) {
+        new_k = neighbors[k][samplers[k].sample(eng)];
     }
+
+    inline void sample_inoculation(const double& delta_a,
+                                   const double& delta_p,
+                                   double& u,
+                                   bool& has_virus,
+                                   bool& infectious,
+                                   bool& exposed,
+                                   uint32& exp_days,
+                                   pcg32& eng);
 
 
 public:
 
-    // virus and pseudomonas presence for each plant in the landscape:
+
+    // virus (infectious only) and pseudomonas presence for each plant in
+    // the landscape:
     std::vector<std::vector<bool>> virus;
     std::vector<std::vector<bool>> pseudo;
-    std::vector<XY> path; // flight path to be accessed after running `fly`
+
+
 
     AlateFlightInfo(const uint32& max_fly_t_,
                     const arma::umat& landscape_,
@@ -174,99 +199,54 @@ public:
                     const double& beta_,
                     const double& epsilon_,
                     const double& w_)
-        : max_fly_t(max_fly_t_),
-          neigh_dxdy(),
+        : dim_conv(landscape_.n_rows, landscape_.n_cols),
+          any_changed(false),
+          update_sampler(landscape_.n_elem, false),
+          neighbors(),
+          land_wts(),
+          samplers(),
           alpha(alpha_),
           beta(beta_),
           epsilon(epsilon_),
           w(w_),
-          weights(),
-          cs_probs(),
+          max_fly_t(max_fly_t_),
           n_x(landscape_.n_rows),
           n_y(landscape_.n_cols),
+          n_plants(landscape_.n_elem),
+          n_neigh(),
           virus(),
-          pseudo(),
-          path() {
+          pseudo() {
 
-        path.reserve(max_fly_t+1U);
+        fill_status_samplers(landscape_, radius);
 
-        // Fill `virus` and `pseudo` landscapes:
-        virus.reserve(n_x);
-        pseudo.reserve(n_x);
-        bool virus_xy, pseudo_xy;
-        for (uint32 x = 0; x < n_x; x++) {
-            virus.push_back(std::vector<bool>());
-            pseudo.push_back(std::vector<bool>());
-            std::vector<bool>& virus_x(virus.back());
-            std::vector<bool>& pseudo_x(pseudo.back());
-            virus_x.reserve(n_y);
-            pseudo_x.reserve(n_y);
-            for (uint32 y = 0; y < n_y; y++) {
-                virus_xy = get_bit_bool(0U, landscape_(x, y));
-                pseudo_xy = get_bit_bool(1U, landscape_(x, y));
-                virus_x.push_back(virus_xy);
-                pseudo_x.push_back(pseudo_xy);
-            }
-        }
-
-        // Fill `neigh_dxdy` based on radius:
-        uint32 total_rows = 0;
-        int32 fl_radius = std::floor(radius);
-        std::vector<arma::imat> dxdy_vec;
-        dxdy_vec.reserve(fl_radius * 2U + 1U);
-        int32 max_dy;
-        arma::imat dxdy_i;
-        double radius2 = radius * radius;
-        for (int32 dx = -fl_radius; dx <= fl_radius; dx++) {
-            max_dy = std::floor(std::sqrt(radius2 - static_cast<double>(dx * dx)));
-            dxdy_i.set_size(max_dy * 2U + 1U, 2U);
-            uint32 i = 0;
-            for (int32 dy = -max_dy; dy <= max_dy; dy++) {
-                dxdy_i(i,0) = dx;
-                dxdy_i(i,1) = dy;
-                i++;
-            }
-            dxdy_vec.push_back(dxdy_i);
-            total_rows += dxdy_i.n_rows;
-        }
-
-        neigh_dxdy.set_size(total_rows, 2U);
-        uint32 k = 0;
-        for (const arma::imat& dxdy : dxdy_vec) {
-            for (uint32 j = 0; j < dxdy.n_rows; j++) {
-                neigh_dxdy(k,0) = dxdy(j,0);
-                neigh_dxdy(k,1) = dxdy(j,1);
-                k++;
-            }
-        }
-
-        weights.set_size(total_rows);
-        cs_probs.set_size(total_rows);
     }
+
+    // Let this object know that a plant was newly infected so that it can
+    // update the landscape (`virus` and `land_wts`)
+    // and let samplers know to update:
+    void newly_infected(const uint32& x, const uint32& y) {
+        virus[x][y] = true;
+        uint32 k = dim_conv.to_1d(x, y);
+        land_wts[k] = std::exp(std::log(land_wts[k]) + alpha);
+        any_changed = true;
+        for (const uint32& l : neighbors[k]) update_sampler[l] = true;
+        return;
+    }
+
+
 
 
     /*
-     Have this alate fly and eventually settle.
-     The higher-level function can then use the public `path` field from
-     this object to access the plants the alate visited.
-     Note: the `path` vector does NOT include the plant the alate started at.
+     Have all alates across the landscape fly and eventually settle.
+     It also samples for whether virus spread happens, and adjusts the
+     `OnePlant` objects accordingly.
      */
-    void fly(const uint32& x0,
-             const uint32& y0,
-             pcg32& eng) {
-        uint32 x = x0;
-        uint32 y = y0;
-        // Do first iteration where alate has to leave plant:
-        first_iterate(x, y, eng);
-        // Do remaining iterations:
-        bool keep_going = false;
-        uint32 t = 1;
-        while (t < max_fly_t && keep_going) {
-            keep_going = this->iterate(x, y, eng);
-            t++;
-        }
-        return;
-    }
+    void infest(const double& delta_a,
+                const double& delta_p,
+                std::vector<XY>& alate_plants,
+                std::vector<std::vector<OnePlant>>& plants,
+                arma::umat& n_alates,
+                pcg32& eng);
 
 
 

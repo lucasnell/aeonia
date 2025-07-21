@@ -54,7 +54,9 @@ class InsectPops {
         // Density dependence:
         double S = 1 / (1 + z / K);
         // survival from natural enemies:
-        double attack_surv = std::pow(1 + a * P / (k * (h * z + 1)), -k);
+        double attack_surv;
+        if (P > 0) attack_surv = std::pow(1 + a * P / (k * (h * z + 1)), -k);
+        else attack_surv = 1;
 
         // Proportion of new aphids (from apterous females) that are alates
         double alate_p = inv_logit__(alate_0 + alate_1 * z);
@@ -66,8 +68,10 @@ class InsectPops {
 
         arma::vec LX = L * X;
 
-        P *= s; // daily survival of existing
-        P += arma::accu((1 - B) * S * (1 - attack_surv) * LX); // new individuals
+        if (P > 0) {
+            P *= s; // daily survival of existing
+            P += arma::accu((1 - B) * S * (1 - attack_surv) * LX); // new individuals
+        }
 
         X = (1 - B) * S * attack_surv * LX;
 

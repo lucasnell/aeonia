@@ -83,6 +83,8 @@ using namespace Rcpp;
 //'     not able to pass it on) to infectious (able to infect other plants).
 //'     A value of `0` means that an alate inoculating a plant causes that
 //'     plant to be infectious the same day.
+//'     Because this is not realistic and computationally troublesome,
+//'     only values `>1` are allowed.
 //'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
 //'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
 //'     relationships, and seed transmission" (Davis & Hampton, 1986).
@@ -158,6 +160,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
     if (delta_p < 0 || delta_p > 1) stop("delta_p < 0 || delta_p > 1");
+    if (total_exp_days < 1) stop("total_exp_days < 1");
     if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
 
     thread_check(n_threads); // Check that # threads isn't too high
@@ -214,16 +217,6 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     std::vector<double> aphids;
     std::vector<double> alates;
     std::vector<double> enemies;
-
-    // // If sims stop when all plants are infected, update `n_rows`:
-    // if (infect_stop) {
-    //     n_rows = 0;
-    //     for (uint32 r = 0; r < n_reps; r++) {
-    //         for (uint32 t = 0; t < plantscapes[r].output.size(); t++) {
-    //             n_rows += plantscapes[r].output[t].n_rows;
-    //         }
-    //     }
-    // }
 
     if (out_by_plant) {
 
