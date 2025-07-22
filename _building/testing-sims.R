@@ -68,6 +68,7 @@ CC <- with(list(L = rbind(c(pop_info$surv_j, pop_info$fecund),
 one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon,
                           max_t, n_x, n_y, radius, n_sims,
                           .full_inf_time = TRUE) {
+
     insect_ptr <- make_insect_ptr(K = K,
                                   B = B,
                                   a = 5e-3,
@@ -75,32 +76,63 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon,
                                   k = 0.1,
                                   s = 0.1,
                                   fly_p = 0.05)
+    stopifnot(round(n_x) == n_x && round(n_y) == n_y && round(n_sims) == n_sims)
+    n_x <- as.integer(n_x)
+    n_y <- as.integer(n_y)
     n_plants <- n_x * n_y
-    stopifnot(pseudo < 1 && pseudo >= 0)
+    stopifnot(round(pseudo) == pseudo && pseudo >= 0 && pseudo <= (n_plants-1L))
 
     land <- array(0L, c(n_x, n_y, n_sims))
     for (i in 1:n_sims) {
         land[1,1,i] <- 1L
         if (pseudo > 0) {
-            k <- sample.int(n_plants - 1L, round(pseudo * (n_plants-1)))
-            x = k - n_y * (k %/% n_y) + 1L
-            y = k %/% n_y + 1L
+            k <- sample.int(n_plants - 1L, pseudo)
+            x <- k - n_x * (k %/% n_x) + 1L
+            y <- k %/% n_x + 1L
             land[cbind(x,y,i)] <- 2L
         }
     }
     # Define function for infection summary:
     if (.full_inf_time) {
         # Time to full infection:
-        inf_summ <- function(t, v) {
+        inf_summ <- function(t, v, p) {
+            v <- v[!p] + v[p]
+            t <- t[!p]
             if (any(v == n_plants)) return(t[v == n_plants][1])
+            return(Inf)
+        }
+        # Same but for only non-Pseudomonas plants:
+        inf_summ2 <- function(t, v, p) {
+            t <- t[!p]
+            v <- v[!p]
+            np <- n_plants - pseudo
+            if (any(v == np)) return(t[v == np][1])
             return(Inf)
         }
     } else {
         # Number of plants infected (i.e., outbreak size):
-        inf_summ <- function(t, v) {
+        inf_summ <- function(t, v, p) {
+            v <- v[!p] + v[p]
+            return(max(v))
+        }
+        # Same but for only non-Pseudomonas plants:
+        inf_summ2 <- function(t, v, p) {
+            v <- v[!p]
             return(max(v))
         }
     }
+
+    one_rep <- function(x) {
+        xs <- x |> group_by(time) |> summarize(across(aphids:alates, sum))
+        o <- tibble(rep = x$rep[[1]])
+        o[["p_alates"]] = mean(xs$alates / (xs$alates + xs$aphids))
+        o[["aphids"]] = mean(xs$alates + xs$aphids)
+        o[["alates"]] = mean(xs$alates)
+        o[["infect_time"]] = inf_summ(x$time, x$virus, x$pseudo)
+        o[["infect_time2"]] = inf_summ2(x$time, x$virus, x$pseudo)
+        return(o)
+    }
+
     out <- sim_plantscape(land,
                           max_t = max_t,
                           insect_ptr,
@@ -113,23 +145,22 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon,
                           delta_a = 0.5,
                           delta_p = 0.5,
                           radius = radius,
-                          out_by_plant = FALSE) |>
-        group_by(rep) |>
-        summarize(p_alates = mean(alates / (alates + aphids)),
-                  infect_time = inf_summ(time, virus),
-                  .groups = "drop") |>
-        mutate(pseudo = round(round(pseudo * (n_plants-1L)) / n_plants, 3),
-               B = B, K = K, alpha = alpha,
+                          summ = "pseudo") |>
+        split(~ rep) |>
+        future_lapply(one_rep, future.seed = TRUE, future.packages = "dplyr") |>
+        list_rbind() |>
+        mutate(pseudo = pseudo, B = B, K = K, alpha = alpha,
                beta = beta, epsilon = epsilon)
-    if (.full_inf_time && any(is.infinite(out$infect_time))) {
-        # warning(sprintf(paste("Did not reach fully infected with",
-        #                       "pseudo=%.2f, B=%.2f, K=%.2f, alpha=%.2f,",
-        #                       "beta=%.2f, epsilon=%.2f"),
-        #                 pseudo, B, K, alpha, beta, epsilon))
-    }
+    # if (.full_inf_time && any(is.infinite(out$infect_time))) {
+    #     warning(sprintf(paste("Did not reach fully infected with",
+    #                           "pseudo=%.2f, B=%.2f, K=%.2f, alpha=%.2f,",
+    #                           "beta=%.2f, epsilon=%.2f"),
+    #                     pseudo, B, K, alpha, beta, epsilon))
+    # }
     if (!.full_inf_time) {
         out <- out |>
-            rename(outbreak_size = infect_time)
+            rename(outbreak_size = infect_time,
+                   outbreak_size2 = infect_time2)
     }
     return(out)
 }
@@ -139,12 +170,10 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon,
 
 
 
-
-
 if (!file.exists("_building/ps_sims.rds")) {
     # Takes ~20 sec for 3x3 landscape
     set.seed(1114260777)
-    ps_sims <- crossing(pseudo = c(0.0, 0.2, 0.5),
+    ps_sims <- crossing(pseudo = c(0L, 3L),
                         B = c(0.1, 0.05, 0.01, 0),
                         K = 12500 * (-1:1 * 0.25 + 1),
                         alpha = c(0, 0.25, 1, 2),
@@ -152,11 +181,12 @@ if (!file.exists("_building/ps_sims.rds")) {
                         epsilon = c(0.25, 1, 2)) |>
         # Below, `max_t` is set to a value way higher than I think I'll need
         # so that all reps reach fully infected.
-        mutate(n_x = 3L, n_y = 3L, radius = 1.5, max_t = 10e3, n_sims = 100) |>
+        mutate(n_x = 3L,
+               n_y = ifelse(pseudo == 0L, 2L, 3L),
+               radius = 1.5, max_t = 10e3, n_sims = 100) |>
         pmap(one_sim_combo, .progress = TRUE) |>
         list_rbind() |>
         select(pseudo, B, K, alpha, beta, epsilon, rep, everything()) |>
-        mutate(pseudo = round(pseudo, digits = 1)) |>
         mutate(across(pseudo:rep, factor))
     write_rds(ps_sims, "_building/ps_sims.rds", compress = "xz")
 } else {
@@ -199,13 +229,13 @@ pretty_facet_factors <- function(.df, .pars, .greek) {
 
 
 ps_sims |>
-    filter(epsilon == 0.25,
+    filter(epsilon == 1,
            K == levels(K)[2]) |>
            # alpha == levels(alpha)[1]) |>
     pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
                          .greek = c(rep(TRUE, 3), FALSE)) |>
-    ggplot(aes(B, (infect_time), color = pseudo)) +
-    geom_hline(aes(yintercept = min((.data[["infect_time"]]))),
+    ggplot(aes(B, (infect_time2), color = pseudo)) +
+    geom_hline(aes(yintercept = min((.data[["infect_time2"]]))),
                linewidth = 0.75, color = "black") +
     geom_violin(position = position_dodge(0.5), fill = NA) +
     stat_summary(fun = mean, geom = "point", position = position_dodge(0.5)) +
@@ -258,9 +288,11 @@ ps_inc_sims <- ps_sims |>
     split(~ B + K + alpha + beta + epsilon) |>
     lapply(\(d) {
         .it0 <- d$infect_time[d$pseudo == 0]
+        .it20 <- d$infect_time2[d$pseudo == 0]
         .pa0 <- d$p_alates[d$pseudo == 0]
         d <- d[d$pseudo != 0,]
         d[["p_better"]] <- sapply(d$infect_time, \(it) mean(.it0 < it))
+        d[["p_better2"]] <- sapply(d$infect_time2, \(it2) mean(.it20 < it2))
         d[["p_more"]] <- sapply(d$p_alates, \(pa) mean(.pa0 < pa))
         return(d)
     }) |>
@@ -269,7 +301,7 @@ ps_inc_sims <- ps_sims |>
 
 
 ps_inc_sims |>
-    filter(pseudo == levels(pseudo)[2]) |>
+    # filter(pseudo == levels(pseudo)[2]) |>
     filter(beta %in% levels(beta)[c(1,4)],
            alpha %in% levels(alpha)[c(1,4)]) |>
     filter(# epsilon == 0.25,
@@ -279,7 +311,7 @@ ps_inc_sims |>
                          # .greek = c(rep(TRUE, 3), FALSE)) |>
     pretty_facet_factors(c("alpha", "beta", "K"),
                          .greek = c(rep(TRUE, 2), FALSE)) |>
-    ggplot(aes(B, p_better * 100, color = epsilon)) +
+    ggplot(aes(B, p_better2 * 100, color = epsilon)) +
     geom_hline(aes(yintercept = 50),
                linewidth = 0.75, color = "gray70", linetype = "22") +
     geom_violin(position = position_dodge(0.6), fill = NA) +
@@ -304,14 +336,14 @@ ps_inc_sims |>
     filter(beta %in% levels(beta)[c(1,4)],
            alpha %in% levels(alpha)[c(1,4)]) |>
     filter(pseudo == levels(pseudo)[1],
-           K == levels(K)[1]) |>
+           K == levels(K)[2]) |>
     # alpha == levels(alpha)[1]) |>
     # pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
                          # .greek = c(rep(TRUE, 3), FALSE)) |>
     pretty_facet_factors(c("alpha", "beta"), .greek = TRUE) |>
     (\(.data) {
         .title <<- sprintf("%i *Pseudomonas* patches<br>K = %s",
-                           round(as.numeric(paste(.data[["pseudo"]][[1]])) * 9),
+                           as.integer(paste(.data[["pseudo"]][[1]])),
                            .data[["K"]][[1]])
         return(.data)
     })() |>
