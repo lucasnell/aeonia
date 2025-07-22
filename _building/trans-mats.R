@@ -48,27 +48,36 @@ cbind(orig = c(sum(X0[1:8]), sum(X0[9:29])),
 .K * (max(abs(eigen(L0)[["values"]])) - 1)
 
 
-.P <- numeric(2)
-.P[1] <- (gameofclones::wasp_attack[["rel_attack"]][1:4] * sapply(1:4, \(i) sum(X0[(2*i-1):(2*i)])) / sum(X0[1:8])) |> sum()
-.P[2] <- gameofclones::wasp_attack[["rel_attack"]][5]
+.p <- numeric(2)
+.p[1] <- (gameofclones::wasp_attack[["rel_attack"]][1:4] * sapply(1:4, \(i) sum(X0[(2*i-1):(2*i)])) / sum(X0[1:8])) |> sum()
+.p[2] <- gameofclones::wasp_attack[["rel_attack"]][5]
 
 
 
 run_paras <- function(L, aphids0 = 10, paras0 = 1,
-                      a = 2.32, k = 0.35, h = 0.008, P = .P,
-                      K = 12500, s_y = 0.69, max_t = 1000,
+                      a = 2.32, k = 0.35, h = 0.008, p = c(1,1),
+                      K = 12500, s_y = 0.69, s_p =  0.9745, max_t = 1000,
+                      K_p_mult = 0.6369427,
                       .plot = TRUE) {
+
+    K_p <- K * K_p_mult
 
     aphids <- numeric(max_t+1)
     paras <- numeric(max_t+1)
     aphids[1] <- aphids0
     paras[1] <- paras0
-    X <- gameofclones:::sad_leslie(L) * aphids0
-    P <- unname(cbind(P))
+    X <- gameofclones:::sad_leslie(L) * aphids0 # unparasitized aphids
+    P <- 0  # parasitized, alive aphids
+    M <- 0  # parasitized, dead aphids
+    p <- unname(cbind(p))
     for (t in 1:max_t) {
-        A <- (1 + P * a * paras[t] / (k * (h * aphids[t] + 1)))^(-k)
+        A <- (1 + p * a * paras[t] / (k * (h * aphids[t] + 1)))^(-k)
         S <- 1 / (1 + aphids[t] / K);
-        paras[t+1] = paras[t] * s_y + sum(S * (1 - A) * (L %*% X))
+        S_p <- 1 / (1 + aphids[t] / K_p);
+        paras[t+1] = paras[t] * s_y + 0.5 * M
+        M <- 1/4 * P
+        P <- S_p * (s_p * P + sum((1 - A) * (L %*% X)))
+
         X <- S * A * (L %*% X)
         aphids[t+1] <- sum(X)
     }
@@ -86,7 +95,33 @@ run_paras <- function(L, aphids0 = 10, paras0 = 1,
 
 
 
+run_paras(L)
 
-run_paras(L, a = 2.32, k = 0.35, h = 0.008, P = .P)
+run_paras(L, h = 1, p = .p / sum(.p), .plot = FALSE) |>
+    ggplot(aes(time, log10(density + 0.5), color = species)) +
+    geom_hline(yintercept = log10(0.5), color = "gray70") +
+    geom_line(linewidth = 0.75) +
+    scale_color_manual(values = c("dodgerblue", "firebrick")) +
+    scale_x_continuous(breaks = 0:5 * 200) +
+    theme_classic()
 
-run_paras(L, a = 1e-3, h = 0.002, k = 1, P = c(1,1))
+
+
+sims <- sim_experiments(line_s, 1, 1000, alate_b0 = -Inf, alate_b1 = 0, wasp_density_0 = 3, wasp_delay = 0, extinct_N = 0)
+
+left_join(sims$aphids |>
+              filter(!is.na(type)) |>
+              group_by(time) |>
+              summarize(aphids = sum(N)),
+          sims$wasps |>
+              group_by(time) |>
+              summarize(wasps = sum(wasps)),
+          by = join_by(time)) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    ggplot(aes(time, density, color = species)) +
+    geom_line() +
+    scale_color_viridis_d(begin = 0.2) +
+    facet_wrap( ~ species, scales = "free_y", ncol = 1) +
+    scale_x_continuous(breaks = 0:5 * 200) +
+    theme_classic()
+
