@@ -1,10 +1,15 @@
 library(tidyverse)
 library(aeonia)
+library(future.apply)
 library(progressr)
 library(ggtext)
 
 # Set threads for simulations:
 options("mc.cores" = max(1L, parallel::detectCores()-2))
+
+plan(multisession, workers = options()[["mc.cores"]])
+handlers(global = TRUE)
+handlers("progress")
 
 
 #' This only gets run if my local .Rprofile has been run and if it's an
@@ -164,6 +169,7 @@ if (!file.exists("_building/ps_sims.rds")) {
 
 pretty_facet_factors <- function(.df, .pars, .greek) {
 
+    if (length(.greek) == 1) .greek <- rep(.greek, length(.pars))
     stopifnot(length(.pars) == length(.greek))
     stopifnot(is.logical(.greek))
 
@@ -187,9 +193,14 @@ pretty_facet_factors <- function(.df, .pars, .greek) {
 
 
 
+
+
+
+
+
 ps_sims |>
-    filter(epsilon == 1,
-           K == median(as.numeric(paste(K)))) |>
+    filter(epsilon == 0.25,
+           K == levels(K)[2]) |>
            # alpha == levels(alpha)[1]) |>
     pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
                          .greek = c(rep(TRUE, 3), FALSE)) |>
@@ -238,6 +249,96 @@ ps_sims |>
 
 
 
+# ---------------------------*
+# How often does Pseudomonas increase time to fully infected? ----
+# ---------------------------*
+
+
+ps_inc_sims <- ps_sims |>
+    split(~ B + K + alpha + beta + epsilon) |>
+    lapply(\(d) {
+        .it0 <- d$infect_time[d$pseudo == 0]
+        .pa0 <- d$p_alates[d$pseudo == 0]
+        d <- d[d$pseudo != 0,]
+        d[["p_better"]] <- sapply(d$infect_time, \(it) mean(.it0 < it))
+        d[["p_more"]] <- sapply(d$p_alates, \(pa) mean(.pa0 < pa))
+        return(d)
+    }) |>
+    list_rbind() |>
+    mutate(pseudo = fct_drop(pseudo))
+
+
+ps_inc_sims |>
+    filter(pseudo == levels(pseudo)[2]) |>
+    filter(beta %in% levels(beta)[c(1,4)],
+           alpha %in% levels(alpha)[c(1,4)]) |>
+    filter(# epsilon == 0.25,
+           K == levels(K)[2]) |>
+    # alpha == levels(alpha)[1]) |>
+    # pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
+                         # .greek = c(rep(TRUE, 3), FALSE)) |>
+    pretty_facet_factors(c("alpha", "beta", "K"),
+                         .greek = c(rep(TRUE, 2), FALSE)) |>
+    ggplot(aes(B, p_better * 100, color = epsilon)) +
+    geom_hline(aes(yintercept = 50),
+               linewidth = 0.75, color = "gray70", linetype = "22") +
+    geom_violin(position = position_dodge(0.6), fill = NA) +
+    stat_summary(fun = mean, geom = "point", position = position_dodge(0.6), size = 3) +
+    stat_summary(fun.data = "mean_cl_boot", geom = "errorbar",
+                 position = position_dodge(0.6), width = 0.3) +
+    scale_color_viridis_d("&epsilon;",
+                          option = "plasma", end = 0.8) +
+    guides(color = guide_legend(override.aes = list(alpha = 1))) +
+    ylab("Percent longer to infected than without *Pseudomonas*") +
+    xlab("*Pseudomonas*-induced mortality") +
+    facet_grid(alpha ~ beta) +
+    # facet_grid(K ~ beta) +
+    theme_minimal() +
+    theme(strip.text = element_markdown(size = 8),
+          axis.title = element_markdown(),
+          legend.title = element_markdown())
+
+
+
+ps_inc_sims |>
+    filter(beta %in% levels(beta)[c(1,4)],
+           alpha %in% levels(alpha)[c(1,4)]) |>
+    filter(pseudo == levels(pseudo)[1],
+           K == levels(K)[1]) |>
+    # alpha == levels(alpha)[1]) |>
+    # pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
+                         # .greek = c(rep(TRUE, 3), FALSE)) |>
+    pretty_facet_factors(c("alpha", "beta"), .greek = TRUE) |>
+    (\(.data) {
+        .title <<- sprintf("%i *Pseudomonas* patches<br>K = %s",
+                           round(as.numeric(paste(.data[["pseudo"]][[1]])) * 9),
+                           .data[["K"]][[1]])
+        return(.data)
+    })() |>
+    ggplot(aes(B, p_more * 100, color = epsilon)) +
+    geom_hline(aes(yintercept = 50),
+               linewidth = 0.75, color = "gray70", linetype = "22") +
+    geom_violin(position = position_dodge(0.6), fill = NA) +
+    stat_summary(fun = mean, geom = "point", position = position_dodge(0.6), size = 3) +
+    stat_summary(fun.data = "mean_cl_boot", geom = "errorbar",
+                 position = position_dodge(0.6), width = 0.3) +
+    scale_color_viridis_d("&epsilon;",
+                          option = "plasma", end = 0.8) +
+    guides(color = guide_legend(override.aes = list(alpha = 1))) +
+    ggtitle(.title) +
+    ylab("Percent more alates than without *Pseudomonas*") +
+    xlab("*Pseudomonas*-induced mortality") +
+    facet_grid(alpha ~ beta) +
+    # facet_grid(K ~ beta) +
+    theme_minimal() +
+    theme(strip.text = element_markdown(size = 8),
+          axis.title = element_markdown(),
+          legend.title = element_markdown(),
+          plot.title = element_markdown())
+
+
+
+
 
 # =============================================================================*
 # =============================================================================*
@@ -246,7 +347,7 @@ ps_sims |>
 # =============================================================================*
 
 if (!file.exists("_building/big_ps_sims.rds")) {
-    # Takes ~19.4 hrs for 134x134 landscape (and 12 instead of 100 sims)
+    # Takes ~8 hrs for 134x134 landscape (and 12 instead of 100 sims)
     t0 <- Sys.time()
     set.seed(1952926471)
     big_ps_sims <- crossing(pseudo = c(0.0, 0.2, 0.5),
