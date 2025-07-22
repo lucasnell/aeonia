@@ -71,14 +71,14 @@ public:
 
     // Convert from 1D to 2D:
     inline void to_2d(uint32& x, uint32& y, const uint32& k) const {
-        x = k - n_y * (k / n_y);
-        y = k / n_y;
+        x = k - n_x * (k / n_x);
+        y = k / n_x;
         return;
     }
     // Overloaded for signed ints (for use with Rcpp::IntegerVector)
     inline void to_2d(int& x, int& y, const uint32& k) const {
-        x = k - n_y * (k / n_y);
-        y = k / n_y;
+        x = k - n_x * (k / n_x);
+        y = k / n_x;
         return;
     }
     // Convert from 2D to 1D:
