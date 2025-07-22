@@ -50,8 +50,8 @@ class PlantScape {
     uint32 n_y;
     pcg32 eng;
 
-    // Whether to output separately by plant:
-    bool out_by_plant;
+    // How to summarize output (if at all):
+    std::string summ;
     // Max time points to simulate:
     uint32 max_t;
 
@@ -60,10 +60,10 @@ class PlantScape {
     /*
      ==========================================================================*
      Write the current state of the PlantScape to the `output` field.
-     `out_by_plant` is for whether to have separate output by plant.
-     This isn't recommended for long time series of many plants!
+     `summ` is for how to summarize output (if at all).
+     `summ = "none"` isn't recommended for long time series of many plants!
 
-     If `out_by_plant == true`, `n_x * n_y` rows are output for each time point.
+     If `summ == "none"`, `n_x * n_y` rows are output for each time point.
      The columns are...
          1) plant x
          2) plant y
@@ -72,7 +72,16 @@ class PlantScape {
          5) alate density
          6) predator density
 
-     If `out_by_plant == false`, only one row is output per time point.
+     If `summ == "pseudo"`, two rows are output for each time point.
+     The columns are...
+         1) plant pseudo (0 or 1)
+         2) total plants of this type
+         3) number of plants infectious with virus
+         4) total aphid (non-winged) density summed across all plants of this type
+         5) total alate density summed across all plants of this type
+         6) total predator density summed across all plants of this type
+
+     If `summ == "all"`, only one row is output per time point.
      The columns are...
          1) number of plants infectious with virus
          2) total aphid (non-winged) density summed across all plants
@@ -82,7 +91,7 @@ class PlantScape {
      */
     void fill_output() {
 
-        if (out_by_plant) {
+        if (summ == "none") {
             output.push_back(arma::mat(n_x * n_y, 6, arma::fill::none));
             arma::mat& output_t(output.back());
             uint32 k = 0;
@@ -98,7 +107,28 @@ class PlantScape {
                     k++;
                 }
             }
-        } else {
+        } else if (summ == "pseudo") {
+
+            output.push_back(arma::mat(2, 6, arma::fill::zeros));
+            arma::mat& output_t(output.back());
+            // Set value indicating Pseudomonas present:
+            output_t(1,0) = 1;
+            // Fill the rest:
+            uint32 k;
+            for (uint32 x = 0; x < n_x; x++) {
+                for (uint32 y = 0; y < n_y; y++) {
+                    const OnePlant& plant(plants[x][y]);
+                    k = (plant.pseudo) ? 1UL : 0UL;
+                    output_t(k,1) += 1.0;
+                    output_t(k,2) += static_cast<double>(plant.infectious);
+                    output_t(k,3) += plant.insects.A();
+                    output_t(k,4) += plant.insects.W();
+                    output_t(k,5) += plant.insects.P;
+                }
+            }
+
+        } else if (summ == "all") {
+
             output.push_back(arma::mat(1, 4, arma::fill::zeros));
             arma::mat& output_t(output.back());
             for (uint32 x = 0; x < n_x; x++) {
@@ -110,6 +140,11 @@ class PlantScape {
                     output_t(0,3) += plant.insects.P;
                 }
             }
+
+        } else {
+
+            stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'all')`");
+
         }
 
         return;
@@ -128,10 +163,12 @@ class PlantScape {
 
         alate_plants.clear();
 
-        // Go through once, calculating and extracting alates, and updating
-        // population dynamics and infectiousness
-        // (Infectiousness changes here due to plants transitioning
-        //  from exposed to infectious.)
+        /*
+         Go through once, calculating and extracting alates, and updating
+         population dynamics and infectiousness
+         (Infectiousness changes here due to plants transitioning
+          from exposed to infectious.)
+         */
         bool infectious0;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
@@ -179,7 +216,7 @@ public:
 
 
     PlantScape(const uint32& max_t_,
-               const bool& out_by_plant_,
+               const std::string& summ_,
                const uint32& max_fly_t_,
                const arma::umat& landscape_,
                const double& radius_,
@@ -204,7 +241,7 @@ public:
           n_x(landscape_.n_rows),
           n_y(landscape_.n_cols),
           eng(),
-          out_by_plant(out_by_plant_),
+          summ(summ_),
           max_t(max_t_),
           output() {
 

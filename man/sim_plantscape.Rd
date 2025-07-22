@@ -19,7 +19,7 @@ sim_plantscape(
   total_exp_days = 7L,
   w = 0.2,
   radius = 7.336451,
-  out_by_plant = TRUE,
+  summ = "none",
   infect_stop = TRUE,
   show_progress = FALSE,
   n_threads = 0L
@@ -104,9 +104,14 @@ Defaults to \code{0.2}.}
 Defaults to \code{7.336451}, which is based on previous work.
 See "Radius" section below for details.}
 
-\item{out_by_plant}{Single logical for whether to split output by plant
-instead of summing across the entire landscape.
-Defaults to \code{TRUE}.}
+\item{summ}{Single string to indicate how to summarize output.
+If \code{summ == "none"}, then no summarizing is done, so output is separate
+by plant.
+If \code{summ == "pseudo"}, then output is summarized by whether plants
+contain \emph{Pseudomonas}.
+If \code{summ == "all"}, then output is summarized across all plants
+will only be separated by time and rep.
+Defaults to \code{"none"}.}
 
 \item{infect_stop}{Single logical for whether to stop simulations
 when all plants are infected with virus.
