@@ -99,9 +99,14 @@ using namespace Rcpp;
 //' @param radius Max distance that alates will travel between plants.
 //'     Defaults to `7.336451`, which is based on previous work.
 //'     See "Radius" section below for details.
-//' @param out_by_plant Single logical for whether to split output by plant
-//'     instead of summing across the entire landscape.
-//'     Defaults to `TRUE`.
+//' @param summ Single string to indicate how to summarize output.
+//'     If `summ == "none"`, then no summarizing is done, so output is separate
+//'     by plant.
+//'     If `summ == "pseudo"`, then output is summarized by whether plants
+//'     contain *Pseudomonas*.
+//'     If `summ == "all"`, then output is summarized across all plants
+//'     will only be separated by time and rep.
+//'     Defaults to `"none"`.
 //' @param infect_stop Single logical for whether to stop simulations
 //'     when all plants are infected with virus.
 //'     Defaults to `TRUE`.
@@ -130,7 +135,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const uint32& total_exp_days = 7,
                          const double& w = 0.2,
                          const double& radius = 7.336451,
-                         const bool& out_by_plant = true,
+                         const std::string& summ = "none",
                          const bool& infect_stop = true,
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
@@ -145,6 +150,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     if (arma::any(arma::vectorise(landscapes) > 3))
         stop("landscapes cannot contain values > 3");
 
+    if (max_t == 0 || max_t > 1e6) stop("max_t == 0 || max_t > 1e6");
+
     if (A0.n_rows != n_x && A0.n_rows != 1) stop("nrow(A0) must be 1 or nrow(landscapes)");
     if (A0.n_cols != n_y && A0.n_cols != 1) stop("ncol(A0) must be 1 or ncol(landscapes)");
     if (A0.n_cols == 1 && A0.n_rows != 1) stop("if ncol(A0) == 1, then nrow(A0) must be 1");
@@ -152,16 +159,18 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     if (arma::size(A0) != arma::size(W0)) stop("A0, W0, and P0 must be same size");
     if (arma::size(A0) != arma::size(P0)) stop("A0, W0, and P0 must be same size");
 
-    if (max_t == 0 || max_t > 1e6) stop("max_t == 0 || max_t > 1e6");
-    if (radius < 1) stop("radius < 1");
     if (epsilon < 0) stop("epsilon < 0");
-    if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
-    if ((w*epsilon) > 1) stop("w*epsilon > 1");
-    if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
     if (delta_p < 0 || delta_p > 1) stop("delta_p < 0 || delta_p > 1");
     if (total_exp_days < 1) stop("total_exp_days < 1");
     if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
+    if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
+    if ((w*epsilon) > 1) stop("w*epsilon > 1");
+    if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
+    if (radius < 1) stop("radius < 1");
+    if (summ != "none" && summ != "pseudo" && summ != "all") {
+        stop("`summ` should be 'none', 'pseudo', or 'all'");
+    }
 
     thread_check(n_threads); // Check that # threads isn't too high
 
@@ -176,7 +185,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
 
     // Make sure output object won't be too big for R:
     uint32 n_rows = n_reps * (max_t + (uint32)1U);
-    if (out_by_plant) n_rows *= (n_x * n_y);
+    if (summ == "plant") n_rows *= (n_x * n_y);
+    if (summ == "pseudo") n_rows *= (uint32)2U;
     if (n_rows > (uint32)2147483647)
         stop("This combo of parameters will produce too large of an output for R");
 
@@ -189,7 +199,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     plantscapes.reserve(n_reps);
 
     for (uint32 i = 0; i < n_reps; i++) {
-        plantscapes.push_back(PlantScape(max_t, out_by_plant, max_fly_t,
+        plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
                                          landscapes.slice(i), radius, alpha,
                                          beta, epsilon, w, delta_a, delta_p,
                                          total_exp_days, insects0, A0, W0, P0,
@@ -218,7 +228,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     std::vector<double> alates;
     std::vector<double> enemies;
 
-    if (out_by_plant) {
+    if (summ == "none") {
 
         std::vector<uint32> plant_x;
         std::vector<uint32> plant_y;
@@ -253,7 +263,42 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                                    _["virus"] = virus, _["aphids"] = aphids,
                                    _["alates"] = alates, _["enemies"] = enemies);
 
-    } else {
+    } else if (summ == "pseudo") {
+
+        std::vector<bool> pseudo;
+        std::vector<uint32> np;
+
+        rep.reserve(n_rows);
+        time.reserve(n_rows);
+        pseudo.reserve(n_rows);
+        np.reserve(n_rows);
+        virus.reserve(n_rows);
+        aphids.reserve(n_rows);
+        alates.reserve(n_rows);
+        enemies.reserve(n_rows);
+
+        for (uint32 r = 0; r < n_reps; r++) {
+            for (uint32 t = 0; t < plantscapes[r].output.size(); t++) {
+                const arma::mat& rep_out(plantscapes[r].output[t]);
+                for (uint32 i = 0; i < rep_out.n_rows; i++) {
+                    rep.push_back(r+1);
+                    time.push_back(t+1);
+                    pseudo.push_back(rep_out(i,0));
+                    np.push_back(rep_out(i,1));
+                    virus.push_back(rep_out(i,2));
+                    aphids.push_back(rep_out(i,3));
+                    alates.push_back(rep_out(i,4));
+                    enemies.push_back(rep_out(i,5));
+                }
+            }
+        }
+
+        out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
+                                   _["pseudo"] = pseudo, _["n"] = np,
+                                   _["virus"] = virus, _["aphids"] = aphids,
+                                   _["alates"] = alates, _["enemies"] = enemies);
+
+    } else if (summ == "all") {
 
         rep.reserve(n_rows);
         time.reserve(n_rows);
@@ -277,6 +322,10 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
                                    _["virus"] = virus, _["aphids"] = aphids,
                                    _["alates"] = alates, _["enemies"] = enemies);
+    } else {
+
+        stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'all')`");
+
     }
 
 

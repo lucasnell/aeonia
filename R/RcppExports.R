@@ -155,9 +155,14 @@ inv_logit <- function(a) {
 #' @param radius Max distance that alates will travel between plants.
 #'     Defaults to `7.336451`, which is based on previous work.
 #'     See "Radius" section below for details.
-#' @param out_by_plant Single logical for whether to split output by plant
-#'     instead of summing across the entire landscape.
-#'     Defaults to `TRUE`.
+#' @param summ Single string to indicate how to summarize output.
+#'     If `summ == "none"`, then no summarizing is done, so output is separate
+#'     by plant.
+#'     If `summ == "pseudo"`, then output is summarized by whether plants
+#'     contain *Pseudomonas*.
+#'     If `summ == "all"`, then output is summarized across all plants
+#'     will only be separated by time and rep.
+#'     Defaults to `"none"`.
 #' @param infect_stop Single logical for whether to stop simulations
 #'     when all plants are infected with virus.
 #'     Defaults to `TRUE`.
@@ -171,8 +176,8 @@ inv_logit <- function(a) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, out_by_plant = TRUE, infect_stop = TRUE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, out_by_plant, infect_stop, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, summ = "none", infect_stop = TRUE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, summ, infect_stop, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.
