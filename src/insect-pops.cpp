@@ -24,17 +24,25 @@ void fill_pop_info(double& surv_j,
                    double& fecund,
                    double& K,
                    double& alate_0,
-                   double& alate_1) {
+                   double& alate_1,
+                   double& a,
+                   double& h,
+                   double& k,
+                   double& s) {
 
     List pop_info = retrieve_dataset<List>("pop_info");
 
-    if (!arma::is_finite(surv_j)) surv_j = pop_info["surv_j"];
-    if (!arma::is_finite(surv_a)) surv_a = pop_info["surv_a"];
-    if (!arma::is_finite(recruit)) recruit = pop_info["recruit"];
-    if (!arma::is_finite(fecund)) fecund = pop_info["fecund"];
-    if (!arma::is_finite(K)) K = pop_info["K"];
-    if (!arma::is_finite(alate_0)) alate_0 = pop_info["alate_0"];
-    if (!arma::is_finite(alate_1)) alate_1 = pop_info["alate_1"];
+    if (NumericVector::is_na(surv_j)) surv_j = pop_info["surv_j"];
+    if (NumericVector::is_na(surv_a)) surv_a = pop_info["surv_a"];
+    if (NumericVector::is_na(recruit)) recruit = pop_info["recruit"];
+    if (NumericVector::is_na(fecund)) fecund = pop_info["fecund"];
+    if (NumericVector::is_na(K)) K = pop_info["K"];
+    if (NumericVector::is_na(alate_0)) alate_0 = pop_info["alate_0"];
+    if (NumericVector::is_na(alate_1)) alate_1 = pop_info["alate_1"];
+    if (NumericVector::is_na(a)) a = pop_info["a"];
+    if (NumericVector::is_na(h)) h = pop_info["h"];
+    if (NumericVector::is_na(k)) k = pop_info["k"];
+    if (NumericVector::is_na(s)) s = pop_info["s"];
 
     return;
 }
@@ -86,10 +94,6 @@ void fill_pop_info(double& surv_j,
 //'
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& B,
-                     const double& a,
-                     const double& h,
-                     const double& k,
-                     const double& s,
                      const double& fly_p,
                      double surv_j = NA_REAL,
                      double surv_a = NA_REAL,
@@ -97,9 +101,14 @@ SEXP make_insect_ptr(const double& B,
                      double fecund = NA_REAL,
                      double K = NA_REAL,
                      double alate_0 = NA_REAL,
-                     double alate_1 = NA_REAL) {
+                     double alate_1 = NA_REAL,
+                     double a = NA_REAL,
+                     double h = NA_REAL,
+                     double k = NA_REAL,
+                     double s = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1);
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1,
+                  a, h, k, s);
 
     if (B < 0 || B > 1) stop("B < 0 || B > 1");
     if (a < 0) stop("a < 0");
@@ -146,19 +155,20 @@ DataFrame test_insect_pops(const uint32& max_t,
                            const double& W0,
                            const double& P0,
                            const double& B,
-                           const double& a,
-                           const double& h,
-                           const double& k,
-                           const double& s,
                            double surv_j = NA_REAL,
                            double surv_a = NA_REAL,
                            double recruit = NA_REAL,
                            double fecund = NA_REAL,
                            double K = NA_REAL,
                            double alate_0 = NA_REAL,
-                           double alate_1 = NA_REAL) {
+                           double alate_1 = NA_REAL,
+                           double a = NA_REAL,
+                           double h = NA_REAL,
+                           double k = NA_REAL,
+                           double s = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1);
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1,
+                  a, h, k, s);
 
     if (max_t > (uint32)1e9) stop("max_t > 1e9");
     if (A0 < 0) stop("A0 < 0");
