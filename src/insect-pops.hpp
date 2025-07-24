@@ -43,6 +43,7 @@ class InsectPops {
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
     double alate_1; // intercept for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
+    double wasp_d_p;// proportion of adult parasitoids added to dispersal pool each day
 
 
     // Deterministic  portion of `iterate`, updates `A`, `W`, and `P` without
@@ -96,6 +97,7 @@ public:
                const double& alate_0_,
                const double& alate_1_,
                const double& fly_p_,
+               const double& wasp_d_p_,
                const double& A0,
                const double& W0,
                const double& P0)
@@ -110,6 +112,7 @@ public:
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
+          wasp_d_p(wasp_d_p_),
           X(4, arma::fill::zeros),
           P(P0) {
 
@@ -136,13 +139,19 @@ public:
         : distr(other.distr), L(other.L), K(other.K), B(other.B),
           a(other.a), h(other.h), k(other.k), s(other.s),
           alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
+          wasp_d_p(other.wasp_d_p),
           X(other.X), P(other.P) {};
 
 
-    // iterate and set number of alates moving from this population:
-    void iterate(uint32& n_alates, pcg32& eng) {
+    // iterate and set number of alates and parasitoids moving from this population:
+    void iterate(uint32& n_alates, double& n_wasp_d, pcg32& eng) {
 
         determ_iterate();
+
+        if (wasp_d_p > 0) {
+            n_wasp_d = P * wasp_d_p;
+            P -= n_wasp_d;
+        } else n_wasp_d = 0;
 
         n_alates = 0;
         double& adult_winged(X(3));

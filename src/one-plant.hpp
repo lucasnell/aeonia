@@ -52,8 +52,8 @@ struct OnePlant {
     }
 
     // iterate and set number of alates moving from this plant:
-    void iterate(uint32& n_alates, pcg32& eng) {
-        insects.iterate(n_alates, eng);
+    void iterate(uint32& n_alates, double& n_wasp_d, pcg32& eng) {
+        insects.iterate(n_alates, n_wasp_d, eng);
         if (exposed) {
             exp_days++;
             if (exp_days >= total_exp_days) {

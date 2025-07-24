@@ -63,6 +63,8 @@ void fill_pop_info(double& surv_j,
 //' @param s Single numeric indicating the natural enemy daily survival.
 //' @param fly_p Single numeric indicating the proportion of alates that fly
 //'     off plants each day.
+//' @param wasp_d_p Single numeric indicating the proportion of adult
+//'     parasitoids that are added to the dispersal pool each day.
 //' @param surv_j Single numeric indicating aphid juvenile survival.
 //'     Defaults to `NA`, which results in `pop_info$surv_j` being used.
 //'     This is from a previous study.
@@ -95,6 +97,7 @@ void fill_pop_info(double& surv_j,
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& B,
                      const double& fly_p,
+                     const double& wasp_d_p = 0,
                      double surv_j = NA_REAL,
                      double surv_a = NA_REAL,
                      double recruit = NA_REAL,
@@ -116,6 +119,7 @@ SEXP make_insect_ptr(const double& B,
     if (k < 0) stop("k < 0");
     if (s < 0 || s > 1) stop("s < 0 || s > 1");
     if (fly_p < 0 || fly_p > 1) stop("fly_p < 0 || fly_p > 1");
+    if (wasp_d_p < 0 || wasp_d_p > 1) stop("wasp_d_p < 0 || wasp_d_p > 1");
     if (surv_j <= 0 || surv_j > 1) stop("surv_j <= 0 || surv_j > 1");
     if (surv_a <= 0 || surv_a > 1) stop("surv_a <= 0 || surv_a > 1");
     if (recruit <= 0 || recruit > 1) stop("recruit <= 0 || recruit > 1");
@@ -129,7 +133,7 @@ SEXP make_insect_ptr(const double& B,
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
                                                 K, B, a, h, k, s,
-                                                alate_0, alate_1, fly_p,
+                                                alate_0, alate_1, fly_p, wasp_d_p,
                                                 A0, W0, P0), true);
 
     return insect_xptr;
@@ -187,9 +191,10 @@ DataFrame test_insect_pops(const uint32& max_t,
     if (alate_1 < 0) stop("alate_1 < 0");
 
     double fly_p = 0;
+    double wasp_d_p = 0;
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, B, a, h, k, s,
-                       alate_0, alate_1, fly_p, A0, W0, P0);
+                       alate_0, alate_1, fly_p, wasp_d_p, A0, W0, P0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;
