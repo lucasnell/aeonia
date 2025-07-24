@@ -70,12 +70,17 @@ cbind(orig = c(sum(X0[1:8]), sum(X0[9:29])),
 .K <- eval(formals(gameofclones::sim_experiments)[["K"]])
 a0 <- eval(formals(gameofclones::sim_experiments)[["alate_b0"]])
 a1 <- eval(formals(gameofclones::sim_experiments)[["alate_b1"]])
+a <- wasp_attack$a
+h <- wasp_attack$h
+k <- wasp_attack$k
+s <- populations$s_y
 
 
 # ------------------------*
 # Create dataset
 # ------------------------*
 pop_info <- list(surv_j = sj, surv_a = sa, recruit = r, fecund = f,
-                 alate_0 = a0, alate_1 = a1, K = .K)
+                 alate_0 = a0, alate_1 = a1, K = .K,
+                 a = a, h = h, k = k, s = s)
 
 usethis::use_data(pop_info, overwrite = TRUE)
