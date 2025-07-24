@@ -6,7 +6,7 @@ library(aeonia)
 
 
 line_s <- clonal_line("susceptible",
-                      density_0 = cbind(c(0,0,0,0,32), rep(0, 5)),
+                      density_0 = cbind(c(0,0,0,0,10), rep(0, 5)),
                       surv_juv_apterous = "high",
                       surv_adult_apterous = "high",
                       repro_apterous = "high",
@@ -54,13 +54,17 @@ cbind(orig = c(sum(X0[1:8]), sum(X0[9:29])),
 
 
 
+L <- rbind(c(pop_info$surv_j, pop_info$fecund),
+           c(pop_info$recruit, pop_info$surv_a))
+
 run_paras <- function(L, aphids0 = 10, paras0 = 1,
                       a = 2.32, k = 0.35, h = 0.008, p = c(1,1),
-                      K = 12500, s_y = 0.69, s_p =  0.9745, max_t = 1000,
+                      K = 12500, s_y = 0.69, s_p =  0.9745, s_m = 0.9, max_t = 1000,
                       K_p_mult = 0.6369427,
                       .plot = TRUE) {
 
     K_p <- K * K_p_mult
+    if (length(p) == 1) p <- rep(p, 2)
 
     aphids <- numeric(max_t+1)
     paras <- numeric(max_t+1)
@@ -71,15 +75,25 @@ run_paras <- function(L, aphids0 = 10, paras0 = 1,
     M <- 0  # parasitized, dead aphids
     p <- unname(cbind(p))
     for (t in 1:max_t) {
-        A <- (1 + p * a * paras[t] / (k * (h * aphids[t] + 1)))^(-k)
-        S <- 1 / (1 + aphids[t] / K);
-        S_p <- 1 / (1 + aphids[t] / K_p);
-        paras[t+1] = paras[t] * s_y + 0.5 * M
-        M <- 1/4 * P
-        P <- S_p * (s_p * P + sum((1 - A) * (L %*% X)))
-
+        A <- (1 + p * a * paras[t] / (k * (h * sum(X) + 1)))^(-k)
+        S <- 1 / (1 + aphids[t] / K)
+        # >>>>>>>>>>>>>>>>
+        # # not including P and M:
+        paras[t+1] = paras[t] * s_y + sum((1 - A) * (L %*% X))
         X <- S * A * (L %*% X)
         aphids[t+1] <- sum(X)
+        # <<<<<<<<<<<<<<<<
+        # S_p <- 1 / (1 + aphids[t] / K_p)
+        # new_adult_paras <- 0.3125 * M
+        # new_M <- 0.0928 * P
+        # new_P <- sum((1 - A) * (L %*% X))
+        # paras[t+1] = paras[t] * s_y + 0.5 * new_adult_paras
+        # M <- s_m * (M - new_adult_paras + new_M)
+        # if (M < 0) M <- 0
+        # P <- S_p * (s_p * P - new_M + new_P)
+        # if (P < 0) P <- 0
+        # X <- S * A * (L %*% X)
+        # aphids[t+1] <- sum(X) + P
     }
     d <- tibble(time = 0:max_t, aphids = aphids, parasitoid = paras) |>
         pivot_longer(-time, names_to = "species", values_to = "density")
@@ -94,20 +108,38 @@ run_paras <- function(L, aphids0 = 10, paras0 = 1,
 }
 
 
+run_paras2 <- function(aphids0 = 10, paras0 = 1,
+                       a = wasp_attack$a, k = wasp_attack$k, h = wasp_attack$h,
+                       s = 0.69,
+                       K = 12500, max_t = 1000) {
+    test_insect_pops(max_t = max_t, A0 = aphids0, W0 = 0, P0 = paras0, B = 0,
+                     a = a, h = h, k = k, s = s, alate_0 = -Inf, alate_1 = 0) |>
+        select(-alates) |>
+        rename(parasitoid = enemies) |>
+        pivot_longer(-time, names_to = "species", values_to = "density")
+}
 
-run_paras(L)
 
-run_paras(L, h = 1, p = .p / sum(.p), .plot = FALSE) |>
-    ggplot(aes(time, log10(density + 0.5), color = species)) +
+
+# .h = 3;
+# .h = wasp_attack$h * 1; .k = wasp_attack$k * 1
+.a = wasp_attack$a * 1; .h = wasp_attack$h * 625; .k = wasp_attack$k * 1
+# run_paras(L, a = .a, h = .h, k = .k, max_t = 1e3, p = 1, .plot = FALSE) |>
+run_paras2(a = .a, h = .h, k = .k, max_t = 1e3) |>
+    filter(time > 120) |>
+    mutate(time = time - min(time)) |>
+    ggplot(aes(time, log10(0.5 + density), color = species)) +
     geom_hline(yintercept = log10(0.5), color = "gray70") +
     geom_line(linewidth = 0.75) +
     scale_color_manual(values = c("dodgerblue", "firebrick")) +
     scale_x_continuous(breaks = 0:5 * 200) +
-    theme_classic()
+    theme_classic() +
+    ggtitle(sprintf("a = %.2f, k = %.2f, h = %.2g", .a, .k, .h))
 
 
+sims <- sim_experiments(line_s, 1, 1000, alate_b0 = -Inf, alate_b1 = 0,
+                        wasp_density_0 = 1, wasp_delay = 0, extinct_N = 0)
 
-sims <- sim_experiments(line_s, 1, 1000, alate_b0 = -Inf, alate_b1 = 0, wasp_density_0 = 3, wasp_delay = 0, extinct_N = 0)
 
 left_join(sims$aphids |>
               filter(!is.na(type)) |>
