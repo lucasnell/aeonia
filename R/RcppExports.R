@@ -14,6 +14,8 @@
 #' @param s Single numeric indicating the natural enemy daily survival.
 #' @param fly_p Single numeric indicating the proportion of alates that fly
 #'     off plants each day.
+#' @param wasp_d_p Single numeric indicating the proportion of adult
+#'     parasitoids that are added to the dispersal pool each day.
 #' @param surv_j Single numeric indicating aphid juvenile survival.
 #'     Defaults to `NA`, which results in `pop_info$surv_j` being used.
 #'     This is from a previous study.
@@ -43,8 +45,8 @@
 #'
 #' @export
 #'
-make_insect_ptr <- function(B, a, h, k, s, fly_p, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, B, a, h, k, s, fly_p, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1)
+make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_d_p, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -57,8 +59,8 @@ make_insect_ptr <- function(B, a, h, k, s, fly_p, surv_j = NA_real_, surv_a = NA
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, A0, W0, P0, B, a, h, k, s, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, a, h, k, s, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1)
+test_insect_pops <- function(max_t, A0, W0, P0, B, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
 }
 
 #' Logit and inverse logit functions.
@@ -166,6 +168,9 @@ inv_logit <- function(a) {
 #' @param infect_stop Single logical for whether to stop simulations
 #'     when all plants are infected with virus.
 #'     Defaults to `TRUE`.
+#' @param out_pseudo Single logical for whether to include *Pseudomonas*
+#'     presence in output. Ignored if `summ != "none"`.
+#'     Defaults to `FALSE`.
 #' @param show_progress Single logical for whether to show progress bar.
 #'     Defaults to `FALSE`.
 #' @param n_threads Single integer for the number of threads to use.
@@ -176,8 +181,8 @@ inv_logit <- function(a) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, summ = "none", infect_stop = TRUE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, summ, infect_stop, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, summ, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.
