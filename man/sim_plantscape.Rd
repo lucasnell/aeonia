@@ -21,6 +21,7 @@ sim_plantscape(
   radius = 7.336451,
   summ = "none",
   infect_stop = TRUE,
+  out_pseudo = FALSE,
   show_progress = FALSE,
   n_threads = 0L
 )
@@ -116,6 +117,10 @@ Defaults to \code{"none"}.}
 \item{infect_stop}{Single logical for whether to stop simulations
 when all plants are infected with virus.
 Defaults to \code{TRUE}.}
+
+\item{out_pseudo}{Single logical for whether to include \emph{Pseudomonas}
+presence in output. Ignored if \code{summ != "none"}.
+Defaults to \code{FALSE}.}
 
 \item{show_progress}{Single logical for whether to show progress bar.
 Defaults to \code{FALSE}.}
