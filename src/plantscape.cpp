@@ -110,6 +110,9 @@ using namespace Rcpp;
 //' @param infect_stop Single logical for whether to stop simulations
 //'     when all plants are infected with virus.
 //'     Defaults to `TRUE`.
+//' @param out_pseudo Single logical for whether to include *Pseudomonas*
+//'     presence in output. Ignored if `summ != "none"`.
+//'     Defaults to `FALSE`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
@@ -124,9 +127,9 @@ using namespace Rcpp;
 DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const uint32& max_t,
                          SEXP insect_ptr,
-                         const arma::mat& A0,
-                         const arma::mat& W0,
-                         const arma::mat& P0,
+                         const arma::cube& A0,
+                         const arma::cube& W0,
+                         const arma::cube& P0,
                          const double& alpha,
                          const double& beta,
                          const double& epsilon,
@@ -137,6 +140,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const double& radius = 7.336451,
                          const std::string& summ = "none",
                          const bool& infect_stop = true,
+                         const bool& out_pseudo = false,
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
 
@@ -154,10 +158,13 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
 
     if (A0.n_rows != n_x && A0.n_rows != 1) stop("nrow(A0) must be 1 or nrow(landscapes)");
     if (A0.n_cols != n_y && A0.n_cols != 1) stop("ncol(A0) must be 1 or ncol(landscapes)");
+    if (A0.n_slices != n_reps && A0.n_slices != 1)
+        stop("dim(A0)[3] must be 1 or dim(landscapes)[3]");
     if (A0.n_cols == 1 && A0.n_rows != 1) stop("if ncol(A0) == 1, then nrow(A0) must be 1");
     if (A0.n_cols != 1 && A0.n_rows == 1) stop("if nrow(A0) == 1, then ncol(A0) must be 1");
     if (arma::size(A0) != arma::size(W0)) stop("A0, W0, and P0 must be same size");
     if (arma::size(A0) != arma::size(P0)) stop("A0, W0, and P0 must be same size");
+    bool full_cube0 = A0.n_slices == n_reps;
 
     if (epsilon < 0) stop("epsilon < 0");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
@@ -198,12 +205,15 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     std::vector<PlantScape> plantscapes;
     plantscapes.reserve(n_reps);
 
+    uint32 i0 = 0;
     for (uint32 i = 0; i < n_reps; i++) {
         plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
                                          landscapes.slice(i), radius, alpha,
                                          beta, epsilon, w, delta_a, delta_p,
-                                         total_exp_days, insects0, A0, W0, P0,
+                                         total_exp_days, insects0,
+                                         A0.slice(i0), W0.slice(i0), P0.slice(i0),
                                          seeds[i]));
+        if (full_cube0) i0++;
     }
 
     RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
@@ -232,11 +242,13 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
 
         std::vector<uint32> plant_x;
         std::vector<uint32> plant_y;
+        std::vector<bool> pseudo;
 
         rep.reserve(n_rows);
         time.reserve(n_rows);
         plant_x.reserve(n_rows);
         plant_y.reserve(n_rows);
+        if (out_pseudo) pseudo.reserve(n_rows);
         virus.reserve(n_rows);
         aphids.reserve(n_rows);
         alates.reserve(n_rows);
@@ -250,6 +262,12 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                     time.push_back(t+1);
                     plant_x.push_back(rep_out(i,0));
                     plant_y.push_back(rep_out(i,1));
+                    if (out_pseudo) {
+                        const uint32& lxy = landscapes(static_cast<uint32>(rep_out(i,0)-1),
+                                                       static_cast<uint32>(rep_out(i,1)-1),
+                                                       r);
+                        pseudo.push_back(get_bit_bool(1U, lxy));
+                    }
                     virus.push_back(rep_out(i,2));
                     aphids.push_back(rep_out(i,3));
                     alates.push_back(rep_out(i,4));
@@ -262,6 +280,18 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                                    _["x"] = plant_x, _["y"] = plant_y,
                                    _["virus"] = virus, _["aphids"] = aphids,
                                    _["alates"] = alates, _["enemies"] = enemies);
+        if (out_pseudo) {
+            out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
+                                       _["x"] = plant_x, _["y"] = plant_y,
+                                       _["pseudo"] = pseudo,
+                                       _["virus"] = virus, _["aphids"] = aphids,
+                                       _["alates"] = alates, _["enemies"] = enemies);
+        } else {
+            out_df = DataFrame::create(_["rep"] = rep, _["time"] = time,
+                                       _["x"] = plant_x, _["y"] = plant_y,
+                                       _["virus"] = virus, _["aphids"] = aphids,
+                                       _["alates"] = alates, _["enemies"] = enemies);
+        }
 
     } else if (summ == "pseudo") {
 
