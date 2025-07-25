@@ -68,6 +68,7 @@ cbind(orig = c(sum(X0[1:8]), sum(X0[9:29])),
 # These are just the defaults from this package that were vetted to work
 # well in the experiments:
 .K <- eval(formals(gameofclones::sim_experiments)[["K"]])
+m <- eval(formals(gameofclones::sim_experiments)[["pred_rate"]])
 a0 <- eval(formals(gameofclones::sim_experiments)[["alate_b0"]])
 a1 <- eval(formals(gameofclones::sim_experiments)[["alate_b1"]])
 a <- wasp_attack$a
@@ -80,7 +81,7 @@ s <- populations$s_y
 # Create dataset
 # ------------------------*
 pop_info <- list(surv_j = sj, surv_a = sa, recruit = r, fecund = f,
-                 alate_0 = a0, alate_1 = a1, K = .K,
+                 alate_0 = a0, alate_1 = a1, K = .K, m = m,
                  a = a, h = h, k = k, s = s)
 
 usethis::use_data(pop_info, overwrite = TRUE)
