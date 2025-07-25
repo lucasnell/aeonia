@@ -7,7 +7,8 @@
 make_insect_ptr(
   B,
   fly_p,
-  wasp_d_p = 0,
+  wasp_disp_m0 = 0,
+  wasp_disp_m1 = 0,
   disaster_p = 0,
   disaster_s = 0,
   extinct_N = 0,
@@ -18,6 +19,7 @@ make_insect_ptr(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
+  m = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
@@ -33,8 +35,13 @@ population growth.}
 \item{fly_p}{Single numeric indicating the proportion of alates that fly
 off plants each day.}
 
-\item{wasp_d_p}{Single numeric indicating the proportion of adult
-parasitoids that are added to the dispersal pool each day.
+\item{wasp_disp_m0}{Proportion of adult wasps from each field that
+are added to the dispersal pool when there are no aphids present.
+Defaults to \code{0}.}
+
+\item{wasp_disp_m1}{Effect of aphid density on wasp emigration from a patch.
+Emigration is \code{wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))}, where \code{z} is
+the total number of living aphids in the patch.
 Defaults to \code{0}.}
 
 \item{disaster_p}{Single numeric indicating the probability of disaster
@@ -73,6 +80,10 @@ This is from a previous study.}
 \item{K}{Single numeric indicating the carrying capacity (not including
 natural enemies or \emph{Pseudomonas}) of the aphid population.
 Defaults to \code{NA}, which results in \code{pop_info$K} being used.
+This is from a previous study.}
+
+\item{m}{Single numeric indicating aphid mortality.
+Defaults to \code{NA}, which results in \code{pop_info$m} being used.
 This is from a previous study.}
 
 \item{alate_0}{Single numeric.

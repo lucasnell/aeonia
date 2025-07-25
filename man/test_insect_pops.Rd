@@ -20,6 +20,7 @@ test_insect_pops(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
+  m = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
@@ -91,6 +92,10 @@ This is from a previous study.}
 \item{K}{Single numeric indicating the carrying capacity (not including
 natural enemies or \emph{Pseudomonas}) of the aphid population.
 Defaults to \code{NA}, which results in \code{pop_info$K} being used.
+This is from a previous study.}
+
+\item{m}{Single numeric indicating aphid mortality.
+Defaults to \code{NA}, which results in \code{pop_info$m} being used.
 This is from a previous study.}
 
 \item{alate_0}{Single numeric.

@@ -37,6 +37,7 @@ class InsectPops {
     // constants:
     arma::mat L;    // transition matrix
     double K;       // aphid density dependence
+    double m;       // aphid mortality
     double B;       // effect of Pseudomonas bacteria on aphid growth
     double disaster_p; // probability of disaster
     double disaster_s; // disaster survival
@@ -50,7 +51,8 @@ class InsectPops {
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
     double alate_1; // intercept for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
-    double wasp_d_p;// proportion of adult parasitoids added to dispersal pool each day
+    double wasp_disp_m0;// proportion of adult parasitoids added to dispersal pool each day when no aphids present
+    double wasp_disp_m1;// effect of aphid density on parasitoid emigration
 
 
     // Non-dispersal of `iterate`, updates `A`, `W`, and `P` without
@@ -84,7 +86,7 @@ class InsectPops {
             P += arma::accu((1 - B) * S * (1 - attack_surv) * LX); // new individuals
         }
 
-        X = (1 - B) * S * attack_surv * LX;
+        X = (1 - m) * (1 - B) * S * attack_surv * LX;
 
 
         // Variance for all process error:
@@ -117,6 +119,7 @@ public:
                const double& recruit,
                const double& fecund,
                const double& K_,
+               const double& m_,
                const double& B_,
                const double& disaster_p_,
                const double& disaster_s_,
@@ -130,13 +133,15 @@ public:
                const double& alate_0_,
                const double& alate_1_,
                const double& fly_p_,
-               const double& wasp_d_p_,
+               const double& wasp_disp_m0_,
+               const double& wasp_disp_m1_,
                const double& A0,
                const double& W0,
                const double& P0)
         : distr(1, 0.5),
           L(4, 4, arma::fill::zeros),
           K(K_),
+          m(m_),
           B(B_),
           disaster_p(disaster_p_),
           disaster_s(disaster_s_),
@@ -150,7 +155,8 @@ public:
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
-          wasp_d_p(wasp_d_p_),
+          wasp_disp_m0(wasp_disp_m0_),
+          wasp_disp_m1(wasp_disp_m1_),
           X(4, arma::fill::zeros),
           P(P0) {
 
@@ -174,25 +180,34 @@ public:
     };
 
     InsectPops(const InsectPops& other)
-        : distr(other.distr), L(other.L), K(other.K), B(other.B),
+        : distr(other.distr), L(other.L), K(other.K), m(other.m), B(other.B),
           disaster_p(other.disaster_p), disaster_s(other.disaster_s),
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
           a(other.a), h(other.h), k(other.k), s(other.s),
           alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
-          wasp_d_p(other.wasp_d_p),
+          wasp_disp_m0(other.wasp_disp_m0), wasp_disp_m1(other.wasp_disp_m1),
           X(other.X), P(other.P) {};
 
 
-    // iterate and set number of alates and parasitoids moving from this population:
-    void iterate(uint32& n_alates, double& n_wasp_d, pcg32& eng) {
+    // iterate and set number of alates and add parasitoids moving from this
+    // population to the parasitoid dispersal pool:
+    void iterate(uint32& n_alates, double& wasp_disp_pool, pcg32& eng) {
 
         no_disp_iterate(eng);
 
-        if (wasp_d_p > 0) {
-            n_wasp_d = P * wasp_d_p;
-            P -= n_wasp_d;
-        } else n_wasp_d = 0;
+        if (wasp_disp_m0 > 0) {
+            double p_out;
+            if (wasp_disp_m1 != 0) {
+                double lz = std::log(arma::accu(X));
+                p_out = wasp_disp_m0 * std::exp(-wasp_disp_m1 * lz);
+                if (p_out > 1) p_out = 1; // this can happen when accu(X) < 1
+            } else {
+                p_out = wasp_disp_m0;
+            }
+            wasp_disp_pool += P * p_out;
+            P *= (1 - p_out);
+        };
 
         n_alates = 0;
         double& adult_winged(X(3));
