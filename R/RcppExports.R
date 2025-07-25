@@ -8,14 +8,25 @@
 #'
 #' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
 #'     population growth.
-#' @param a Single numeric indicating the natural enemy attack rate.
-#' @param h Single numeric indicating the natural enemy handling time.
-#' @param k Single numeric indicating the natural enemy aggregation parameter.
-#' @param s Single numeric indicating the natural enemy daily survival.
 #' @param fly_p Single numeric indicating the proportion of alates that fly
 #'     off plants each day.
 #' @param wasp_d_p Single numeric indicating the proportion of adult
 #'     parasitoids that are added to the dispersal pool each day.
+#'     Defaults to `0`.
+#' @param disaster_p Single numeric indicating the probability of disaster
+#'     each day. Defaults to `0`.
+#' @param disaster_s Single numeric indicating disaster survival.
+#'     Defaults to `0`.
+#' @param disaster_p Single numeric indicating the probability of disaster
+#'     each day. Defaults to `0`.
+#' @param extinct_N Single numeric indicating the extinction threshold.
+#'     Defaults to `0`.
+#' @param demog_error Single logical for whether to include demographic
+#'     stochasticity. Defaults to `FALSE`.
+#' @param sigma_x Single numeric indicating the standard deviation
+#'     for the lognormal distribution used to generate environmental
+#'     stochasticity.
+#'     Defaults to `0`.
 #' @param surv_j Single numeric indicating aphid juvenile survival.
 #'     Defaults to `NA`, which results in `pop_info$surv_j` being used.
 #'     This is from a previous study.
@@ -42,11 +53,15 @@
 #'     influences alate production. See `alate_0` above for the equation.
 #'     Defaults to `NA`, which results in `pop_info$alate_1` being used.
 #'     This is from a previous study.
+#' @param a Single numeric indicating the natural enemy attack rate.
+#' @param h Single numeric indicating the natural enemy handling time.
+#' @param k Single numeric indicating the natural enemy aggregation parameter.
+#' @param s Single numeric indicating the natural enemy daily survival.
 #'
 #' @export
 #'
-make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_d_p, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
+make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_d_p, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -59,8 +74,8 @@ make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, surv_j = NA_real_, surv_a = 
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, A0, W0, P0, B, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
+test_insect_pops <- function(max_t, A0, W0, P0, B, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
 }
 
 #' Logit and inverse logit functions.

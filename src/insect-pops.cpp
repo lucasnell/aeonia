@@ -9,6 +9,7 @@
 
 #include "aeonia_types.hpp"     // integer types
 #include "insect-pops.hpp"
+#include "pcg.hpp"  // pcg types
 #include "util.hpp"  // retrieve_dataset function
 
 
@@ -57,14 +58,25 @@ void fill_pop_info(double& surv_j,
 //'
 //' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
 //'     population growth.
-//' @param a Single numeric indicating the natural enemy attack rate.
-//' @param h Single numeric indicating the natural enemy handling time.
-//' @param k Single numeric indicating the natural enemy aggregation parameter.
-//' @param s Single numeric indicating the natural enemy daily survival.
 //' @param fly_p Single numeric indicating the proportion of alates that fly
 //'     off plants each day.
 //' @param wasp_d_p Single numeric indicating the proportion of adult
 //'     parasitoids that are added to the dispersal pool each day.
+//'     Defaults to `0`.
+//' @param disaster_p Single numeric indicating the probability of disaster
+//'     each day. Defaults to `0`.
+//' @param disaster_s Single numeric indicating disaster survival.
+//'     Defaults to `0`.
+//' @param disaster_p Single numeric indicating the probability of disaster
+//'     each day. Defaults to `0`.
+//' @param extinct_N Single numeric indicating the extinction threshold.
+//'     Defaults to `0`.
+//' @param demog_error Single logical for whether to include demographic
+//'     stochasticity. Defaults to `FALSE`.
+//' @param sigma_x Single numeric indicating the standard deviation
+//'     for the lognormal distribution used to generate environmental
+//'     stochasticity.
+//'     Defaults to `0`.
 //' @param surv_j Single numeric indicating aphid juvenile survival.
 //'     Defaults to `NA`, which results in `pop_info$surv_j` being used.
 //'     This is from a previous study.
@@ -91,6 +103,10 @@ void fill_pop_info(double& surv_j,
 //'     influences alate production. See `alate_0` above for the equation.
 //'     Defaults to `NA`, which results in `pop_info$alate_1` being used.
 //'     This is from a previous study.
+//' @param a Single numeric indicating the natural enemy attack rate.
+//' @param h Single numeric indicating the natural enemy handling time.
+//' @param k Single numeric indicating the natural enemy aggregation parameter.
+//' @param s Single numeric indicating the natural enemy daily survival.
 //'
 //' @export
 //'
@@ -98,6 +114,11 @@ void fill_pop_info(double& surv_j,
 SEXP make_insect_ptr(const double& B,
                      const double& fly_p,
                      const double& wasp_d_p = 0,
+                     const double& disaster_p = 0,
+                     const double& disaster_s = 0,
+                     const double& extinct_N = 0,
+                     const bool& demog_error = false,
+                     const double& sigma_x = 0,
                      double surv_j = NA_REAL,
                      double surv_a = NA_REAL,
                      double recruit = NA_REAL,
@@ -114,6 +135,10 @@ SEXP make_insect_ptr(const double& B,
                   a, h, k, s);
 
     if (B < 0 || B > 1) stop("B < 0 || B > 1");
+    if (disaster_p < 0 || disaster_p > 1) stop("disaster_p < 0 || disaster_p > 1");
+    if (disaster_s < 0 || disaster_s > 1) stop("disaster_s < 0 || disaster_s > 1");
+    if (extinct_N < 0) stop("extinct_N < 0");
+    if (sigma_x < 0) stop("sigma_x < 0");
     if (a < 0) stop("a < 0");
     if (h < 0) stop("h < 0");
     if (k < 0) stop("k < 0");
@@ -132,7 +157,10 @@ SEXP make_insect_ptr(const double& B,
     double P0 = 0;
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
-                                                K, B, a, h, k, s,
+                                                K, B,
+                                                disaster_p, disaster_s, extinct_N,
+                                                demog_error, sigma_x,
+                                                a, h, k, s,
                                                 alate_0, alate_1, fly_p, wasp_d_p,
                                                 A0, W0, P0), true);
 
@@ -159,6 +187,11 @@ DataFrame test_insect_pops(const uint32& max_t,
                            const double& W0,
                            const double& P0,
                            const double& B,
+                           const double& disaster_p = 0,
+                           const double& disaster_s = 0,
+                           const double& extinct_N = 0,
+                           const bool& demog_error = false,
+                           const double& sigma_x = 0,
                            double surv_j = NA_REAL,
                            double surv_a = NA_REAL,
                            double recruit = NA_REAL,
@@ -179,6 +212,10 @@ DataFrame test_insect_pops(const uint32& max_t,
     if (W0 < 0) stop("W0 < 0");
     if (P0 < 0) stop("P0 < 0");
     if (B < 0 || B > 1) stop("B < 0 || B > 1");
+    if (disaster_p < 0 || disaster_p > 1) stop("disaster_p < 0 || disaster_p > 1");
+    if (disaster_s < 0 || disaster_s > 1) stop("disaster_s < 0 || disaster_s > 1");
+    if (extinct_N < 0) stop("extinct_N < 0");
+    if (sigma_x < 0) stop("sigma_x < 0");
     if (a < 0) stop("a < 0");
     if (h < 0) stop("h < 0");
     if (k < 0) stop("k < 0");
@@ -193,7 +230,9 @@ DataFrame test_insect_pops(const uint32& max_t,
     double fly_p = 0;
     double wasp_d_p = 0;
 
-    InsectPops insects(surv_j, surv_a, recruit, fecund, K, B, a, h, k, s,
+    InsectPops insects(surv_j, surv_a, recruit, fecund, K, B,
+                       disaster_p, disaster_s, extinct_N, demog_error, sigma_x,
+                       a, h, k, s,
                        alate_0, alate_1, fly_p, wasp_d_p, A0, W0, P0);
 
     std::vector<uint32> time;
@@ -209,8 +248,11 @@ DataFrame test_insect_pops(const uint32& max_t,
     alates.push_back(W0);
     enemies.push_back(P0);
 
+    pcg32 eng;
+    seed_pcg(eng);
+
     for (uint32 t = 0; t < max_t; t++) {
-        insects.iterate();
+        insects.iterate(eng);
         time.push_back(t+1);
         aphids.push_back(insects.A());
         alates.push_back(insects.W());
