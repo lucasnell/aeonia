@@ -179,6 +179,17 @@ inv_logit <- function(a) {
 #' @param radius Max distance that alates will travel between plants.
 #'     Defaults to `7.336451`, which is based on previous work.
 #'     See "Radius" section below for details.
+#' @param wasp_plant_attract Relative attractiveness of plants to wasps.
+#'     This affects the proportion of wasps that immigrate from the dispersal
+#'     pool to each plant.
+#'     It doesn't change the number of wasps that leave plants.
+#'     This must be `NULL` or a matrix the same dimensions as each slice
+#'     of `landscapes`.
+#'     If `NULL`, all plants are equally attractive to wasps.
+#'     If a matrix is provided, then the values are divided by their sum
+#'     (to make it sum to 1), then those values are used as the proportion of
+#'     wasps from the dispersal pool that immigrate to each plant.
+#'     Defaults to `NULL`.
 #' @param summ Single string to indicate how to summarize output.
 #'     If `summ == "none"`, then no summarizing is done, so output is separate
 #'     by plant.
@@ -203,8 +214,8 @@ inv_logit <- function(a) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, summ, infect_stop, out_pseudo, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

@@ -19,6 +19,7 @@ sim_plantscape(
   total_exp_days = 7L,
   w = 0.2,
   radius = 7.336451,
+  wasp_plant_attract = NULL,
   summ = "none",
   infect_stop = TRUE,
   out_pseudo = FALSE,
@@ -104,6 +105,18 @@ Defaults to \code{0.2}.}
 \item{radius}{Max distance that alates will travel between plants.
 Defaults to \code{7.336451}, which is based on previous work.
 See "Radius" section below for details.}
+
+\item{wasp_plant_attract}{Relative attractiveness of plants to wasps.
+This affects the proportion of wasps that immigrate from the dispersal
+pool to each plant.
+It doesn't change the number of wasps that leave plants.
+This must be \code{NULL} or a matrix the same dimensions as each slice
+of \code{landscapes}.
+If \code{NULL}, all plants are equally attractive to wasps.
+If a matrix is provided, then the values are divided by their sum
+(to make it sum to 1), then those values are used as the proportion of
+wasps from the dispersal pool that immigrate to each plant.
+Defaults to \code{NULL}.}
 
 \item{summ}{Single string to indicate how to summarize output.
 If \code{summ == "none"}, then no summarizing is done, so output is separate

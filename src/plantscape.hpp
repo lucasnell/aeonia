@@ -33,6 +33,8 @@ class PlantScape {
 
     AlateFlightInfo flight;
     std::vector<std::vector<OnePlant>> plants;
+    // Attractiveness to parasitoids:
+    arma::mat wasp_attract;
 
     // Probability that an uninoculated alate is loaded with a virus if it
     // probes an infectious plant:
@@ -187,10 +189,9 @@ class PlantScape {
 
         // Go back through and disperse parasitoids:
         if (wasp_disp_pool > 0) {
-            wasp_disp_pool /= static_cast<double>(n_x*n_y);
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
-                    plants[x][y].insects.P += wasp_disp_pool;
+                    plants[x][y].insects.P += (wasp_disp_pool * wasp_attract(x,y));
                 }
             }
         }
@@ -235,6 +236,7 @@ public:
                const double& beta_,
                const double& epsilon_,
                const double& w_,
+               const arma::mat& wasp_attract_,
                const double& delta_a_,
                const double& delta_p_,
                const uint32& total_exp_days_,
@@ -245,6 +247,7 @@ public:
                const std::vector<uint64>& seeds)
         : flight(max_fly_t_, landscape_, radius_, alpha_, beta_, epsilon_, w_),
           plants(),
+          wasp_attract(wasp_attract_),
           delta_a(delta_a_),
           delta_p(delta_p_),
           n_alates(arma::size(landscape_), arma::fill::none),
@@ -257,6 +260,10 @@ public:
           output() {
 
         alate_plants.reserve(landscape_.n_elem);
+
+        // Make this sum to one:
+        double wa_sum = arma::accu(wasp_attract);
+        if (wa_sum != 1) wasp_attract /= wa_sum;
 
         seed_pcg(eng, seeds);
 
@@ -289,6 +296,16 @@ public:
         // fill starting conditions:
         fill_output();
 
+    }
+
+    // Adjust density dependence across plants:
+    void adjust_K(const arma::mat& Kmat) {
+        for (uint32 x = 0; x < n_x; x++) {
+            for (uint32 y = 0; y < n_y; y++) {
+                plants[x][y].insects.set_K(Kmat(x,y));
+            }
+        }
+        return;
     }
 
 

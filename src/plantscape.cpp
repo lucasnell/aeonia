@@ -99,6 +99,17 @@ using namespace Rcpp;
 //' @param radius Max distance that alates will travel between plants.
 //'     Defaults to `7.336451`, which is based on previous work.
 //'     See "Radius" section below for details.
+//' @param wasp_plant_attract Relative attractiveness of plants to wasps.
+//'     This affects the proportion of wasps that immigrate from the dispersal
+//'     pool to each plant.
+//'     It doesn't change the number of wasps that leave plants.
+//'     This must be `NULL` or a matrix the same dimensions as each slice
+//'     of `landscapes`.
+//'     If `NULL`, all plants are equally attractive to wasps.
+//'     If a matrix is provided, then the values are divided by their sum
+//'     (to make it sum to 1), then those values are used as the proportion of
+//'     wasps from the dispersal pool that immigrate to each plant.
+//'     Defaults to `NULL`.
 //' @param summ Single string to indicate how to summarize output.
 //'     If `summ == "none"`, then no summarizing is done, so output is separate
 //'     by plant.
@@ -138,6 +149,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const uint32& total_exp_days = 7,
                          const double& w = 0.2,
                          const double& radius = 7.336451,
+                         Nullable<NumericMatrix> wasp_plant_attract = R_NilValue,
                          const std::string& summ = "none",
                          const bool& infect_stop = true,
                          const bool& out_pseudo = false,
@@ -179,6 +191,22 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         stop("`summ` should be 'none', 'pseudo', or 'all'");
     }
 
+    arma::mat wasp_attract(n_x, n_y, arma::fill::none);
+    if (wasp_plant_attract.isNotNull()){
+        NumericMatrix wpa(wasp_plant_attract);
+        if (wpa.nrow() != n_x) stop("nrow(wasp_plant_attract) != nrow(landscapes)");
+        if (wpa.ncol() != n_y) stop("ncol(wasp_plant_attract) != ncol(landscapes)");
+        double wpa_sum = 0;
+        for (uint32 x = 0; x < n_x; x++) {
+            for (uint32 y = 0; y < n_y; y++) {
+                if (wpa(x,y) < 0) stop("any(wasp_plant_attract < 0)");
+                wasp_attract(x,y) = wpa(x,y);
+                wpa_sum += wpa(x,y);
+            }
+        }
+        if (wpa_sum != 1) wasp_attract /= wpa_sum;
+    } else wasp_attract.fill(1.0 / static_cast<double>(n_x * n_y));
+
     thread_check(n_threads); // Check that # threads isn't too high
 
     // Set a maximum on # plants an alate can fly to such that the probability
@@ -209,7 +237,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     for (uint32 i = 0; i < n_reps; i++) {
         plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
                                          landscapes.slice(i), radius, alpha,
-                                         beta, epsilon, w, delta_a, delta_p,
+                                         beta, epsilon, w, wasp_attract,
+                                         delta_a, delta_p,
                                          total_exp_days, insects0,
                                          A0.slice(i0), W0.slice(i0), P0.slice(i0),
                                          seeds[i]));
