@@ -170,14 +170,12 @@ class PlantScape {
           from exposed to infectious.)
          */
         bool infectious0;
-        double n_wasp_d = 0;
-        double n_wasp_d_xy;
+        double wasp_disp_pool = 0;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
                 OnePlant& plant_xy(plants[x][y]);
                 infectious0 = plant_xy.infectious;
-                plant_xy.iterate(n_alates(x,y), n_wasp_d_xy, eng);
-                n_wasp_d += n_wasp_d_xy;
+                plant_xy.iterate(n_alates(x,y), wasp_disp_pool, eng);
                 if (n_alates(x,y) > 0) alate_plants.push_back(XY(x,y));
                 // If newly infectious, update landscape and let `flight` know
                 // that samplers need to be updated:
@@ -188,11 +186,11 @@ class PlantScape {
         }
 
         // Go back through and disperse parasitoids:
-        if (n_wasp_d > 0) {
-            n_wasp_d /= static_cast<double>(n_x*n_y);
+        if (wasp_disp_pool > 0) {
+            wasp_disp_pool /= static_cast<double>(n_x*n_y);
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
-                    plants[x][y].insects.P += n_wasp_d;
+                    plants[x][y].insects.P += wasp_disp_pool;
                 }
             }
         }

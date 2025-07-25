@@ -10,8 +10,12 @@
 #'     population growth.
 #' @param fly_p Single numeric indicating the proportion of alates that fly
 #'     off plants each day.
-#' @param wasp_d_p Single numeric indicating the proportion of adult
-#'     parasitoids that are added to the dispersal pool each day.
+#' @param wasp_disp_m0 Proportion of adult wasps from each field that
+#'     are added to the dispersal pool when there are no aphids present.
+#'     Defaults to `0`.
+#' @param wasp_disp_m1 Effect of aphid density on wasp emigration from a patch.
+#'     Emigration is `wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))`, where `z` is
+#'     the total number of living aphids in the patch.
 #'     Defaults to `0`.
 #' @param disaster_p Single numeric indicating the probability of disaster
 #'     each day. Defaults to `0`.
@@ -43,6 +47,9 @@
 #'     natural enemies or *Pseudomonas*) of the aphid population.
 #'     Defaults to `NA`, which results in `pop_info$K` being used.
 #'     This is from a previous study.
+#' @param m Single numeric indicating aphid mortality.
+#'     Defaults to `NA`, which results in `pop_info$m` being used.
+#'     This is from a previous study.
 #' @param alate_0 Single numeric.
 #'     The proportion of winged offspring from apterous aphids is
 #'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
@@ -60,8 +67,8 @@
 #'
 #' @export
 #'
-make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_d_p, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
+make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -74,8 +81,8 @@ make_insect_ptr <- function(B, fly_p, wasp_d_p = 0, disaster_p = 0, disaster_s =
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, A0, W0, P0, B, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, alate_0, alate_1, a, h, k, s)
+test_insect_pops <- function(max_t, A0, W0, P0, B, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s)
 }
 
 #' Logit and inverse logit functions.

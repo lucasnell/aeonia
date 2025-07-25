@@ -24,6 +24,7 @@ void fill_pop_info(double& surv_j,
                    double& recruit,
                    double& fecund,
                    double& K,
+                   double& m,
                    double& alate_0,
                    double& alate_1,
                    double& a,
@@ -38,6 +39,7 @@ void fill_pop_info(double& surv_j,
     if (NumericVector::is_na(recruit)) recruit = pop_info["recruit"];
     if (NumericVector::is_na(fecund)) fecund = pop_info["fecund"];
     if (NumericVector::is_na(K)) K = pop_info["K"];
+    if (NumericVector::is_na(m)) m = pop_info["m"];
     if (NumericVector::is_na(alate_0)) alate_0 = pop_info["alate_0"];
     if (NumericVector::is_na(alate_1)) alate_1 = pop_info["alate_1"];
     if (NumericVector::is_na(a)) a = pop_info["a"];
@@ -60,8 +62,12 @@ void fill_pop_info(double& surv_j,
 //'     population growth.
 //' @param fly_p Single numeric indicating the proportion of alates that fly
 //'     off plants each day.
-//' @param wasp_d_p Single numeric indicating the proportion of adult
-//'     parasitoids that are added to the dispersal pool each day.
+//' @param wasp_disp_m0 Proportion of adult wasps from each field that
+//'     are added to the dispersal pool when there are no aphids present.
+//'     Defaults to `0`.
+//' @param wasp_disp_m1 Effect of aphid density on wasp emigration from a patch.
+//'     Emigration is `wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))`, where `z` is
+//'     the total number of living aphids in the patch.
 //'     Defaults to `0`.
 //' @param disaster_p Single numeric indicating the probability of disaster
 //'     each day. Defaults to `0`.
@@ -93,6 +99,9 @@ void fill_pop_info(double& surv_j,
 //'     natural enemies or *Pseudomonas*) of the aphid population.
 //'     Defaults to `NA`, which results in `pop_info$K` being used.
 //'     This is from a previous study.
+//' @param m Single numeric indicating aphid mortality.
+//'     Defaults to `NA`, which results in `pop_info$m` being used.
+//'     This is from a previous study.
 //' @param alate_0 Single numeric.
 //'     The proportion of winged offspring from apterous aphids is
 //'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
@@ -113,7 +122,8 @@ void fill_pop_info(double& surv_j,
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& B,
                      const double& fly_p,
-                     const double& wasp_d_p = 0,
+                     const double& wasp_disp_m0 = 0,
+                     const double& wasp_disp_m1 = 0,
                      const double& disaster_p = 0,
                      const double& disaster_s = 0,
                      const double& extinct_N = 0,
@@ -124,6 +134,7 @@ SEXP make_insect_ptr(const double& B,
                      double recruit = NA_REAL,
                      double fecund = NA_REAL,
                      double K = NA_REAL,
+                     double m = NA_REAL,
                      double alate_0 = NA_REAL,
                      double alate_1 = NA_REAL,
                      double a = NA_REAL,
@@ -131,7 +142,7 @@ SEXP make_insect_ptr(const double& B,
                      double k = NA_REAL,
                      double s = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1,
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1,
                   a, h, k, s);
 
     if (B < 0 || B > 1) stop("B < 0 || B > 1");
@@ -144,12 +155,13 @@ SEXP make_insect_ptr(const double& B,
     if (k < 0) stop("k < 0");
     if (s < 0 || s > 1) stop("s < 0 || s > 1");
     if (fly_p < 0 || fly_p > 1) stop("fly_p < 0 || fly_p > 1");
-    if (wasp_d_p < 0 || wasp_d_p > 1) stop("wasp_d_p < 0 || wasp_d_p > 1");
+    if (wasp_disp_m0 < 0 || wasp_disp_m0 > 1) stop("wasp_disp_m0 < 0 || wasp_disp_m0 > 1");
     if (surv_j <= 0 || surv_j > 1) stop("surv_j <= 0 || surv_j > 1");
     if (surv_a <= 0 || surv_a > 1) stop("surv_a <= 0 || surv_a > 1");
     if (recruit <= 0 || recruit > 1) stop("recruit <= 0 || recruit > 1");
     if (fecund <= 0) stop("fecund <= 0");
     if (K <= 0) stop("K <= 0");
+    if (m < 0 || m >= 1) stop("m < 0 || m >= 1");
     if (alate_1 < 0) stop("alate_1 < 0");
     // Densities will be set later:
     double A0 = 0;
@@ -157,11 +169,12 @@ SEXP make_insect_ptr(const double& B,
     double P0 = 0;
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
-                                                K, B,
+                                                K, m, B,
                                                 disaster_p, disaster_s, extinct_N,
                                                 demog_error, sigma_x,
                                                 a, h, k, s,
-                                                alate_0, alate_1, fly_p, wasp_d_p,
+                                                alate_0, alate_1, fly_p,
+                                                wasp_disp_m0, wasp_disp_m1,
                                                 A0, W0, P0), true);
 
     return insect_xptr;
@@ -197,6 +210,7 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double recruit = NA_REAL,
                            double fecund = NA_REAL,
                            double K = NA_REAL,
+                           double m = NA_REAL,
                            double alate_0 = NA_REAL,
                            double alate_1 = NA_REAL,
                            double a = NA_REAL,
@@ -204,7 +218,7 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double k = NA_REAL,
                            double s = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, alate_0, alate_1,
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1,
                   a, h, k, s);
 
     if (max_t > (uint32)1e9) stop("max_t > 1e9");
@@ -225,15 +239,18 @@ DataFrame test_insect_pops(const uint32& max_t,
     if (recruit <= 0 || recruit > 1) stop("recruit <= 0 || recruit > 1");
     if (fecund <= 0) stop("fecund <= 0");
     if (K <= 0) stop("K <= 0");
+    if (m < 0 || m >= 1) stop("m < 0 || m >= 1");
     if (alate_1 < 0) stop("alate_1 < 0");
 
     double fly_p = 0;
-    double wasp_d_p = 0;
+    double wasp_disp_m0 = 0;
+    double wasp_disp_m1 = 0;
 
-    InsectPops insects(surv_j, surv_a, recruit, fecund, K, B,
+    InsectPops insects(surv_j, surv_a, recruit, fecund, K, m, B,
                        disaster_p, disaster_s, extinct_N, demog_error, sigma_x,
                        a, h, k, s,
-                       alate_0, alate_1, fly_p, wasp_d_p, A0, W0, P0);
+                       alate_0, alate_1, fly_p, wasp_disp_m0, wasp_disp_m1,
+                       A0, W0, P0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;
