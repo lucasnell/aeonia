@@ -99,8 +99,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& A0, const arma::cube& W0, const arma::cube& P0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, const std::string& summ, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
-RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP A0SEXP, SEXP W0SEXP, SEXP P0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP summSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
+DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& A0, const arma::cube& W0, const arma::cube& P0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
+RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP A0SEXP, SEXP W0SEXP, SEXP P0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -118,12 +118,13 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const uint32& >::type total_exp_days(total_exp_daysSEXP);
     Rcpp::traits::input_parameter< const double& >::type w(wSEXP);
     Rcpp::traits::input_parameter< const double& >::type radius(radiusSEXP);
+    Rcpp::traits::input_parameter< Nullable<NumericMatrix> >::type wasp_plant_attract(wasp_plant_attractSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type summ(summSEXP);
     Rcpp::traits::input_parameter< const bool& >::type infect_stop(infect_stopSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, summ, infect_stop, out_pseudo, show_progress, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -162,7 +163,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 22},
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
-    {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 19},
+    {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 20},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 8},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},
     {NULL, NULL, 0}
