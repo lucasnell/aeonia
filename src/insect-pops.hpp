@@ -27,15 +27,22 @@ using namespace Rcpp;
 
 class InsectPops {
 
+    typedef std::normal_distribution<double> Norm;
     typedef std::binomial_distribution<uint32> Binom;
     typedef std::binomial_distribution<uint32>::param_type BinomParams;
 
+    Norm norm = Norm(0, 1);
     Binom distr;
 
     // constants:
     arma::mat L;    // transition matrix
     double K;       // aphid density dependence
     double B;       // effect of Pseudomonas bacteria on aphid growth
+    double disaster_p; // probability of disaster
+    double disaster_s; // disaster survival
+    double extinct_N;  // extinction threshold
+    bool demog_error;// whether to include demographic stochasticity
+    double sigma_x; // environmental stochasticity
     double a;       // natural enemy attack rate
     double h;       // natural enemy handling time
     double k;       // natural enemy aggregation parameter
@@ -46,9 +53,12 @@ class InsectPops {
     double wasp_d_p;// proportion of adult parasitoids added to dispersal pool each day
 
 
-    // Deterministic  portion of `iterate`, updates `A`, `W`, and `P` without
+    // Non-dispersal of `iterate`, updates `A`, `W`, and `P` without
     // producing alates:
-    void determ_iterate() {
+    void no_disp_iterate(pcg32& eng) {
+
+        // max adults there could be (used for if stochasticity is added):
+        arma::vec max_adults = {arma::accu(X.head(2)), arma::accu(X.tail(2))};
 
         // Total aphids:
         double z = arma::accu(X);
@@ -76,6 +86,24 @@ class InsectPops {
 
         X = (1 - B) * S * attack_surv * LX;
 
+
+        // Variance for all process error:
+        if (sigma_x > 0 || demog_error) {
+            double sigma2 = 0;
+            if (demog_error) sigma2 += std::min(0.5, 1 / (1 + arma::accu(X)));
+            if (sigma_x > 0) sigma2 += (sigma_x * sigma_x);
+            double sigma = std::sqrt(sigma2);
+            for (double& x : X) x *= std::exp(norm(eng) * sigma);
+            // Don't allow adults to exceed all stages from previous time point:
+            if (X(1) > max_adults(0)) X(1) = max_adults(0);
+            if (X(3) > max_adults(1)) X(3) = max_adults(1);
+        }
+
+        // Sample for disaster:
+        if (disaster_p > 0 && runif_01(eng) < disaster_p) {
+            X *= disaster_s;
+        }
+
         return;
 
     }
@@ -90,6 +118,11 @@ public:
                const double& fecund,
                const double& K_,
                const double& B_,
+               const double& disaster_p_,
+               const double& disaster_s_,
+               const double& extinct_N_,
+               const bool& demog_error_,
+               const double& sigma_x_,
                const double& a_,
                const double& h_,
                const double& k_,
@@ -105,6 +138,11 @@ public:
           L(4, 4, arma::fill::zeros),
           K(K_),
           B(B_),
+          disaster_p(disaster_p_),
+          disaster_s(disaster_s_),
+          extinct_N(extinct_N_),
+          demog_error(demog_error_),
+          sigma_x(sigma_x_),
           a(a_),
           h(h_),
           k(k_),
@@ -137,6 +175,9 @@ public:
 
     InsectPops(const InsectPops& other)
         : distr(other.distr), L(other.L), K(other.K), B(other.B),
+          disaster_p(other.disaster_p), disaster_s(other.disaster_s),
+          extinct_N(other.extinct_N),
+          demog_error(other.demog_error), sigma_x(other.sigma_x),
           a(other.a), h(other.h), k(other.k), s(other.s),
           alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
           wasp_d_p(other.wasp_d_p),
@@ -146,7 +187,7 @@ public:
     // iterate and set number of alates and parasitoids moving from this population:
     void iterate(uint32& n_alates, double& n_wasp_d, pcg32& eng) {
 
-        determ_iterate();
+        no_disp_iterate(eng);
 
         if (wasp_d_p > 0) {
             n_wasp_d = P * wasp_d_p;
@@ -164,9 +205,9 @@ public:
 
         return;
     }
-    // Overloaded for not using RNG or output object (used in `test_insect_pops`)
-    void iterate() {
-        determ_iterate();
+    // Overloaded for not using output object (used in `test_insect_pops`)
+    void iterate(pcg32& eng) {
+        no_disp_iterate(eng);
         return;
     }
 
@@ -177,6 +218,15 @@ public:
      */
     void set_B(const double& new_B) {
         B = new_B;
+        return;
+    }
+    /*
+     Set K, which is useful for using a single InsectPops to populate a vector
+     of them, then going back and changing some values of `K` if you want
+     the landscape to have variation:
+     */
+    void set_K(const double& new_K) {
+        K = new_K;
         return;
     }
 

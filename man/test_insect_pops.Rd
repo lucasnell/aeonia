@@ -10,6 +10,11 @@ test_insect_pops(
   W0,
   P0,
   B,
+  disaster_p = 0,
+  disaster_s = 0,
+  extinct_N = 0,
+  demog_error = FALSE,
+  sigma_x = 0,
   surv_j = NA_real_,
   surv_a = NA_real_,
   recruit = NA_real_,
@@ -49,6 +54,23 @@ start with the same density of predators.}
 
 \item{B}{Single numeric indicating the effect of \emph{Pseudomonas} on aphid
 population growth.}
+
+\item{disaster_p}{Single numeric indicating the probability of disaster
+each day. Defaults to \code{0}.}
+
+\item{disaster_s}{Single numeric indicating disaster survival.
+Defaults to \code{0}.}
+
+\item{extinct_N}{Single numeric indicating the extinction threshold.
+Defaults to \code{0}.}
+
+\item{demog_error}{Single logical for whether to include demographic
+stochasticity. Defaults to \code{FALSE}.}
+
+\item{sigma_x}{Single numeric indicating the standard deviation
+for the lognormal distribution used to generate environmental
+stochasticity.
+Defaults to \code{0}.}
 
 \item{surv_j}{Single numeric indicating aphid juvenile survival.
 Defaults to \code{NA}, which results in \code{pop_info$surv_j} being used.
