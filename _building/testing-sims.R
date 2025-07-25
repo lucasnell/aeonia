@@ -32,10 +32,10 @@ if (interactive() && exists("LAN_USER")) {
 
 
 # Carrying capacity with no alates or natural enemies:
-CC <- function(K, B){
+CC <- function(K, B, m){
     L  <- rbind(c(pop_info$surv_j, pop_info$fecund),
                 c(pop_info$recruit, pop_info$surv_a))
-    K * (max(abs(eigen(L)[["values"]])) * (1 - B) - 1)
+    K * (max(abs(eigen(L)[["values"]])) * (1 - B) * (1 - m) - 1)
 }
 
 
@@ -82,7 +82,7 @@ insect_sims2 <- test_insect_pops(max_t = 100,
 insect_sims |>
     # filter(species != "alates") |>
     ggplot(aes(time, N, color = species)) +
-    geom_hline(yintercept = CC(12500, 0), color = "gray80", linewidth = 1) +
+    geom_hline(yintercept = CC(12500, 0, 0.1), color = "gray80", linewidth = 1) +
     geom_line(aes(group = interaction(rep, species)), linewidth = 1, alpha = 0.25) +
     geom_line(data = insect_sims2 |> filter(species == "aphids"), linewidth = 1,
               color = "red") +
@@ -97,7 +97,7 @@ insect_sims |>
 
 
 
-make_arg_list <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
+make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                           max_t, n_x, n_y, radius, n_sims, ...) {
 
 
@@ -105,15 +105,15 @@ make_arg_list <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
     n_x <- as.integer(n_x)
     n_y <- as.integer(n_y)
     n_plants <- n_x * n_y
-    stopifnot(round(pseudo) == pseudo && pseudo >= 0 && pseudo <= (n_plants-1L))
+    stopifnot(round(n_pseudo) == n_pseudo && n_pseudo >= 0 && n_pseudo <= (n_plants-1L))
 
     land <- array(0L, c(n_x, n_y, n_sims))
     A0 <- array(0.0, c(n_x, n_y, n_sims))
     P0 <- array(0.0, c(n_x, n_y, n_sims))
     for (i in 1:n_sims) {
         land[1,1,i] <- 1L
-        if (pseudo > 0) {
-            k <- sample.int(n_plants - 1L, pseudo)
+        if (n_pseudo > 0) {
+            k <- sample.int(n_plants - 1L, n_pseudo)
             x <- k - n_x * (k %/% n_x) + 1L
             y <- k %/% n_x + 1L
             land[cbind(x,y,i)] <- 2L
@@ -135,7 +135,7 @@ make_arg_list <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
 
     }
 
-    insect_args <- list(K = K, B = B, h = 5, fly_p = 0.05, wasp_d_p = 0.1)
+    insect_args <- list(K = K, B = B, h = 5, fly_p = 0.05, wasp_disp_m0 = 0.3)
     plant_args <- list(landscapes = land,
                        max_t = max_t,
                        A0 = A0,
@@ -185,19 +185,34 @@ make_arg_list <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
 
 
 
-one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
+one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                           max_t, n_x, n_y, radius, n_sims, ...,
+                          summarize = TRUE, doomsday = FALSE, p_A0 = 1,
                           time_inf_np = NULL) {
 
     n_plants <- n_x * n_y
-    # .A0 <- rep(10, n_plants * n_sims) # runif(n_plants * n_sims, 0, 1000)
-    .A0 <- 10  # exp(runif(n_plants * n_sims, -3, 5))
+    if (p_A0 < 1 && doomsday) stop("Ambiguous: p_A0 < 1 && doomsday")
+    if (doomsday) {
+        .A0 <- c(10, rep(0, n_plants-1L))
+    } else {
+        # .A0 <- rep(10, n_plants * n_sims) # runif(n_plants * n_sims, 0, 1000)
+        .A0 <- rep(10, n_plants * n_sims)  # exp(runif(n_plants * n_sims, -3, 5))
+        if (p_A0 < 1) {
+            for (i in 1:n_sims) {
+                idx0 <- (i - 1L) * n_plants
+                idx <- sample.int(n_plants, round(p_A0 * n_plants))
+                .A0[idx0 + idx] <- 0
+            }
+        }
+    }
     .P0 <- 0
-    if (with_P) .P0 <- .A0 * exp(runif(length(.A0), -10, -1))
+    if (with_P) .P0 <- .A0 * exp(runif(n_plants * n_sims, -10, -1))
 
-    arg_list <- make_arg_list(pseudo, B, K, alpha, beta, epsilon, with_P,
+    arg_list <- make_arg_list(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                               max_t, n_x, n_y, radius, n_sims,
                               A0 = .A0, P0 = .P0, ...)
+
+    if (!summarize) arg_list[["summ"]] <- "none"
 
 
     # Time to `p` plants infected:
@@ -212,17 +227,23 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
 
     if (is.null(time_inf_np)) time_inf_np <- n_plants
 
-    out <- do.call(sim_plantscape, arg_list) |>
-        mutate(aphids = alates + aphids) |>
-        group_by(rep) |>
-        summarize(p_alates = mean(alates[aphids > 0] / aphids[aphids > 0]),
-                  aphids = mean(aphids),
-                  log_aphids = mean(log10(aphids)),
-                  alates = mean(alates),
-                  log_alates = mean(log10(alates)),
-                  infect_time = time_inf_fun(time_inf_np, time, virus),
-                  outbreak_size = max(virus)) |>
-        mutate(pseudo = pseudo, B = B, K = K, alpha = alpha,
+    out <- do.call(sim_plantscape, arg_list)
+
+
+    if (summarize) {
+        out <- out |>
+            mutate(aphids = alates + aphids) |>
+            group_by(rep) |>
+            summarize(p_alates = mean(alates[aphids > 0] / aphids[aphids > 0]),
+                      log_aphids = mean(log10(aphids)),
+                      aphids = mean(aphids),
+                      log_alates = mean(log10(alates)),
+                      alates = mean(alates),
+                      infect_time = time_inf_fun(time_inf_np, time, virus),
+                      outbreak_size = max(virus))
+    }
+    out <- out |>
+        mutate(n_pseudo = n_pseudo, B = B, K = K, alpha = alpha,
                beta = beta, epsilon = epsilon, with_P = with_P)
     return(out)
 }
@@ -238,34 +259,53 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
 #' Does Pseudomonas do ANYTHING to total alates??
 #'
 
+
+#' This somehow results in more alates with Pseudomonas:
+#' list(B = 0.1, K = 12500 * 1, alpha = 0,
+#' beta = -2, epsilon = 1, with_P = TRUE,
+#' max_t = 100, n_x = 3, n_y = 3, radius = 1.5, n_sims = 1e3,
+#' time_inf_np = np, demog_error = FALSE, disaster_p = 0)
+
+
 {
-    np <- 4L
-    args <- list(B = 0, K = 12500 * 1, alpha = 0,
-                 beta = -10, epsilon = 1, with_P = TRUE,
-                 max_t = 50, n_x = 3, n_y = 3, radius = 1, n_sims = 10e3,
-                 time_inf_np = np, demog_error = TRUE, disaster_p = 0.02)
-    d <- bind_rows(do.call(one_sim_combo, c(list(pseudo = 3L), args)),
-                   do.call(one_sim_combo, c(list(pseudo = 0L), args))) |>
-        # mutate(infect_time = ifelse(is.infinite(infect_time), 200, infect_time)) |>
-        mutate(pseudo = factor(pseudo))
+    np <- 2L
+    args <- list(max_t = 100, n_x = 3, n_y = 3, radius = 1, n_sims = 1e3,
+                 epsilon = 1,
+                 alpha = 0,
+                 beta = -2,
+                 B = 0.1,
+                 K = 12500 * 1,
+                 time_inf_np = np,
+                 with_P = TRUE,
+                 # doomsday = TRUE,
+                 # p_A0 = 0.5,
+                 wasp_disp_m0 = 0.1,
+                 wasp_disp_m1 = 0.349 * 0,
+                 demog_error = FALSE,
+                 disaster_p = 0)
+    d <- bind_rows(do.call(one_sim_combo, c(list(n_pseudo = 3L), args)),
+                   do.call(one_sim_combo, c(list(n_pseudo = 0L), args))) |>
+        mutate(infect_time = ifelse(is.infinite(infect_time), args$max_t * 1.5,
+                                    infect_time)) |>
+        mutate(n_pseudo = factor(n_pseudo))
     if (any(is.infinite(d$infect_time))) warning("Some times are infinite.")
     p1 <- d |>
-        ggplot(aes(pseudo, log10(infect_time), color = pseudo)) +
+        ggplot(aes(n_pseudo, log10(infect_time), color = n_pseudo)) +
         # geom_jitter(shape = 1, alpha = 0.1) +
         geom_violin() +
         stat_summary(fun = mean, geom = "point") +
         stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.1) +
-        scale_color_viridis_d(guide = "none") +
+        scale_color_viridis_d(end = 0.8, guide = "none") +
         ylab(sprintf("log<sub>10</sub>(Days to %i plants infected)", np)) +
         xlab("Number of *Pseudomonas* patches") +
         theme(axis.title = element_markdown())
     p2 <- d |>
-        ggplot(aes(pseudo, log_alates, color = pseudo)) +
+        ggplot(aes(n_pseudo, log10(alates), color = n_pseudo)) +
         # geom_jitter(shape = 1, alpha = 0.1) +
         geom_violin() +
         stat_summary(fun = mean, geom = "point") +
         stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.1) +
-        scale_color_viridis_d(guide = "none") +
+        scale_color_viridis_d(end = 0.8, guide = "none") +
         ylab("Mean log<sub>10</sub>(Total alates)") +
         xlab("Number of *Pseudomonas* patches") +
         theme(axis.title = element_markdown())
@@ -273,6 +313,42 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
     # rm(p1, p2, d, args, np)
 }
 
+
+# Time series for above:
+
+dts <- bind_rows(do.call(one_sim_combo, c(list(n_pseudo = 3L, summarize = FALSE,
+                                               out_pseudo = TRUE),
+                                          args |> modify_at("n_sims", \(x) 100))),
+                 do.call(one_sim_combo, c(list(n_pseudo = 0L, summarize = FALSE,
+                                               out_pseudo = TRUE),
+                                          args |> modify_at("n_sims", \(x) 100)))) |>
+    select(rep:n_pseudo) |>
+    mutate(pseudo = factor(pseudo, labels = c("noPseudo", "Pseudo")))
+
+dts |>
+    mutate(n_pseudo = factor(n_pseudo),
+           plant = interaction(x, y, pseudo),
+           id = interaction(rep, n_pseudo, plant)) |>
+    select(-x, -y, -virus) |>
+    pivot_longer(aphids:enemies, names_to = "type", values_to = "density") |>
+    ggplot(aes(time, density, color = n_pseudo)) +
+    geom_line(aes(group = id), alpha = 0.1) +
+    # stat_summary(geom = "line", fun = mean, linewidth = 1) +
+    facet_grid(type ~ n_pseudo, scales = "free_y") +
+    scale_color_viridis_d(end = 0.8, guide = "none")
+
+
+dts |>
+    filter(rep == 1, n_pseudo == 3) |>
+    mutate(plant = interaction(x, y, pseudo)) |>
+    # filter(plant == "3.1.Pseudo") |>
+    select(-x, -y, -virus) |>
+    pivot_longer(aphids:enemies, names_to = "type", values_to = "density") |>
+    ggplot(aes(time, density, color = type)) +
+    geom_line(linewidth = 1) +
+    # stat_summary(geom = "line", fun = mean, linewidth = 1) +
+    facet_wrap( ~ plant, nrow = 3) +
+    scale_color_viridis_d(end = 0.8, option = "plasma")
 
 
 
@@ -286,7 +362,7 @@ one_sim_combo <- function(pseudo, B, K, alpha, beta, epsilon, with_P,
 if (!file.exists("_building/ps_sims.rds")) {
     # Takes ~15 sec for 3x3 landscape
     set.seed(1114260777)
-    ps_sims <- crossing(pseudo = c(0L, 1L, 3L),
+    ps_sims <- crossing(n_pseudo = c(0L, 1L, 3L),
                         B = c(0.05, 0.01, 0),
                         K = 12500 * c(0.25, 0.5, 1),
                         alpha = c(0, 1, 2),
@@ -298,8 +374,8 @@ if (!file.exists("_building/ps_sims.rds")) {
         pmap(one_sim_combo, .progress = .prog_args) |>
         list_rbind() |>
         select(-epsilon, -with_P) |>
-        select(pseudo, B, K, alpha, beta, rep, everything()) |>
-        mutate(across(pseudo:rep, factor))
+        select(n_pseudo, B, K, alpha, beta, rep, everything()) |>
+        mutate(across(n_pseudo:rep, factor))
     write_rds(ps_sims, "_building/ps_sims.rds", compress = "xz")
 } else {
     ps_sims <- read_rds("_building/ps_sims.rds")
@@ -310,7 +386,7 @@ if (!file.exists("_building/ps_sims.rds")) {
 
 # Parameter names that differ in ps_sims:
 par_names <- ps_sims |>
-    select(pseudo:rep) |>
+    select(n_pseudo:rep) |>
     select(-rep) |>
     map_int(\(x, i) length(unique(x))) |>
     discard(\(x) x <= 1) |>
@@ -359,7 +435,7 @@ ps_sims_plotter <- function(yvar, .np = 4L, .K_lvl = 3L) {
                               "p_alates", "log_aphids", "aphids"))
 
     dd <- ps_sims |>
-        filter(pseudo %in% levels(pseudo)[c(1,3)],
+        filter(n_pseudo %in% levels(n_pseudo)[c(1,3)],
                K == levels(K)[.K_lvl]) |>
         pretty_facet_factors(c("alpha", "B", "K"),
                              .greek = c(TRUE, FALSE, FALSE)) |>
@@ -385,7 +461,7 @@ ps_sims_plotter <- function(yvar, .np = 4L, .K_lvl = 3L) {
     }
 
     dd |>
-        ggplot(aes(beta, .trans(.data[[yvar]]), color = pseudo)) +
+        ggplot(aes(beta, .trans(.data[[yvar]]), color = n_pseudo)) +
         # geom_hline(aes(yintercept = min(.trans(.data[[yvar]]))),
         #            linewidth = 0.75, color = "black") +
         # geom_violin(position = position_dodge(0.5), fill = NA) +
@@ -433,7 +509,7 @@ ps_sims_plotter("alates", .K_lvl = 2L) +
 
 
 ps_sims |>
-    filter(pseudo %in% levels(pseudo)[c(1,3)],
+    filter(n_pseudo %in% levels(n_pseudo)[c(1,3)],
            epsilon == levels(epsilon)[2],
            K == levels(K)[3]) |>
            # alpha == levels(alpha)[1]) |>
@@ -441,7 +517,7 @@ ps_sims |>
                          .greek = c(rep(TRUE, 2), FALSE)) |>
     unnest(infect_time) |>
     filter(np == .np) |>
-    ggplot(aes(beta, log10(infect_time), color = pseudo)) +
+    ggplot(aes(beta, log10(infect_time), color = n_pseudo)) +
     geom_hline(aes(yintercept = min(log10(.data[["infect_time"]]))),
                linewidth = 0.75, color = "black") +
     geom_violin(position = position_dodge(0.5), fill = NA) +
@@ -461,13 +537,13 @@ ps_sims |>
 
 
 ps_sims |>
-    filter(pseudo %in% levels(pseudo)[c(1,3)],
+    filter(n_pseudo %in% levels(n_pseudo)[c(1,3)],
            with_P == FALSE,
            K == levels(K)[3]) |>
            # alpha == levels(alpha)[2]) |>
     pretty_facet_factors(c("alpha", "beta", "K"),
                          .greek = c(rep(TRUE, 2), FALSE)) |>
-    ggplot(aes(B, log_alates, color = pseudo)) +
+    ggplot(aes(B, log_alates, color = n_pseudo)) +
     # geom_hline(aes(yintercept = 0), #min(.data[["alates"]])),
     #            linewidth = 0.75, color = "black") +
     geom_violin(position = position_dodge(0.5), fill = NA) +
@@ -490,16 +566,16 @@ ps_sims |>
 
 
 ps_inc_sims <- ps_sims |>
-    filter(pseudo %in% levels(pseudo)[c(1,3)]) |>
+    filter(n_pseudo %in% levels(n_pseudo)[c(1,3)]) |>
     split(as.formula(paste("~", paste(par_names[-1], collapse = "+")))) |>
     future_lapply(\(d) {
-        .a0 <- d$alates[d$pseudo == 0]
-        .pa0 <- d$p_alates[d$pseudo == 0]
-        .it20 <- sapply(d$infect_time[d$pseudo == 0], \(x) x[[2]][[1]])
-        .it30 <- sapply(d$infect_time[d$pseudo == 0], \(x) x[[2]][[2]])
-        .it40 <- sapply(d$infect_time[d$pseudo == 0], \(x) x[[2]][[3]])
+        .a0 <- d$alates[d$n_pseudo == 0]
+        .pa0 <- d$p_alates[d$n_pseudo == 0]
+        .it20 <- sapply(d$infect_time[d$n_pseudo == 0], \(x) x[[2]][[1]])
+        .it30 <- sapply(d$infect_time[d$n_pseudo == 0], \(x) x[[2]][[2]])
+        .it40 <- sapply(d$infect_time[d$n_pseudo == 0], \(x) x[[2]][[3]])
 
-        d1 <- d[d$pseudo != 0,]
+        d1 <- d[d$n_pseudo != 0,]
 
         d1[["p_more"]] <- sapply(d1$alates, \(a) mean(a > .a0))
         d1[["p_more_p"]] <- sapply(d1$p_alates, \(pa) mean(pa > .pa0))
@@ -514,7 +590,7 @@ ps_inc_sims <- ps_sims |>
         return(d1)
     }) |>
     list_rbind() |>
-    mutate(pseudo = fct_drop(pseudo))
+    mutate(n_pseudo = fct_drop(n_pseudo))
 
 pc_inc_plotter <- function(yvar) {
     if (str_starts(yvar, "p_longer")) {
@@ -567,7 +643,7 @@ pc_inc_plotter("p_longer4") +
 ps_inc_sims |>
     filter(beta %in% levels(beta)[c(1,4)],
            alpha %in% levels(alpha)[c(1,4)]) |>
-    filter(pseudo == levels(pseudo)[1],
+    filter(n_pseudo == levels(n_pseudo)[1],
            K == levels(K)[2]) |>
     # alpha == levels(alpha)[1]) |>
     # pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
@@ -575,7 +651,7 @@ ps_inc_sims |>
     pretty_facet_factors(c("alpha", "beta"), .greek = TRUE) |>
     (\(.data) {
         .title <<- sprintf("%i *Pseudomonas* patches<br>K = %s",
-                           as.integer(paste(.data[["pseudo"]][[1]])),
+                           as.integer(paste(.data[["n_pseudo"]][[1]])),
                            .data[["K"]][[1]])
         return(.data)
     })() |>
@@ -614,7 +690,7 @@ if (!file.exists("_building/big_ps_sims.rds")) {
     # Takes ~8 hrs for 134x134 landscape (and 12 instead of 100 sims)
     t0 <- Sys.time()
     set.seed(1952926471)
-    big_ps_sims <- crossing(pseudo = c(0.0, 0.2, 0.5),
+    big_ps_sims <- crossing(n_pseudo = c(0.0, 0.2, 0.5),
                             B = c(0.1, 0.05, 0.01, 0),
                             K = 12500 * (-1:1 * 0.25 + 1),
                             alpha = c(0, 0.25, 1, 2),
@@ -631,9 +707,9 @@ if (!file.exists("_building/big_ps_sims.rds")) {
                .full_inf_time = FALSE) |>
         pmap(one_sim_combo, .progress = .prog_args) |>
         list_rbind() |>
-        select(pseudo, B, K, alpha, beta, epsilon, rep, everything()) |>
-        mutate(pseudo = round(pseudo, digits = 1)) |>
-        mutate(across(pseudo:rep, factor))
+        select(n_pseudo, B, K, alpha, beta, epsilon, rep, everything()) |>
+        mutate(n_pseudo = round(n_pseudo, digits = 1)) |>
+        mutate(across(n_pseudo:rep, factor))
     # write_rds(big_ps_sims, "_building/big_ps_sims.rds", compress = "xz")
     t1 <- Sys.time()
     print(t1 - t0); # rm(t0, t1)
@@ -653,7 +729,7 @@ big_ps_sims |>
            alpha == levels(alpha)[1]) |>
     pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
                          .greek = c(rep(TRUE, 3), FALSE)) |>
-    ggplot(aes(B, (outbreak_size), color = pseudo)) +
+    ggplot(aes(B, (outbreak_size), color = n_pseudo)) +
     # geom_hline(aes(yintercept = min((.data[["outbreak_size"]]))),
     #            linewidth = 0.75, color = "black") +
     geom_violin(position = position_dodge(0.5), fill = NA) +
@@ -685,34 +761,34 @@ big_ps_sims |>
 
 
 ps_sims |>
-    mutate(rep = factor(rep), pseudo = factor(pseudo)) |>
-    group_by(pseudo, rep, time) |>
+    mutate(rep = factor(rep), n_pseudo = factor(n_pseudo)) |>
+    group_by(n_pseudo, rep, time) |>
     summarize(virus = sum(virus), .groups = "drop") |>
-    mutate(id = interaction(rep, pseudo, drop = TRUE)) |>
+    mutate(id = interaction(rep, n_pseudo, drop = TRUE)) |>
     ggplot(aes(time, virus)) +
     geom_hline(yintercept = c(0, length(land0[,,1])),
                linetype = "22", color = "gray70") +
-    geom_line(aes(group = id, color = pseudo), alpha = 0.25) +
+    geom_line(aes(group = id, color = n_pseudo), alpha = 0.25) +
     scale_color_viridis_d(option = "plasma", end = 0.8) +
     guides(color = guide_legend(override.aes = list(alpha = 1))) +
-    # facet_wrap(~ pseudo, ncol = 1) +
+    # facet_wrap(~ n_pseudo, ncol = 1) +
     theme_minimal()
 
 ps_sims |>
-    mutate(rep = factor(rep), pseudo = factor(pseudo)) |>
-    group_by(pseudo, rep, time) |>
+    mutate(rep = factor(rep), n_pseudo = factor(n_pseudo)) |>
+    group_by(n_pseudo, rep, time) |>
     summarize(virus = sum(virus), .groups = "drop") |>
-    group_by(pseudo, rep) |>
+    group_by(n_pseudo, rep) |>
     summarize(time = (\(t,v) {
         if (any(v == 9)) return(t[v == 9][1])
         return(Inf)
     })(time, virus),
               .groups = "drop") |>
-    ggplot(aes(pseudo, time)) +
-    geom_jitter(aes(color = pseudo), alpha = 0.25, width = 0.2, height = 0) +
+    ggplot(aes(n_pseudo, time)) +
+    geom_jitter(aes(color = n_pseudo), alpha = 0.25, width = 0.2, height = 0) +
     stat_summary(fun.data = "mean_cl_boot") +
     # ggplot(aes(time)) +
-    # geom_freqpoly(aes(color = pseudo), bins = 10) +
+    # geom_freqpoly(aes(color = n_pseudo), bins = 10) +
     scale_color_viridis_d(option = "plasma", end = 0.8) +
     guides(color = guide_legend(override.aes = list(alpha = 1))) +
     ylab("Time to fully infected") +
@@ -723,7 +799,7 @@ ps_sims |>
     select(-virus) |>
     pivot_longer(aphids:preds, names_to = "type", values_to = "density") |>
     mutate(type = factor(type, levels = c("aphids", "alates", "preds")),
-           id = interaction(pseudo, rep, type, x, y, drop = TRUE)) |>
+           id = interaction(n_pseudo, rep, type, x, y, drop = TRUE)) |>
     ggplot(aes(time, density, color = type)) +
     geom_line(aes(group = id), alpha = 0.1) +
     scale_color_viridis_d(begin = 0.2, end = 0.9) +
@@ -735,13 +811,13 @@ ps_sims |>
     pivot_longer(virus:preds, names_to = "type", values_to = "density") |>
     mutate(type = factor(type, levels = c("virus", "aphids", "alates", "preds")),
            plant = interaction(x, y, drop = TRUE),
-           id = interaction(pseudo, rep, type, plant, drop = TRUE)) |>
+           id = interaction(n_pseudo, rep, type, plant, drop = TRUE)) |>
     filter(type != "preds", type != "virus") |>
     ggplot(aes(time, density, color = type)) +
     geom_line(aes(group = id)) +
     scale_color_viridis_d(begin = 0.2, end = 0.9) +
     theme_minimal() +
-    facet_grid(pseudo ~ plant)
+    facet_grid(n_pseudo ~ plant)
 
 
 
