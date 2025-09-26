@@ -329,6 +329,8 @@ DataFrame test_insect_pops(const uint32& max_t,
     time.push_back(0);
     aphids.push_back(N0);
     alates.push_back(W0);
+    parasitized.push_back(0);
+    mummies.push_back(0);
     wasps.push_back(Y0);
 
     pcg32 eng;
