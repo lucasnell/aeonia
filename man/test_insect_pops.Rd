@@ -6,10 +6,10 @@
 \usage{
 test_insect_pops(
   max_t,
-  A0,
+  N0,
   W0,
-  P0,
-  B,
+  Y0,
+  B = 0,
   disaster_p = 0,
   disaster_s = 0,
   extinct_N = 0,
@@ -20,19 +20,24 @@ test_insect_pops(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
+  K_p = NA_real_,
+  s_p = NA_real_,
+  R = as.numeric(c()),
+  theta_m = NA_real_,
+  theta_p = NA_real_,
   m = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
   h = NA_real_,
   k = NA_real_,
-  s = NA_real_
+  s_y = NA_real_
 )
 }
 \arguments{
 \item{max_t}{Single integer giving the maximum time the simulations run.}
 
-\item{A0}{Numeric matrix indicating the starting aphid (non-winged) population
+\item{N0}{Numeric matrix indicating the starting aphid (non-winged) population
 density for each plant.
 To indicate separate densities for each plant, the matrix should
 have the same number of rows and columns as \code{landscapes}.
@@ -46,12 +51,12 @@ have the same number of rows and columns as \code{landscapes}.
 The matrix can also be 1x1, in which case it's assumed that all plants
 start with the same density of winged aphids.}
 
-\item{P0}{Numeric matrix indicating the starting predator population
+\item{Y0}{Numeric matrix indicating the starting parasitoid population
 density for each plant.
 To indicate separate densities for each plant, the matrix should
 have the same number of rows and columns as \code{landscapes}.
 The matrix can also be 1x1, in which case it's assumed that all plants
-start with the same density of predators.}
+start with the same density of parasitoids.}
 
 \item{B}{Single numeric indicating the effect of \emph{Pseudomonas} on aphid
 population growth.}
@@ -90,7 +95,7 @@ Defaults to \code{NA}, which results in \code{pop_info$fecund} being used.
 This is from a previous study.}
 
 \item{K}{Single numeric indicating the carrying capacity (not including
-natural enemies or \emph{Pseudomonas}) of the aphid population.
+parasitoids or \emph{Pseudomonas}) of the aphid population.
 Defaults to \code{NA}, which results in \code{pop_info$K} being used.
 This is from a previous study.}
 
@@ -110,13 +115,13 @@ influences alate production. See \code{alate_0} above for the equation.
 Defaults to \code{NA}, which results in \code{pop_info$alate_1} being used.
 This is from a previous study.}
 
-\item{a}{Single numeric indicating the natural enemy attack rate.}
+\item{a}{Single numeric indicating the parasitoid attack rate.}
 
-\item{h}{Single numeric indicating the natural enemy handling time.}
+\item{h}{Single numeric indicating the parasitoid handling time.}
 
-\item{k}{Single numeric indicating the natural enemy aggregation parameter.}
+\item{k}{Single numeric indicating the parasitoid aggregation parameter.}
 
-\item{s}{Single numeric indicating the natural enemy daily survival.}
+\item{s_y}{Single numeric indicating the adult parasitoid daily survival.}
 }
 \description{
 This function is just for one plant, so the probability that an

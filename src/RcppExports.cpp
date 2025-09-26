@@ -14,8 +14,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // make_insect_ptr
-SEXP make_insect_ptr(const double& B, const double& fly_p, const double& wasp_disp_m0, const double& wasp_disp_m1, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double m, double alate_0, double alate_1, double a, double h, double k, double s);
-RcppExport SEXP _aeonia_make_insect_ptr(SEXP BSEXP, SEXP fly_pSEXP, SEXP wasp_disp_m0SEXP, SEXP wasp_disp_m1SEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP sSEXP) {
+SEXP make_insect_ptr(const double& B, const double& fly_p, const double& wasp_disp_m0, const double& wasp_disp_m1, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p, double s_p, NumericVector R, double theta_m, double theta_p, double m, double alate_0, double alate_1, double a, double h, double k, double s_y);
+RcppExport SEXP _aeonia_make_insect_ptr(SEXP BSEXP, SEXP fly_pSEXP, SEXP wasp_disp_m0SEXP, SEXP wasp_disp_m1SEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_pSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP theta_mSEXP, SEXP theta_pSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -33,27 +33,32 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type recruit(recruitSEXP);
     Rcpp::traits::input_parameter< double >::type fecund(fecundSEXP);
     Rcpp::traits::input_parameter< double >::type K(KSEXP);
+    Rcpp::traits::input_parameter< double >::type K_p(K_pSEXP);
+    Rcpp::traits::input_parameter< double >::type s_p(s_pSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type R(RSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_m(theta_mSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_p(theta_pSEXP);
     Rcpp::traits::input_parameter< double >::type m(mSEXP);
     Rcpp::traits::input_parameter< double >::type alate_0(alate_0SEXP);
     Rcpp::traits::input_parameter< double >::type alate_1(alate_1SEXP);
     Rcpp::traits::input_parameter< double >::type a(aSEXP);
     Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
-    Rcpp::traits::input_parameter< double >::type s(sSEXP);
-    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s));
+    Rcpp::traits::input_parameter< double >::type s_y(s_ySEXP);
+    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y));
     return rcpp_result_gen;
 END_RCPP
 }
 // test_insect_pops
-DataFrame test_insect_pops(const uint32& max_t, const double& A0, const double& W0, const double& P0, const double& B, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double m, double alate_0, double alate_1, double a, double h, double k, double s);
-RcppExport SEXP _aeonia_test_insect_pops(SEXP max_tSEXP, SEXP A0SEXP, SEXP W0SEXP, SEXP P0SEXP, SEXP BSEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP sSEXP) {
+DataFrame test_insect_pops(const uint32& max_t, const double& N0, const double& W0, const double& Y0, const double& B, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p, double s_p, NumericVector R, double theta_m, double theta_p, double m, double alate_0, double alate_1, double a, double h, double k, double s_y);
+RcppExport SEXP _aeonia_test_insect_pops(SEXP max_tSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP BSEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_pSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP theta_mSEXP, SEXP theta_pSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const uint32& >::type max_t(max_tSEXP);
-    Rcpp::traits::input_parameter< const double& >::type A0(A0SEXP);
+    Rcpp::traits::input_parameter< const double& >::type N0(N0SEXP);
     Rcpp::traits::input_parameter< const double& >::type W0(W0SEXP);
-    Rcpp::traits::input_parameter< const double& >::type P0(P0SEXP);
+    Rcpp::traits::input_parameter< const double& >::type Y0(Y0SEXP);
     Rcpp::traits::input_parameter< const double& >::type B(BSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_p(disaster_pSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_s(disaster_sSEXP);
@@ -65,14 +70,19 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type recruit(recruitSEXP);
     Rcpp::traits::input_parameter< double >::type fecund(fecundSEXP);
     Rcpp::traits::input_parameter< double >::type K(KSEXP);
+    Rcpp::traits::input_parameter< double >::type K_p(K_pSEXP);
+    Rcpp::traits::input_parameter< double >::type s_p(s_pSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type R(RSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_m(theta_mSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_p(theta_pSEXP);
     Rcpp::traits::input_parameter< double >::type m(mSEXP);
     Rcpp::traits::input_parameter< double >::type alate_0(alate_0SEXP);
     Rcpp::traits::input_parameter< double >::type alate_1(alate_1SEXP);
     Rcpp::traits::input_parameter< double >::type a(aSEXP);
     Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
-    Rcpp::traits::input_parameter< double >::type s(sSEXP);
-    rcpp_result_gen = Rcpp::wrap(test_insect_pops(max_t, A0, W0, P0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s));
+    Rcpp::traits::input_parameter< double >::type s_y(s_ySEXP);
+    rcpp_result_gen = Rcpp::wrap(test_insect_pops(max_t, N0, W0, Y0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -110,17 +120,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& A0, const arma::cube& W0, const arma::cube& P0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
-RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP A0SEXP, SEXP W0SEXP, SEXP P0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
+DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& N0, const arma::cube& W0, const arma::cube& Y0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
+RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const arma::ucube& >::type landscapes(landscapesSEXP);
     Rcpp::traits::input_parameter< const uint32& >::type max_t(max_tSEXP);
     Rcpp::traits::input_parameter< SEXP >::type insect_ptr(insect_ptrSEXP);
-    Rcpp::traits::input_parameter< const arma::cube& >::type A0(A0SEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type N0(N0SEXP);
     Rcpp::traits::input_parameter< const arma::cube& >::type W0(W0SEXP);
-    Rcpp::traits::input_parameter< const arma::cube& >::type P0(P0SEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type Y0(Y0SEXP);
     Rcpp::traits::input_parameter< const double& >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const double& >::type epsilon(epsilonSEXP);
@@ -135,7 +145,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -170,8 +180,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_aeonia_make_insect_ptr", (DL_FUNC) &_aeonia_make_insect_ptr, 21},
-    {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 22},
+    {"_aeonia_make_insect_ptr", (DL_FUNC) &_aeonia_make_insect_ptr, 26},
+    {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 27},
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
     {"_aeonia_sad_leslie", (DL_FUNC) &_aeonia_sad_leslie, 1},
