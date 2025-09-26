@@ -35,6 +35,6 @@ GithubUsername: lucasnell
 Suggests:
     knitr,
     rmarkdown
-VignetteBuilder: knitr
+VignetteBuilder: quarto
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
