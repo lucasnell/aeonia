@@ -9,18 +9,30 @@
 
 A named list with the following items:
 \describe{
-\item{surv_j}{Single numeric indicating aphid juvenile survival.}
-\item{surv_a}{Single numeric indicating aphid adult survival.}
-\item{recruit}{Single numeric indicating aphid recruitment.}
-\item{fecund}{Single numeric indicating aphid fecundity.}
-\item{K}{Single numeric indicating pea aphid density dependence.}
-\item{alate_0}{Single numeric affecting alate offspring proportion when
+\item{\code{surv_j}}{Aphid juvenile survival.}
+\item{\code{surv_a}}{Aphid adult survival.}
+\item{\code{recruit}}{Aphid recruitment.}
+\item{\code{fecund}}{Aphid fecundity.}
+\item{\code{alate_0}}{Alate offspring proportion when
 aphid density is low. The proportion of winged offspring
 from apterous aphids is \code{inv_logit(alate_0 + alate_1 * z)}
 where \code{z} is the total number of aphids on that plant.}
-\item{alate_1}{Single numeric affecting how strongly aphid density affects
-alate production. See \code{alate_0} above for the equation.}
+\item{\code{alate_1}}{How strongly aphid density affects alate production.
+See \code{alate_0} above for the equation.}
+\item{K}{Unparasitized aphid density dependence.}
+\item{m}{Aphid and mummy mortality due to generalist predators.}
+\item{a}{Parasitoid attack rate.}
+\item{h}{Parasitoid handling time.}
+\item{k}{Parasitoid aggregation parameter.}
+\item{s_y}{Adult parasitoid daily survival.}
+\item{s_p}{Parasitized aphid daily survival.}
+\item{K_p}{Parasitized aphid density dependence.}
+\item{R}{Relative parasitoid attack rates by aphid stage.}
+\item{theta_m}{Proportion of mummies that transition to adult parasitoids each day.}
+\item{theta_p}{Proportion of parasitized aphids that transition to mummies each day.}
 }
+
+All are single numeric values, except for \code{R} that is a vector of length 4.
 }
 }
 \source{

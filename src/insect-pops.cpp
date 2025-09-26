@@ -130,6 +130,12 @@ void fill_pop_info(double& surv_j,
 //'
 //' This pointer is used as an argument to [sim_plantscape()].
 //'
+//' For parameters that defaults to `NA`, keeping the default results in
+//' `pop_info$Z` (where `Z` is the name of the variable) being used.
+//' These parameters are mostly from previous studies, but some were
+//' estimated for this simpler model from the full one.
+//' See `data-raw/pop_info.R` for how these were generated.
+//'
 //'
 //' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
 //'     population growth.
@@ -157,40 +163,52 @@ void fill_pop_info(double& surv_j,
 //'     stochasticity.
 //'     Defaults to `0`.
 //' @param surv_j Single numeric indicating aphid juvenile survival.
-//'     Defaults to `NA`, which results in `pop_info$surv_j` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param surv_a Single numeric indicating aphid adult survival.
-//'     Defaults to `NA`, which results in `pop_info$surv_a` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param recruit Single numeric indicating aphid recruitment.
-//'     Defaults to `NA`, which results in `pop_info$recruit` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param fecund Single numeric indicating aphid fecundity.
-//'     Defaults to `NA`, which results in `pop_info$fecund` being used.
-//'     This is from a previous study.
-//' @param K Single numeric indicating the carrying capacity (not including
-//'     parasitoids or *Pseudomonas*) of the aphid population.
-//'     Defaults to `NA`, which results in `pop_info$K` being used.
-//'     This is from a previous study.
-//' @param m Single numeric indicating aphid mortality.
-//'     Defaults to `NA`, which results in `pop_info$m` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param K Single numeric indicating the density dependence of the
+//'     aphid population.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param K_p Single numeric indicating parasitized aphid density dependence.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param s_p Single numeric indicating parasitized aphid daily survival.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param R Single numeric indicating
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param theta_m Single numeric indicating the proportion of mummies that
+//'     transition to adult parasitoids each day.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param theta_p Single numeric indicating the proportion of parasitized
+//'     aphids that transition to mummies each day.
+//'     Defaults to `NA`. See 'Details' for more info.
+//' @param m Single numeric indicating aphid and mummy mortality due
+//'     to generalist predators.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param alate_0 Single numeric.
 //'     The proportion of winged offspring from apterous aphids is
 //'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
 //'     aphids on that plant.
-//'     Defaults to `NA`, which results in `pop_info$alate_0` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param alate_1 Single numeric affecting how strongly aphid density
 //'     influences alate production. See `alate_0` above for the equation.
-//'     Defaults to `NA`, which results in `pop_info$alate_1` being used.
-//'     This is from a previous study.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param a Single numeric indicating the parasitoid attack rate.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param h Single numeric indicating the parasitoid handling time.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param k Single numeric indicating the parasitoid aggregation parameter.
+//'     Defaults to `NA`. See 'Details' for more info.
 //' @param s_y Single numeric indicating the adult parasitoid daily survival.
+//'     Defaults to `NA`. See 'Details' for more info.
 //'
 //' @export
+//'
+//' @return An `externalptr` object that points to a C++ object that can
+//' be pass to [sim_plantscape()].
 //'
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& B,
