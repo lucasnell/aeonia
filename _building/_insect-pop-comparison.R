@@ -54,12 +54,11 @@ run_goc <- function(aphids0, wasps0, max_t = 100) {
 
 
 
-
 run_aeonia <- function(aphids0, wasps0, max_t = 100) {
     test_insect_pops(max_t = max_t, N0 = aphids0, W0 = 0, Y0 = wasps0, B = 0,
                      alate_0 = -Inf, alate_1 = 0) |>
         mutate(aphids = aphids + alates) |>
-        select(-alates) |>
+        select(time, aphids, wasps) |>
         pivot_longer(-time, names_to = "species", values_to = "density")
 }
 
