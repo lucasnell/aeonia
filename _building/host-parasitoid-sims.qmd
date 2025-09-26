@@ -1,0 +1,815 @@
+---
+title: "Host-parasitoid simulations"
+author: "Lucas A. Nell"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    fig-width: 6.5
+    fig-height: 4
+    mathspec: true
+    include-in-header:
+      - text: |
+          \usepackage[labelfont={bf,small},textfont=small]{caption}
+          \usepackage{xfrac}
+          \usepackage{bm}
+          \usepackage{array}
+          \usepackage{tabularx}
+          \renewcommand\tabularxcolumn[1]{m{#1}}
+          \newcolumntype{C}[1]{>{\centering\arraybackslash$}m{#1}<{$}}
+          \newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+          \newlength{\mycolwd}
+          \settowidth{\mycolwd}{$\tau s_{v-1}$}
+knitr:
+  opts_chunk: 
+    collapse: true
+    echo: false
+    dev: cairo_pdf
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+#| include: false
+suppressPackageStartupMessages({
+    library(tidyverse)
+    library(gameofclones)
+    library(aeonia)
+    library(patchwork)
+    library(ggtext)
+})
+
+spp_pal <- c(aphids = "dodgerblue", wasps = "firebrick")
+
+# Susceptible aphid line from `gameofclones`:
+line_s <- clonal_line("susceptible",
+                      density_0 = cbind(c(0,0,0,0,10), rep(0, 5)),
+                      surv_juv_apterous = "high",
+                      surv_adult_apterous = "high",
+                      repro_apterous = "high")
+# Leslie matrix (for apterous, non-parasitized):
+L0 <- clonal_line("susceptible",
+                      density_0 = cbind(c(0,0,0,0,10), rep(0, 5)),
+                      surv_juv_apterous = "high",
+                      surv_adult_apterous = "high",
+                      repro_apterous = "high",
+                      p_instar_smooth = 0) |> 
+    getElement("leslie") |> 
+    base::`[`(,,1)
+# Stable age distribution for this Leslie matrix:
+X0 <- gameofclones:::sad_leslie(L0)
+# Create simplified transition matrix (see `data-raw/pop_info.R`):
+L <- rbind(c(pop_info$surv_j, pop_info$fecund),
+           c(pop_info$recruit, pop_info$surv_a))
+# Relative attack rates by stage:
+p <- (X0 * rep(wasp_attack$rel_attack, c(rep(2, 4), 21))) |> 
+    (\(x) c(sum(x[1:8]), sum(x[-1:-8])))() |> 
+    cbind() |> 
+    unname()
+# other variables that won't change but are used multiple times:
+a <- pop_info$a
+k <- pop_info$k
+h <- pop_info$h
+K <- pop_info$K
+s_y <- pop_info$s_y
+s_p <- 0.9745
+m <- 0.1
+K_p <- pop_info$K * eval(formals(sim_experiments)[["K_y_mult"]])
+
+
+
+run_paras_got <- function(aphids0, wasps0, max_t = 100) {
+    
+    .line_s <- line_s
+    .line_s$density_0 <- cbind(X0, 0) * aphids0
+    sim_experiments(.line_s, 1, max_t = max_t, alate_b0 = -Inf, alate_b1 = 0,
+                wasp_density_0 = wasps0, wasp_delay = 0, extinct_N = 0) |>
+    (\(sims) {
+        left_join(sims$aphids |>
+                      filter(!is.na(type)) |>
+                      group_by(time) |>
+                      summarize(aphids = sum(N)),
+                  sims$wasps |>
+                      group_by(time) |>
+                      summarize(wasps = sum(wasps)),
+                  by = join_by(time))
+    })() |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density")
+}
+
+# Make a vector okay to print in sentence:
+vec4para <- function(x, conj = "and", .fmt = "$%s$") {
+    if (is.numeric(x)) {
+        x <- sprintf(.fmt, x)
+    } else {
+        x <- paste(x)
+    }
+    if (length(x) > 1) {
+        x[length(x)] <- paste(conj, x[length(x)])
+        x <- paste(x, collapse = ", ")
+    }
+    return(I(x))
+}
+
+
+```
+
+
+\raggedright
+
+## Introduction
+
+In this document I first describe the full model, then I describe the 
+new ones, going from simplest to most complicated.
+I split the full model description into sections for the unparasitized aphids, 
+parasitized aphids, and mummies and adult wasps.
+I did this splitting so that the tables describing the parameters are right 
+next to each equation.
+I lastly show figures of their outputs compared to the full model.
+
+In the equations below, $\odot~$indicates element-wise
+multiplication (Hadamard product), 
+$^{\circ}~$indicates element-wise power (Hadamard power),
+and $^{\intercal}~$indicates matrix transposition.
+
+\clearpage 
+
+## Full model
+
+
+### Aphid population dynamics
+
+See Table \ref{tbl:aphids} for parameters, and Equation \ref{eq:full-leslie}
+for what the transition matrix, $\mathbf{L}$, looks like:
+<!-- -->
+\begin{equation}
+\label{eq:aphids}
+    \mathbf{X}(t+1) = \left[ 1 - m \right] \, S(z(t)) \, \mathbf{A}(x(t), Y(t)) \odot
+                       \left\{ \mathbf{L} \, \mathbf{X}(t) \right\}
+\end{equation}
+
+\begin{table}[!h]
+    \caption{Model parameters for aphid population dynamics, 
+    including the value(s) used in simulations. 
+    The `Used' column is $-$ for variables that change through time.}
+    \label{tbl:aphids}
+    \scriptsize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}l>{\raggedright\arraybackslash}X}
+    \toprule
+    Parameter & Used & Description \\
+    \midrule
+    % 
+    $\mathbf{X}(t)$ & $-$ & length-$2n$ vector of aphid abundances by stage \\
+    $\mathbf{L}$ & $**$ & $2n \times 2n$ Leslie matrix that defines transitions among all stages \\
+    $n$     & $29$   & number of aphid age stages \\
+    $m$     & $0.10$  & mortality from generalist predators and host-plant death \\
+    $S(z(t))$     & $-$ & unparasitized aphid density dependence ($1 / \left( 1 + z(t) / K \right)$) \\
+    $z(t)$     & $-$ & total alive aphids in a particular patch ($\sum_{i=1}^{n}{X_{i}} + \sum_{i=1}^{l}{P_{i}(t)}$) \\
+    $\mathbf{A}$ & $-$ & length-$2n$ vector of the proportion of aphids surviving parasitism \\
+    $x(t)$     & $-$ & total unparasitized aphids in a particular patch ($\sum_{i=1}^{n}{X_{i}(t)}$) \\
+    $Y(t)$     & $-$ & total adult, female parasitoids \\
+    $K$     & $12500$ & controls strength of unparasitized aphid density dependence \\
+    \bottomrule
+    \multicolumn{3}{l}{$**$ See Equation \ref{eq:full-leslie}.} \\
+    \end{tabularx}
+\end{table}
+
+
+
+
+Because we're not simulating alates here, the transition matrix 
+effectively looks like this:
+<!-- -->
+\begin{equation}
+\label{eq:full-leslie}
+\small
+\begin{split}
+\mathbf{L} &= \left(
+\begin{array}{*{9}{@{}C{\mycolwd}@{}}}
+    0       & f_1   & f_2   & \hdots    & f_{v-2}   & f_{v-1}   & \hdots    & \hdots & f_{n-1} \\
+    s_1     & 0     & 0     &           &           &           &           & & 0 \\
+    0       & s_2   & 0     &           &           &           &           & & 0 \\
+    \vdots  &       &\ddots &     &           &           &           & & \vdots \\
+    \vdots  &       &       & \ddots    &     &           &           & & \vdots \\
+    \vdots  &       &       &           & \xi s_{v-1}   & \tau s_v & & & \vdots \\
+    \vdots  &       &       &           & \tau s_{v-1} & \xi s_v &   & & \vdots \\
+    \vdots  &       &       &           &           &           & \ddots &  & \vdots \\
+    0       & 0     &\hdots & \hdots    & \hdots    & \hdots    & \hdots & s_{n-1}   & 0 \\
+\end{array}
+\right) \\
+\tau &= 1 - \xi \\
+\end{split}
+\textrm{,}
+\end{equation}
+
+\noindent where $f_i$ is age-specific fecundity,
+$s_i$ is age-specific survival,
+$\xi$ smooths the transition from juvenile to adult aphids ($\xi = 0.5$),
+and
+$v$ is the number of days aphids stay as juveniles ($v = 8$).
+Fecundities for juveniles is zero (i.e., 
+$f_i = 0$ for $(i = 1, \ldots, v )$).
+
+\clearpage
+
+
+### Parasitized aphids
+
+
+See Table \ref{tbl:parasitized} for new parameters:
+<!-- -->
+\begin{equation}
+\label{eq:parasitized}
+\begin{split}
+    \mathbf{A}(x(t), Y(t)) &=  \left[1 + \mathbf{R} \, \frac{a \, Y(t) }{
+        k \, (h \, x(t) + 1)} \right]^{\circ -k} \\
+    P_1(t+1)        &= \left[ 1 - m \right] \, S_p(z(t)) \, \left[1 - 
+                        \mathbf{A}(x(t),Y(t))\right]^{\intercal}
+                       \; \mathbf{L} \mathbf{X}(t) \\
+    P_i(t+1)        &= s_p \left[ 1 - m \right] \, S_p(z(t)) \, P_{i-1}(t) \hspace{2em}
+                       \text{for } (i = 2, \ldots, l) \\
+\end{split}
+\end{equation}
+
+
+
+### Mummies and adult wasps
+
+
+See Table \ref{tbl:parasitized} for new parameters:
+<!-- -->
+\begin{equation}
+\label{eq:wasps-mummies}
+\begin{split}
+    M_1(t+1) &= \left( 1 - m \right) \, \left[ (\psi / 2) \, P_{l}(t) \right] \\
+    M_2(t+1) &= \left( 1 - m \right) \left[ M_1(t) + (1 - \psi) \, P_{l}(t) \right] \\
+    M_3(t+1) &= \left( 1 - m \right) \left[ M_2(t) + (\psi / 2) \, P_{l}(t) \right] \\
+    M_4(t+1) &= \left( 1 - m \right) \, M_3(t) \\
+    Y(t+1)   &= s_y \, Y(t) + \frac{1}{2} \, M_4(t)
+\end{split}
+\textrm{,}
+\end{equation}
+
+
+
+\begin{table}[!ht]
+    \caption{Model parameters for parasitized aphids, mummies, and 
+    adult parasitoids, including the value(s) used in simulations.
+    The `Used' column is $-$ for variables that change through time.}
+    \label{tbl:parasitized}
+    \scriptsize
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}l>{\raggedright\arraybackslash}X}
+    \toprule
+    Parameter & Used & Description \\
+    \midrule
+    % 
+    $\mathbf{R}$ & $**$ & length-$2n$ vector giving the relative parasitoid attack rates by aphid stage \\
+    $a$     & $2.32$  & overall parasitoid attack rate \\
+    $h$     & $0.008$ & parasitoid attack-rate handling time \\
+    $k$     & $0.35$  & negative binomial distribution's aggregation parameter \\
+    $\mathbf{P}$   & $-$ & length-$l$ vector of parasitized aphid abundances by stage \\
+    $l$      & $7$    & number of days parasitoids are inside still-living aphids \\
+    $S_p(z(t))$   & $-$ & parasitized aphid density dependence ($1 / \left( 1 + z(t) / K_p \right)$) \\
+    $K_p$   & $7961.783$ & controls strength of parasitized aphid density dependence \\
+    $s_p$   & $0.9745$ & daily survival for parasitized aphids \\
+    $\mathbf{M}$   & $-$ & length-$4$ vector of mummy (parasitized, dead aphid)
+        abundances by stage \\
+    $\psi$  & $0.40$  & a number from 0 to 1 that smooths parasitoid development \\
+    $s_y$   & $0.69$  & adult parasitoid daily survival \\
+    \bottomrule
+    \multicolumn{3}{l}{$**$ The vector used was the values $\{0.12,0.27,0.39,0.16,0.06\}$
+        repeated $\{2,2,2,2,21\}$ times, respectively} \\
+    \end{tabularx}
+\end{table}
+
+
+
+
+
+
+\clearpage
+
+
+
+## Simple model
+
+
+The simple model is structurally the same as the full model for the 
+aphid population dynamics,
+but with a much simpler transition matrix that simplifies
+the stage structure of the full model into juvenile versus adults
+when at the stable age distribution:
+<!-- -->
+\begin{equation}
+\label{eq:simp-aphids-leslie}
+    \mathbf{L} = \begin{pmatrix}
+        0.951 & 3.91 \\
+        0.034 & 0.98 \\
+        \end{pmatrix}
+\end{equation}
+
+
+Parasitoid attack survival is also the same, but because there is no
+parasitized (but alive) aphids, $x(t) = z(t)$ in this version.
+The main difference from the full model is that parasitized aphids 
+immediately transition to adult parasitoids:
+<!-- -->
+\begin{equation}
+\label{eq:simp-parasitized}
+\begin{split}
+    Y(t+1) &= s_y \, Y(t) + \tilde{\rho} \, \left[ 1 - m \right] \, 
+        \left[1 - \mathbf{A}(x(t),Y(t))\right]^{\intercal}
+            \, \mathbf{L} \mathbf{X}(t) \\
+\end{split}
+\textrm{,}
+\end{equation}
+<!-- -->
+\noindent where 
+$\tilde{\rho}$ affects the proportion of parasitized aphids that transition
+to wasps.
+I fit $\tilde{\rho}$ using `optim` to match output from the full model as 
+closely as possible.
+
+
+
+```{r simple-model}
+# No parasitized aphids or mummies at all
+run_paras_nopm <- function(aphids0, wasps0, rho = 0.5, max_t = 100) {
+    aphids <- numeric(max_t+1)
+    wasps <- numeric(max_t+1)
+    aphids[1] <- aphids0
+    wasps[1] <- wasps0
+    X <- gameofclones:::sad_leslie(L) * aphids0 # unparasitized aphids
+    for (t in 1:max_t) {
+        A <- (1 + p * a * wasps[t] / (k * (h * sum(X) + 1)))^(-k)
+        S <- 1 / (1 + aphids[t] / K)
+        # not including P and M:
+        wasps[t+1] = wasps[t] * s_y + (1 - m) * rho * sum((1 - A) * (L %*% X))
+        X <- (1 - m) * S * A * (L %*% X)
+        aphids[t+1] <- sum(X)
+    }
+    d <- tibble(time = 0:max_t, aphids = aphids, wasps = wasps) |>
+        pivot_longer(-time, names_to = "species", values_to = "density")
+    return(d)
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Single stage model
+
+
+The single stage model is similar to the simple one, except for inclusion
+of a single stage of parasitized aphids ($P$) and
+a single stage of mummies ($M$).
+This is how I include it:
+<!-- -->
+\begin{equation}
+\label{eq:one-stage-parasitized}
+\begin{split}
+    P(t+1) &= \left[ 1 - m \right] \, S_p(z(t)) \, \left(s_p \, P(t) + 
+        \left[1 - \mathbf{A}(x(t),Y(t))\right]^{\intercal} \,
+            \mathbf{L} \mathbf{X}(t)
+        \right) - \tilde{\theta}_{p} P(t) \\
+    M(t+1) &= \left[ 1 - m \right] \, \left[M(t) + \tilde{\theta}_{p} \, P(t) \right] - \tilde{\theta}_{m} \, M(t) \\
+    Y(t+1) &= s_y \, Y(t) + \frac{1}{2} \, \tilde{\theta}_{m} \, M(t) \\
+\end{split}
+\textrm{,}
+\end{equation}
+<!-- -->
+\noindent where
+$\tilde{\theta}_{p}$ affects the proportion of parasitized aphids that transition
+to mummies,
+and
+$\tilde{\theta}_{m}$ affects the proportion of mummies that transition to wasps.
+I fit $\tilde{\theta}_{p}$ and $\tilde{\theta}_{m}$ 
+using `optim` to match output from the full model as closely as possible.
+
+
+
+
+```{r one-stage-model}
+# Run with parasitized aphids and mummies
+run_paras_pm1 <- function(aphids0, wasps0, max_t = 100,
+                         theta_m = 1,
+                         theta_p = 1) {
+
+    aphids <- numeric(max_t+1)
+    wasps <- numeric(max_t+1)
+    aphids[1] <- aphids0
+    wasps[1] <- wasps0
+    X <- gameofclones:::sad_leslie(L) * aphids0 # unparasitized aphids
+    P <- 0  # parasitized, alive aphids
+    M <- 0  # mummies
+    for (t in 1:max_t) {
+        A <- (1 + p * a * wasps[t] / (k * (h * sum(X) + 1)))^(-k)
+        S <- 1 / (1 + aphids[t] / K)
+        S_p <- 1 / (1 + aphids[t] / K_p)
+        new_adult_wasps <- theta_m * M
+        new_M <- theta_p * P
+        new_P <- sum((1 - A) * (L %*% X))
+        wasps[t+1] = wasps[t] * s_y + 0.5 * new_adult_wasps
+        M <- (1 - m) * (M + new_M) - new_adult_wasps
+        if (M < 0) stop("M < 0")
+        P <- (1 - m) * S_p * (s_p * P + new_P) - new_M
+        if (P < 0) stop("P < 0")
+        X <- (1 - m) * S * A * (L %*% X)
+        aphids[t+1] <- sum(X) + P
+    }
+    d <- tibble(time = 0:max_t, aphids = aphids, wasps = wasps) |>
+        pivot_longer(-time, names_to = "species", values_to = "density")
+    return(d)
+}
+```
+
+
+
+
+
+## All stages model
+
+
+The all stages model builds on the single stage model by having parasitized
+aphids ($\mathbf{P}$) and mummies ($\mathbf{M}$) be vectors of the same
+length as the number of days aphids stay parasitized (7) or mummified (3),
+respectively.
+Other than a simpler transition matrix, the main difference from the full 
+model is in the mummy transitions (Equation \ref{eq:wasps-mummies}).
+In this version, there is no mummy smoothing parameter, so mummy transitions
+look like this:
+<!-- -->
+\begin{equation}
+\label{eq:wasps-mummies-nosmooth}
+\begin{split}
+    M_1(t+1) &= \left( 1 - m \right) \, P_{7}(t) \\
+    M_2(t+1) &= \left( 1 - m \right) \, M_1(t) \\
+    M_3(t+1) &= \left( 1 - m \right) \, M_2(t) \\
+    Y(t+1)   &= s_y \, Y(t) + \frac{1}{2} \, M_3(t)
+\end{split}
+\textrm{,}
+\end{equation}
+<!-- -->
+\noindent Here, there are no parameters to fit.
+
+
+
+```{r all-stage-model}
+# Run with all stages of parasitized aphids and mummies
+run_paras_allpm <- function(aphids0, wasps0, max_t = 100) {
+    
+    aphids <- numeric(max_t+1)
+    wasps <- numeric(max_t+1)
+    aphids[1] <- aphids0
+    wasps[1] <- wasps0
+    X <- gameofclones:::sad_leslie(L) * aphids0 # unparasitized aphids
+    P <- cbind(numeric(7))  # parasitized, alive aphids
+    M <- cbind(numeric(3))  # mummies
+    for (t in 1:max_t) {
+        A <- (1 + p * a * wasps[t] / (k * (h * sum(X) + 1)))^(-k)
+        S <- 1 / (1 + aphids[t] / K)
+        S_p <- 1 / (1 + aphids[t] / K_p)
+        wasps[t+1] = wasps[t] * s_y + 0.5 * M[3]
+        for (i in 3:2) M[i] <- (1 - m) * M[i-1]
+        M[1] <- (1 - m) * P[7]
+        for (i in 7:2) P[i] <- s_p * (1 - m) * S_p * P[i-1]
+        P[1] <- (1 - m) * S_p * sum((1 - A) * (L %*% X))
+        X <- (1 - m) * S * A * (L %*% X)
+        aphids[t+1] <- sum(X) + sum(P)
+    }
+    d <- tibble(time = 0:max_t, aphids = aphids, wasps = wasps) |>
+        pivot_longer(-time, names_to = "species", values_to = "density")
+    return(d)
+}
+```
+
+
+
+
+
+## Optimizations
+
+```{r optimizations}
+.aphids0 <- 10^(0:2)
+.wasps0 <- 10^(-3:-1)
+
+combos <- crossing(a0 = .aphids0, w0 = .wasps0) |> 
+    mutate(w0 = a0 * w0)
+sims_full <- pmap(combos, \(a0, w0) {
+    run_paras_got(aphids0 = a0, wasps0 = w0) |> 
+        mutate(combo = paste(a0, w0, sep = "_"))
+}) |> 
+    list_rbind() |> 
+    mutate(combo = factor(combo),
+           sim_type = "full")
+
+sse <- function(sims1, sims2, .include_wasps = FALSE) {
+    stopifnot(nrow(sims1) == nrow(sims2))
+    if (.include_wasps) {
+        errs <- sims1[["density"]] - sims2[["density"]]
+    } else {
+        errs <- sims1[["density"]][sims1$species == "aphids"] -
+            sims2[["density"]][sims2$species == "aphids"]
+    }
+    return(sum(errs^2))
+}
+
+
+fit_nopm <- function(pars) {
+    pars <- inv_logit(pars)
+    sims <- pmap(combos, \(a0, w0) {
+        run_paras_nopm(aphids0 = a0, wasps0 = w0, 
+                     rho = pars[1])
+    }) |> 
+    list_rbind()
+    .sse <- sse(sims, sims_full)
+    return(.sse)
+}
+fit_pm1 <- function(pars) {
+    pars <- inv_logit(pars)
+    sims <- pmap(combos, \(a0, w0) {
+        run_paras_pm1(aphids0 = a0, wasps0 = w0, 
+                     theta_m = pars[1],
+                     theta_p = pars[2])
+    }) |> 
+    list_rbind()
+    .sse <- sse(sims, sims_full)
+    return(.sse)
+}
+
+set.seed(105188543)
+op_nopm <- optimize(fit_nopm, c(-100, 100))
+# inv_logit(op_nopm$minimum)
+# [1] 0.01375698
+formals(run_paras_nopm)[["rho"]] <- inv_logit(op_nopm$minimum)
+
+
+set.seed(1974834691)
+op_pm1 <- optim(logit(c(0.25, 0.1)), fit_pm1)
+# inv_logit(op_pm1$par)
+# [1] 0.06965375 0.10432778
+formals(run_paras_pm1)[["theta_m"]] <- inv_logit(op_pm1$par[1])
+formals(run_paras_pm1)[["theta_p"]] <- inv_logit(op_pm1$par[2])
+```
+
+For the simple and single stage models, I fit parameters to try to get them
+to closely match output from the full model.
+To do this, I first conducted 100-day simulations from the full model,
+with starting conditions that were all combinations of aphid
+starting densities being `r vec4para(.aphids0, "or")`
+and wasp densities being aphid densities times `r vec4para(.wasps0, "or")`.
+I did it this way because wasps should always start at a lower density than 
+aphids in reasonable scenarios, and
+simulating without wasps is not informative since all models do well.
+Then, I fit each model's parameter(s)
+($\tilde{\rho}$ for the simple model,
+$\tilde{\theta}_{p}$ and $\tilde{\theta}_{m}$ for the one-stage model)
+to minimize the sum of the squared differences in aphid densities from
+the full model.
+I focused on aphid densities because that's what we're ultimately interested
+in with the simulations involving *Pseudomonas*.
+All parameters are inverse logit transformed when used inside the
+objective function to keep them between $0$ and $1$.
+Estimates from this are shown in Table \ref{tbl:optimizations}.
+
+
+\begin{table}[!ht]
+    \caption{Parameter estimates for simple and one-stage models.}
+    \label{tbl:optimizations}
+    \centering
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{lll}
+    \toprule
+    Model & Parameter & Estimate \\
+    \midrule
+    simple    & $\tilde{\rho}$    & `r vec4para(inv_logit(op_nopm$minimum), .fmt = "$%.4f$")` \\
+    one stage & $\tilde{\theta}_m$ & `r vec4para(inv_logit(op_pm1$par[1]), .fmt = "$%.4f$")` \\
+    one stage & $\tilde{\theta}_p$ & `r vec4para(inv_logit(op_pm1$par[2]), .fmt = "$%.4f$")` \\
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+
+
+\clearpage
+
+## Resulting simulations
+
+
+```{r simulations}
+
+sims_nopm <- pmap(combos, \(a0, w0) {
+    run_paras_nopm(aphids0 = a0, wasps0 = w0) |> 
+        mutate(combo = paste(a0, w0, sep = "_"))
+}) |> 
+    list_rbind() |> 
+    mutate(combo = factor(combo),
+           sim_type = "simple")
+sims_pm1 <- pmap(combos, \(a0, w0) {
+    run_paras_pm1(aphids0 = a0, wasps0 = w0) |> 
+        mutate(combo = paste(a0, w0, sep = "_"))
+}) |> 
+    list_rbind() |> 
+    mutate(combo = factor(combo),
+           sim_type = "one stage")
+sims_allpm <- pmap(combos, \(a0, w0) {
+    run_paras_allpm(aphids0 = a0, wasps0 = w0) |> 
+        mutate(combo = paste(a0, w0, sep = "_"))
+}) |> 
+    list_rbind() |> 
+    mutate(combo = factor(combo),
+           sim_type = "all stages")
+
+
+
+
+
+sim_ts_plotter <- function(.df, .title = waiver()) {
+    
+    sim_types <- unique(.df$sim_type)
+    if (length(sim_types) > 2 || ! "full" %in% sim_types) {
+        stop("`sim_type` should have two unique values, one of which is 'full'")
+    }
+    other_type <- sim_types[sim_types != "full"]
+    
+    plot_list <- .df |>
+        mutate(combo = str_split(combo, "_") |> 
+                   map_chr(\(x) {
+                       sprintf("aphids<sub>0</sub> = %s<br>wasps<sub>0</sub> = %s",
+                               x[1], x[2])
+                   }),
+               sim_type = factor(sim_type, levels = c("full", other_type))) |>
+        split(~ combo) |> 
+        map(\(dd) {
+            .mult <- max(dd$density[dd$species == "aphids"]) / 
+                max(dd$density[dd$species == "wasps"])
+            
+            
+            dd |> 
+                mutate(density = ifelse(species == "wasps", 
+                                        density * .mult, density)) |> 
+                ggplot(aes(time, density, color = species, linetype = sim_type)) +
+                geom_hline(yintercept = 0, linewidth = 0.5, color = "gray60") +
+                geom_line(linewidth = 0.75) +
+                scale_linetype_manual("Model:", values = c("solid", "22")) +
+                scale_y_continuous("Aphid density",
+                                   sec.axis = sec_axis(\(x) x / .mult, 
+                                                       "Wasp density")) +
+                scale_color_manual(NULL, values = spp_pal, guide = "none") +
+                facet_wrap( ~ combo) +
+                theme(plot.title = element_markdown(size = 9),
+                      strip.text = element_markdown(size = 9),
+                      axis.text = element_text(size = 8),
+                      axis.text.y.left = element_text(color = spp_pal[["aphids"]]),
+                      axis.text.y.right = element_text(color = spp_pal[["wasps"]]),
+                      axis.title = element_text(size = 10),
+                      axis.title.y.left = element_text(color = spp_pal[["aphids"]]),
+                      axis.title.y.right = element_text(color = spp_pal[["wasps"]]),
+                      axis.ticks.y.left = element_line(color = spp_pal[["aphids"]]),
+                      axis.ticks.y.right = element_line(color = spp_pal[["wasps"]]))
+        })
+    
+    plot_list |> 
+        c(list(ncol = 3, guides = "collect", axis_titles = "collect")) |> 
+        do.call(what = wrap_plots) +
+        plot_annotation(title = .title) &
+        theme(legend.position = "top")
+}
+
+
+```
+
+
+When plotting just the SSE (sum of squared error) across simplified models,
+the one stage model consistently outperforms the others (@fig-sims-sse).
+When looking at the simulated time series, 
+the simple model performs pretty well when aphids and wasps start at low
+densities, but it does really poorly when $\textrm{aphids}_0 = 100$
+or $\textrm{wasps}_0 \ge 1$ (@fig-sims-plots-nopm).
+The one-stage model performs better than the simple model overall, including
+when $\textrm{aphids}_0 = 100$ (@fig-sims-plots-pm1).
+The exception is when $\textrm{aphids}_0 \ge 10$ and
+$\sfrac{\textrm{wasps}_0}{\textrm{aphids}_0} = 0.1$,
+where the one stage model performs almost no better than the simple model.
+Lastly, the all stage model performs similarly to the one stage model
+except in one situation ($\textrm{aphids}_0 = 100$ and $\textrm{wasps}_0 = 1$) 
+when it performs worse for some reason (@fig-sims-plots-allpm).
+
+
+
+```{r}
+#| label: fig-sims-sse
+#| fig-width: 5
+#| fig-height: 5
+#| fig-cap: Comparison of performance across all simplified models.
+#|     Points indicate the sum of squared error for a given model in comparison
+#|     to the full one.
+#|     Panels separate starting conditions. 
+#|     Rows separate aphid starting densities ($\textrm{aphids}_0$),
+#|     while columns separate the ratio of wasp starting densities
+#|     ($\textrm{wasps}_0$) to aphid starting densities.
+bind_rows(sims_full, sims_nopm, sims_pm1, sims_allpm) |>
+    (\(x) {
+        other_types <- unique(x$sim_type)
+        other_types <<- other_types[other_types != "full"]
+        return(x)
+    })() |> 
+    mutate(combo = str_split(combo, "_") |> 
+               map_chr(\(x) {
+                   sprintf("aphids<sub>0</sub> = %s<br>wasps<sub>0</sub> = %s",
+                           x[1], x[2])
+               })) |>
+    split(~ combo) |> 
+    map(\(dd) {
+        dd0 <- filter(dd, sim_type == "full")
+        dd |> 
+            filter(sim_type != "full") |> 
+            split(~ sim_type) |> 
+            map(\(dd1) {
+                .sse <- sse(dd0, dd1)
+                dd1[1,c("combo", "sim_type")] |> 
+                    mutate(err = .sse)
+            }) |> 
+            list_rbind()
+    }) |> 
+    list_rbind() |> 
+    mutate(sim_type = factor(sim_type, levels = rev(other_types))) |> 
+    ggplot(aes(err, sim_type, err)) +
+    geom_vline(xintercept = 0, linewidth = 0.5, color = "gray60") +
+    geom_segment(aes(xend = 0, yend = sim_type)) +
+    geom_point() +
+    scale_x_continuous(breaks = 0:3 * 10e6, labels = 0:3 * 10) +
+    labs(y = "Model type", x = "Sum of squared error (&times; 10<sup>6</sup>)") +
+    facet_wrap(~ combo, nrow = 3) +
+    theme(plot.title = element_markdown(size = 9),
+          axis.title.x = element_markdown(size = 9),
+          axis.title.y = element_markdown(size = 9),
+          axis.text = element_text(size = 8),
+          strip.text = element_markdown(size = 9))
+```
+
+
+
+
+
+```{r}
+#| label: fig-sims-plots-nopm
+#| fig-width: 6.5
+#| fig-height: 6
+#| fig-cap: Comparison of output from simple (dashed line) versus full 
+#|     (solid line) model.
+#|     Aphid densities (left y-axis) are in blue, while wasp densities
+#|     (right y-axis) are in red.
+#|     Panels separate starting conditions. 
+#|     Rows separate aphid starting densities ($\textrm{aphids}_0$),
+#|     while columns separate the ratio of wasp starting densities
+#|     ($\textrm{wasps}_0$) to aphid starting densities.
+bind_rows(sims_full, sims_nopm) |> 
+    sim_ts_plotter(.title = "Simple versus full model")
+```
+    
+```{r}
+#| label: fig-sims-plots-pm1
+#| fig-width: 6.5
+#| fig-height: 6
+#| fig-cap: Comparison of output from one stage (dashed line) versus full 
+#|     (solid line) model.
+#|     Aphid densities (left y-axis) are in blue, while wasp densities
+#|     (right y-axis) are in red.
+#|     Panels separate starting conditions. 
+#|     Rows separate aphid starting densities ($\textrm{aphids}_0$),
+#|     while columns separate the ratio of wasp starting densities
+#|     ($\textrm{wasps}_0$) to aphid starting densities.
+bind_rows(sims_full, sims_pm1) |> 
+    sim_ts_plotter(.title = "One stage versus full model")
+```
+
+
+```{r}
+#| label: fig-sims-plots-allpm
+#| fig-width: 6.5
+#| fig-height: 6
+#| fig-cap: Comparison of output from all stage (dashed line) versus full 
+#|     (solid line) model.
+#|     Aphid densities (left y-axis) are in blue, while wasp densities
+#|     (right y-axis) are in red.
+#|     Panels separate starting conditions. 
+#|     Rows separate aphid starting densities ($\textrm{aphids}_0$),
+#|     while columns separate the ratio of wasp starting densities
+#|     ($\textrm{wasps}_0$) to aphid starting densities.
+bind_rows(sims_full, sims_allpm) |> 
+    sim_ts_plotter(.title = "All stage versus full model")
+```
+
+

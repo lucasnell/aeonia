@@ -1,0 +1,170 @@
+---
+title: "Host-parasitoid model description"
+author: "Lucas A. Nell"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    fig-width: 6.5
+    fig-height: 4
+    mathspec: true
+    include-in-header:
+      - text: |
+          \usepackage[labelfont={bf}]{caption}
+          \usepackage{xfrac}
+          \usepackage{bm}
+          \usepackage{array}
+          \usepackage{tabularx}
+          \renewcommand\tabularxcolumn[1]{m{#1}}
+          \newcolumntype{C}[1]{>{\centering\arraybackslash$}m{#1}<{$}}
+          \newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+          \newlength{\mycolwd}
+          \settowidth{\mycolwd}{$f_N(z(t))$}
+knitr:
+  opts_chunk: 
+    collapse: true
+    echo: false
+    dev: cairo_pdf
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+#| include: false
+suppressPackageStartupMessages({
+    library(tidyverse)
+    library(gameofclones)
+    library(aeonia)
+})
+# Make a number print in LaTeX friendly format:
+dbl4ltx <- function(x, .fmt = "$%.4f$") {
+    x <- sprintf(.fmt, x)
+    return(I(x))
+}
+```
+
+## Aphid population dynamics
+
+See Table \ref{tbl:aphids} for parameters:
+<!-- -->
+\begin{equation}
+\label{eq:aphids}
+\begin{split}
+    \mathbf{X}(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S(z(t)) \, 
+        \mathbf{A}(x(t), Y(t)) \odot \left\{ \mathbf{L} \, \mathbf{X}(t) \right\} \\
+    S(z(t)) &= \left( 1 + \frac{z(t)}{K} \right)^{-1} \\
+    \mathbf{L} &= \left(\begin{array}{*{4}{@{}C{\mycolwd}@{}}}
+        s_j     & f_N(z(t)) & 0     & f   \\
+        r       & s_a       & 0     & 0   \\
+        0       & f_W(z(t)) & s_j   & 0   \\
+        0       & 0         & r     & s_a \\
+        \end{array} \right) \\
+    f_N(z(t)) &= f \, \left[1 - p_W(z(t))\right]\\
+    f_W(z(t)) &= f \, p_W(z(t)) \\
+    p_W(z(t)) &= \textrm{logit}^{-1}(\alpha_0 + \alpha_z \, z(t)) \\
+\end{split}
+\end{equation}
+
+\begin{table}[!h]
+    \caption{Model parameters for aphid population dynamics, 
+    including the value(s) used in simulations. 
+    The `Used' column is $-$ for variables that change through time.}
+    \label{tbl:aphids}
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}l>{\raggedright\arraybackslash}X}
+    \toprule
+    Parameter & Used & Description \\
+    \midrule
+    $n$     & $2$   & number of aphid age stages \\
+    $\mathbf{X}(t)$ & $-$ & length-$2n$ vector of aphid abundances by stage \\
+    $m$     & $0.10$  & mortality from generalist predators and host-plant death \\
+    $B$     & varies  & mortality from \textit{Pseudomonas} bacteria (0 if not present on plant) \\
+    $S(z(t))$     & $-$ & unparasitized aphid density dependence \\
+    $z(t)$     & $-$ & total alive aphids in a particular patch ($\sum_{i=1}^{2n}{X_{i}} + P(t)$, where $P$ is parasitized aphids) \\
+    $\mathbf{A}$ & $-$ & length-$2n$ vector of the proportion of aphids surviving parasitism \\
+    $x(t)$     & $-$ & total unparasitized aphids in a particular patch ($\sum_{i=1}^{2n}{X_{i}(t)}$) \\
+    $Y(t)$     & $-$ & total adult, female parasitoids \\
+    $\mathbf{L}$ & $**$ & $2n \times 2n$ transition matrix that defines transitions among all stages \\
+    $K$     & $12500$ & controls strength of unparasitized aphid density dependence \\
+    $s_j$         & `r dbl4ltx(pop_info$surv_j)` & aphid juvenile survival \\
+    $s_a$         & `r dbl4ltx(pop_info$surv_a)` & aphid adult survival \\
+    $r$           & `r dbl4ltx(pop_info$recruit)` & aphid recruitment \\
+    $f$           & `r dbl4ltx(pop_info$fecund)` & aphid fecundity \\
+    $f_N(z(t))$   & $-$ & non-winged aphid fecundity for non-winged offspring \\
+    $f_W(z(t))$   & $-$ & non-winged aphid fecundity for winged offspring \\
+    $p_W(z(t))$   & $-$ & proportion of winged offspring from non-winged mothers \\
+    $\alpha_0$  & $-5$ & affects the proportion of winged offspring at low aphid densities \\
+    $\alpha_z$  & $0.0022$ & effect of aphid density on winged-aphid production \\
+    \bottomrule
+    \end{tabularx}
+\end{table}
+
+
+
+
+## Parasitized aphids, mummies, adult parasitoids
+
+
+See Table \ref{tbl:parasitized} for new parameters:
+<!-- -->
+\begin{equation}
+\label{eq:parasitized}
+\begin{split}
+    \mathbf{A}(x(t), Y(t)) &=  \left[1 + \mathbf{R} \, \frac{a \, Y(t) }{
+        k \, (h \, x(t) + 1)} \right]^{\circ -k} \\
+    P(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S_p(z(t)) \, \left(s_p \, P(t) + 
+        \left[1 - \mathbf{A}(x(t),Y(t))\right]^{\intercal} \,
+            \mathbf{L} \mathbf{X}(t)
+        \right) - \tilde{\theta}_{p} P(t) \\
+    S_p(z(t)) &= \left( 1 + \frac{z(t)}{K_p} \right)^{-1} \\
+    M(t+1) &= ( 1 - m ) \, \left[M(t) + \tilde{\theta}_{p} \, P(t) \right] - \tilde{\theta}_{m} \, M(t) \\
+    Y(t+1) &= s_y \, Y(t) + \frac{1}{2} \, \tilde{\theta}_{m} \, M(t) \\
+\end{split}
+\end{equation}
+
+In this case, the following must be true to avoid negative numbers:
+<!-- -->
+\begin{equation}
+\begin{split}
+    \tilde{\theta}_{m} &< 1 - m \\
+    \tilde{\theta}_{p} &< (1 - m) \, (1 - B) \, S_p(z(t)) \, s_p \\
+\end{split}
+\textrm{,}
+\end{equation}
+<!-- -->
+\noindent where the minimum value of $S_p(z(t))$ is $\sim 0.65$ 
+even when non-parasitized aphids are at their carrying capacity
+($K \, (\lambda - 1)$, where $\lambda$ is the leading 
+eigenvalue of $\mathbf{L}$),
+which is higher than for parasitized aphids.
+
+
+
+\begin{table}[!ht]
+    \caption{Model parameters for parasitized aphids, mummies, and 
+    adult parasitoids, including the value(s) used in simulations.
+    The `Used' column is $-$ for variables that change through time.}
+    \label{tbl:parasitized}
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}l>{\raggedright\arraybackslash}X}
+    \toprule
+    Parameter & Used & Description \\
+    \midrule
+    % 
+    $\mathbf{R}$ & $**$ & length-$2n$ vector giving the relative parasitoid attack rates by aphid stage \\
+    $a$     & $2.32$  & overall parasitoid attack rate \\
+    $h$     & $0.008$ & parasitoid attack-rate handling time \\
+    $k$     & $0.35$  & negative binomial distribution's aggregation parameter \\
+    $P$     & $-$ & parasitized aphid abundance \\
+    $S_p(z(t))$   & $-$ & parasitized aphid density dependence \\
+    $K_p$   & $7961.783$ & controls strength of parasitized aphid density dependence \\
+    $s_p$   & $0.9745$ & daily survival for parasitized aphids \\
+    $\tilde{\theta}_{p}$ & $0.1043$ & proportion of parasitized aphids that transition to mummies each day \\
+    $M$   & $-$ & mummy (parasitized, dead aphid) abundance \\
+    $\tilde{\theta}_{m}$ & $0.0697$ & proportion of mummies that transition to adult parasitoids each day \\
+    $s_y$   & $0.69$  & adult parasitoid daily survival \\
+    \bottomrule
+    \multicolumn{3}{l}{$**$ The vector used was $\{0.1861, 0.0053, 0.1861, 0\}$} \\
+    \end{tabularx}
+\end{table}
+
