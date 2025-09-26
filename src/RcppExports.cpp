@@ -98,6 +98,17 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sad_leslie
+NumericVector sad_leslie(arma::mat L);
+RcppExport SEXP _aeonia_sad_leslie(SEXP LSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type L(LSEXP);
+    rcpp_result_gen = Rcpp::wrap(sad_leslie(L));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sim_plantscape
 DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& A0, const arma::cube& W0, const arma::cube& P0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP A0SEXP, SEXP W0SEXP, SEXP P0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
@@ -163,6 +174,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 22},
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
+    {"_aeonia_sad_leslie", (DL_FUNC) &_aeonia_sad_leslie, 1},
     {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 20},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 8},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},

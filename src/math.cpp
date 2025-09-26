@@ -41,3 +41,30 @@ NumericVector inv_logit(NumericVector a){
     return out;
 }
 
+
+
+
+/*
+ =====================================================================================
+ =====================================================================================
+ Stable age distribution
+ =====================================================================================
+ =====================================================================================
+ */
+
+//' Compute stable age distribution from transition matrix.
+//'
+//' The stable age distribution is the proportion of different stages that
+//' is required for the population to grow exponentially.
+//'
+//' @param L Numeric transition matrix. Must be square.
+//'
+//' @export
+//'
+//[[Rcpp::export]]
+NumericVector sad_leslie(arma::mat L) {
+    if (!L.is_square()) stop("L must be square");
+    arma::vec out;
+    sad_leslie__(L, out);
+    return wrap(out);
+}
