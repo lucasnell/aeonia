@@ -106,9 +106,17 @@ class InsectPops {
 
         X = (s_m * s_B * S * A) % LX;
 
+        bool extinct_X = (arma::accu(X) + P) < extinct_N;
+        if (extinct_X) {
+            X.zeros();
+            P = 0;
+        }
+        if (M < extinct_N) M = 0;
+        if (Y < extinct_N) Y = 0;
+
 
         // Variance for all process error:
-        if (sigma_x > 0 || demog_error) {
+        if (!extinct_X && (sigma_x > 0 || demog_error)) {
             double sigma2 = 0;
             if (demog_error) sigma2 += std::min(0.5, 1 / (1 + arma::accu(X)));
             if (sigma_x > 0) sigma2 += (sigma_x * sigma_x);
@@ -120,7 +128,7 @@ class InsectPops {
         }
 
         // Sample for disaster:
-        if (disaster_p > 0 && runif_01(eng) < disaster_p) {
+        if (!extinct_X && (disaster_p > 0 && runif_01(eng) < disaster_p)) {
             X *= disaster_s;
         }
 
