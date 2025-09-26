@@ -3,6 +3,7 @@
 export(inv_logit)
 export(logit)
 export(make_insect_ptr)
+export(sad_leslie)
 export(sim_plant_types)
 export(sim_plantscape)
 export(test_insect_pops)

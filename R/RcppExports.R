@@ -102,6 +102,19 @@ inv_logit <- function(a) {
     .Call(`_aeonia_inv_logit`, a)
 }
 
+#' Compute stable age distribution from transition matrix.
+#'
+#' The stable age distribution is the proportion of different stages that
+#' is required for the population to grow exponentially.
+#'
+#' @param L Numeric transition matrix. Must be square.
+#'
+#' @export
+#'
+sad_leslie <- function(L) {
+    .Call(`_aeonia_sad_leslie`, L)
+}
+
 #' Simulation plant landscapes with virus spread.
 #'
 #' @details # Radius

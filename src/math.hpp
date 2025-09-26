@@ -58,7 +58,7 @@ inline double inv_logit__(const double& a) {
  =====================================================================================
  */
 
-// This computes the "stable age distribution" from the Leslie matrix, which is
+// This computes the "stable age distribution" from the transition matrix, which is
 // the proportion of different classes that is required for the population to grow
 // exponentially
 inline void sad_leslie__(const arma::mat& L, arma::vec& out) {
