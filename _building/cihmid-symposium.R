@@ -1,3 +1,5 @@
+
+
 library(tidyverse)
 library(aeonia)
 library(future.apply)
@@ -19,6 +21,19 @@ handlers("progress")
                                   "[{cli::pb_elapsed}] |",
                                   "ETA: {cli::pb_eta}"))
 
+# Transparent theme:
+.trans_theme <- theme(panel.background = element_rect(fill="transparent"),
+                      plot.background = element_rect(fill="transparent", color=NA),
+                      panel.grid.major = element_blank(),
+                      panel.grid.minor = element_blank(),
+                      legend.background = element_rect(fill="transparent"),
+                      legend.box.background = element_rect(fill="transparent"))
+
+.no_axes <- theme(axis.title = element_blank(),
+                  axis.text = element_blank(),
+                  legend.position = "none",
+                  strip.text = element_blank(),
+                  plot.title = element_blank())
 
 #' This only gets run if my local .Rprofile has been run and if it's an
 #' interactive session:
@@ -39,10 +54,12 @@ CC <- function(K, B, m){
 }
 
 
-spp_pal <- viridisLite::plasma(101)[c(10, 50, 90)] |>
+spp_pal <- viridisLite::plasma(101)[c(10, 50, 80)] |>
     set_names(c("aphids", "alates", "enemies"))
+pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 
+# >> Insect pops ----
 p <- test_insect_pops(max_t = 100,
                  B = 0,
                  demog_error = FALSE,
@@ -60,75 +77,11 @@ p <- test_insect_pops(max_t = 100,
     scale_color_manual(values = spp_pal, guide = "none") +
     ylab("Abundance") +
     coord_cartesian(ylim = c(0, 1600)) +
-    theme(axis.title = element_blank(),
-          axis.text = element_blank(),
-          panel.background = element_rect(fill="transparent"), #transparent panel bg
-        plot.background = element_rect(fill="transparent", color=NA), #transparent plot bg
-        panel.grid.major = element_blank(), #remove major gridlines
-        panel.grid.minor = element_blank(), #remove minor gridlines
-        legend.background = element_rect(fill="transparent"), #transparent legend bg
-        legend.box.background = element_rect(fill="transparent") #transparent legend panel
-    )
+    .no_axes +
+    .trans_theme
 
 ggsave("~/Desktop/p.svg", p, width = 3, height = 2, bg = "transparent")
 
-
-
-
-
-insect_sims <- map(1:10, \(i){
-    test_insect_pops(max_t = 100,
-                     B = 0,
-                     h = 5,
-                     alate_0 = -Inf,
-                     alate_1 = 0,
-                     demog_error = TRUE,
-                     disaster_p = 0.02,
-                     disaster_s = 0.1,
-                     A0 = 10,
-                     W0 = 0,
-                     P0 = 0) |>
-        mutate(aphids = aphids + alates) |>
-        select(-alates) |>
-        pivot_longer(aphids:enemies, names_to = "species", values_to = "N") |>
-        mutate(species = factor(species, levels = c("aphids", "enemies")),
-               rep = i)
-}) |>
-    list_rbind() |>
-    mutate(rep = factor(rep))
-insect_sims2 <- test_insect_pops(max_t = 100,
-                                B = 0,
-                                h = 5,
-                                alate_0 = -Inf,
-                                alate_1 = 0,
-                                demog_error = FALSE,
-                                A0 = 10,
-                                W0 = 0,
-                                P0 = 0) |>
-    mutate(aphids = aphids + alates) |>
-    select(-alates) |>
-    pivot_longer(aphids:enemies, names_to = "species", values_to = "N") |>
-    mutate(species = factor(species, levels = c("aphids", "enemies")))
-
-# insect_time_pts <- c(375, 434, 500, 577)
-# insect_sims |>
-#     filter(time %in% insect_time_pts)
-
-insect_sims |>
-    # filter(species != "alates") |>
-    ggplot(aes(time, N, color = species)) +
-    geom_hline(yintercept = CC(12500, 0, 0.1), color = "gray80", linewidth = 1) +
-    geom_line(aes(group = interaction(rep, species)), linewidth = 1, alpha = 0.25) +
-    geom_line(data = insect_sims2 |> filter(species == "aphids"), linewidth = 1,
-              color = "red") +
-    # geom_vline(xintercept = insect_time_pts, linetype = "22",
-    #            color = "gray70", linewidth = 1) +
-    scale_color_viridis_d(begin = 0.2, end = 0.9) +
-    scale_y_continuous("Abundance") +
-    theme_minimal()
-
-# starts <- list(A0 = insect_sims$aphids[insect_sims$time %in% insect_time_pts],
-#                P0 = insect_sims$enemies[insect_sims$time %in% insect_time_pts])
 
 
 
@@ -270,9 +223,9 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
             mutate(aphids = alates + aphids) |>
             group_by(rep) |>
             summarize(p_alates = mean(alates[aphids > 0] / aphids[aphids > 0]),
-                      log_aphids = mean(log10(aphids)),
+                      log_aphids = mean(log10(aphids+1)),
                       aphids = mean(aphids),
-                      log_alates = mean(log10(alates)),
+                      log_alates = mean(log10(alates+1)),
                       alates = mean(alates),
                       infect_time = time_inf_fun(time_inf_np, time, virus),
                       outbreak_size = max(virus))
@@ -289,11 +242,7 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
 
 
 
-# LEFT OFF ----
-#'
-#' Does Pseudomonas do ANYTHING to total alates??
-#'
-
+# >> Lower alates with Predators ----
 
 #' This somehow results in more alates with Pseudomonas:
 #' list(B = 0.1, K = 12500 * 1, alpha = 0,
@@ -303,10 +252,10 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
 
 
 {
-    np <- 2L
+    np <- 5L
     args <- list(max_t = 100, n_x = 3, n_y = 3, radius = 1, n_sims = 1e3,
                  epsilon = 1,
-                 alpha = 0,
+                 alpha = 1,
                  beta = -2,
                  B = 0.1,
                  K = 12500 * 1,
@@ -314,39 +263,63 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                  with_P = TRUE,
                  # doomsday = TRUE,
                  # p_A0 = 0.5,
-                 wasp_disp_m0 = 0.1,
-                 wasp_disp_m1 = 0.349 * 0,
+                 # wasp_disp_m0 = 0,
+                 wasp_disp_m1 = 0.349 * 0.1,
                  demog_error = FALSE,
                  disaster_p = 0)
     d <- bind_rows(do.call(one_sim_combo, c(list(n_pseudo = 3L), args)),
                    do.call(one_sim_combo, c(list(n_pseudo = 0L), args))) |>
-        mutate(infect_time = ifelse(is.infinite(infect_time), args$max_t * 1.5,
-                                    infect_time)) |>
-        mutate(n_pseudo = factor(n_pseudo))
-    if (any(is.infinite(d$infect_time))) warning("Some times are infinite.")
+        # mutate(infect_time = ifelse(is.infinite(infect_time), args$max_t * 1.5,
+        #                             infect_time)) |>
+        mutate(n_pseudo = factor(n_pseudo)) |>
+        select(rep:outbreak_size, n_pseudo)
+    # if (any(is.infinite(d$infect_time))) warning("Some times are infinite.")
     p1 <- d |>
-        ggplot(aes(n_pseudo, log10(infect_time), color = n_pseudo)) +
-        # geom_jitter(shape = 1, alpha = 0.1) +
-        geom_violin() +
+        ggplot(aes(n_pseudo, log_alates, color = n_pseudo)) +
+        geom_violin(aes(fill = n_pseudo), alpha = 0.25) +
         stat_summary(fun = mean, geom = "point") +
-        stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.1) +
-        scale_color_viridis_d(end = 0.8, guide = "none") +
-        ylab(sprintf("log<sub>10</sub>(Days to %i plants infected)", np)) +
+        scale_color_manual(values = pseudo_pal,
+                           guide = "none", aesthetics = c("color", "fill")) +
+        scale_y_continuous("Mean log<sub>10</sub>(total alates)",
+                           breaks = log10(2^(c(1,3,5)) + 1),
+                           labels = 2^(c(1,3,5))) +
         xlab("Number of *Pseudomonas* patches") +
-        theme(axis.title = element_markdown())
+        theme(axis.title = element_markdown(),
+              axis.ticks.x = element_blank()) +
+        .trans_theme
+    # p2 <- d |>
+    #     ggplot(aes(n_pseudo, infect_time, color = n_pseudo)) +
+    #     geom_violin(aes(fill = n_pseudo), alpha = 0.25) +
+    #     stat_summary(fun = mean, geom = "point") +
+    #     scale_color_manual(values = pseudo_pal,
+    #                        guide = "none", aesthetics = c("color", "fill")) +
+    #     scale_y_continuous("Time for 5 plants infected") +
+    #     xlab("Number of *Pseudomonas* patches") +
+    #     theme(axis.title = element_markdown(),
+    #           axis.ticks.x = element_blank()) +
+    #     .trans_theme
     p2 <- d |>
-        ggplot(aes(n_pseudo, log10(alates), color = n_pseudo)) +
-        # geom_jitter(shape = 1, alpha = 0.1) +
-        geom_violin() +
+        ggplot(aes(n_pseudo, outbreak_size, color = n_pseudo)) +
+        geom_violin(aes(fill = n_pseudo), alpha = 0.25) +
         stat_summary(fun = mean, geom = "point") +
-        stat_summary(fun.data = "mean_cl_boot", geom = "errorbar", width = 0.1) +
-        scale_color_viridis_d(end = 0.8, guide = "none") +
-        ylab("Mean log<sub>10</sub>(Total alates)") +
+        scale_color_manual(values = pseudo_pal,
+                           guide = "none", aesthetics = c("color", "fill")) +
+        scale_y_continuous("Outbreak size", breaks = c(1,5,9)) +
         xlab("Number of *Pseudomonas* patches") +
-        theme(axis.title = element_markdown())
+        theme(axis.title = element_markdown(),
+              axis.ticks.x = element_blank()) +
+        .trans_theme
     p1 + p2 + plot_layout(nrow = 1)
     # rm(p1, p2, d, args, np)
+
 }
+
+ggsave("~/Desktop/lower_violin_log_alates_p.svg", p1 + .no_axes,
+       width = 3, height = 2, bg = "transparent")
+ggsave("~/Desktop/lower_violin_outbreak_size_p.svg", p2 + .no_axes,
+       width = 3, height = 2, bg = "transparent")
+
+
 
 
 # Time series for above:
@@ -358,11 +331,14 @@ dts <- bind_rows(do.call(one_sim_combo, c(list(n_pseudo = 3L, summarize = FALSE,
                                                out_pseudo = TRUE),
                                           args |> modify_at("n_sims", \(x) 100)))) |>
     select(rep:n_pseudo) |>
-    mutate(pseudo = factor(pseudo, labels = c("noPseudo", "Pseudo")))
+    mutate(pseudo = factor(pseudo, labels = c("noPseudo", "Pseudo"))) |>
+    mutate(n_pseudo = factor(n_pseudo))
+
+
+
 
 dts |>
-    mutate(n_pseudo = factor(n_pseudo),
-           plant = interaction(x, y, pseudo),
+    mutate(plant = interaction(x, y, pseudo),
            id = interaction(rep, n_pseudo, plant)) |>
     select(-x, -y, -virus) |>
     pivot_longer(aphids:enemies, names_to = "type", values_to = "density") |>
@@ -370,20 +346,135 @@ dts |>
     geom_line(aes(group = id), alpha = 0.1) +
     # stat_summary(geom = "line", fun = mean, linewidth = 1) +
     facet_grid(type ~ n_pseudo, scales = "free_y") +
-    scale_color_viridis_d(end = 0.8, guide = "none")
+    scale_color_manual(values = pseudo_pal,
+                       guide = "none", aesthetics = c("color", "fill"))
+
+p <- levels(dts$n_pseudo) |>
+    set_names() |>
+    map(\(.n_pseudo){
+        dts |>
+            filter(n_pseudo == .n_pseudo) |>
+            mutate(aphids = aphids + alates) |>
+            select(-alates) |>
+            pivot_longer(aphids:enemies, names_to = "type",
+                         values_to = "density") |>
+            mutate(plant = interaction(x, y, pseudo),
+                   id = interaction(rep, n_pseudo, x, y, type)) |>
+            select(-x, -y, -virus) |>
+            ggplot(aes(time, density, color = type)) +
+            geom_line(aes(group = id), alpha = 0.1) +
+            scale_color_manual(values = spp_pal) +
+            guides(color = guide_legend(override.aes = list(alpha = 1,
+                                                            linewidth = 1.5))) +
+            scale_y_continuous(NULL, limits = c(0, 2000), breaks = 0:2*1000) +
+            .trans_theme
+    })
+
+do.call(wrap_plots, p) +
+    plot_layout(nrow = 1, guides = "collect")
+
+# ggsave("~/Desktop/lower_ts_0.svg", p[[1]] + .no_axes, width = 2, height = 1.5)
+# ggsave("~/Desktop/lower_ts_3.svg", p[[2]] + .no_axes, width = 2, height = 1.5)
+
+
+
+
+# dts |>
+#     filter(rep == sample.int(100, 1)) |>
+#     filter(virus == 1) |>
+#     distinct(rep, n_pseudo, x, y)
+
+
+ns_spat_p <- levels(dts$n_pseudo) |>
+    set_names() |>
+    map(\(.n_pseudo){
+        dd <- dts |>
+            filter(rep == 27, n_pseudo == .n_pseudo) |>
+            mutate(plant = interaction(x, y, pseudo, lex.order = TRUE)) |>
+            mutate(aphids = aphids + alates) |>
+            select(-alates, -x, -y)
+        ddv <- dd |>
+            group_by(plant) |>
+            filter(virus == 1) |>
+            filter(time == min(time)) |>
+            ungroup()
+        y_max <- dts |>
+            filter(rep == dd$rep[[1]]) |>
+            mutate(aphids = aphids + alates) |>
+            getElement("aphids") |>
+            max()
+        yax_max <- (y_max %/% 500) * 500
+        dd |>
+            select(-virus) |>
+            pivot_longer(aphids:enemies, names_to = "type",
+                         values_to = "density") |>
+            ggplot(aes(time, density, color = type)) +
+            geom_line(linewidth = 1) +
+            geom_vline(data = ddv, aes(xintercept = time), color = "#EC008C",
+                       linetype = "22") +
+            geom_point(data = ddv, aes(y = y_max), shape = 8, color = "#EC008C") +
+            ggtitle(sprintf("%s *Pseudomonas* plants", .n_pseudo)) +
+            # stat_summary(geom = "line", fun = mean, linewidth = 1) +
+            facet_wrap( ~ plant, nrow = 3) +
+            scale_y_continuous(limits = c(0, y_max),
+                               breaks = c(0, yax_max/2, yax_max)) +
+            scale_color_manual(values = spp_pal) +
+            theme(plot.title = element_markdown()) +
+            .trans_theme
+    })
+
+
+
+
+
+do.call(wrap_plots, ns_spat_p) +
+    plot_layout(nrow = 1, guides = "collect")
+
+ggsave("~/Desktop/lower_ts_spat_0.svg", ns_spat_p[[1]] + .no_axes,
+       width = 3, height = 3, bg = "transparent")
+ggsave("~/Desktop/lower_ts_spat_3.svg", ns_spat_p[[2]] + .no_axes,
+       width = 3, height = 3, bg = "transparent")
+
+
+
+
+
+
+
+
+
+levels(dts$n_pseudo) |>
+    set_names() |>
+    map(\(.n_pseudo){
+        dts |>
+            filter(rep == 1, n_pseudo == .n_pseudo) |>
+            mutate(aphids = aphids + alates) |>
+            rename(parasitoid = enemies) |>
+            group_by(time) |>
+            summarize(parasitoid = sum(parasitoid),
+                      aphids = sum(aphids)) |>
+            pivot_longer(aphids:parasitoid, names_to = "type",
+                         values_to = "density") |>
+            ggplot(aes(time, density, color = type)) +
+            geom_line(linewidth = 1) +
+            ggtitle(sprintf("%s *Pseudomonas* plants", .n_pseudo)) +
+            # coord_cartesian(ylim = c(0, 2e3)) +
+            scale_color_viridis_d(end = 0.8, option = "plasma") +
+            theme(plot.title = element_markdown())
+    }) |>
+    do.call(what = wrap_plots) +
+    plot_layout(nrow = 1, guides = "collect")
+
 
 
 dts |>
-    filter(rep == 1, n_pseudo == 3) |>
-    mutate(plant = interaction(x, y, pseudo)) |>
-    # filter(plant == "3.1.Pseudo") |>
-    select(-x, -y, -virus) |>
-    pivot_longer(aphids:enemies, names_to = "type", values_to = "density") |>
-    ggplot(aes(time, density, color = type)) +
-    geom_line(linewidth = 1) +
-    # stat_summary(geom = "line", fun = mean, linewidth = 1) +
-    facet_wrap( ~ plant, nrow = 3) +
-    scale_color_viridis_d(end = 0.8, option = "plasma")
+    group_by(n_pseudo, rep) |>
+    summarize(enemies = mean(log(enemies)), .groups = "drop") |>
+    ggplot(aes(n_pseudo, enemies, fill = n_pseudo, color = n_pseudo)) +
+    geom_violin(alpha = 0.25) +
+    stat_summary(fun = mean, geom = "point") +
+    scale_color_manual(values = pseudo_pal,
+                       guide = "none", aesthetics = c("color", "fill"))
 
 
 
@@ -394,29 +485,21 @@ dts |>
 # =============================================================================*
 
 
-if (!file.exists("_building/ps_sims.rds")) {
-    # Takes ~15 sec for 3x3 landscape
-    set.seed(1114260777)
-    ps_sims <- crossing(n_pseudo = c(0L, 1L, 3L),
-                        B = c(0.05, 0.01, 0),
-                        K = 12500 * c(0.25, 0.5, 1),
-                        alpha = c(0, 1, 2),
-                        beta = -1 * c(0, 1, 2),
-                        epsilon = 1,
-                        with_P = FALSE) |>
-        mutate(n_x = 3L, n_y = 3L, radius = 1, n_sims = 1000, max_t = 50,
-               time_inf_np = list(2:6)) |>
-        pmap(one_sim_combo, .progress = .prog_args) |>
-        list_rbind() |>
-        select(-epsilon, -with_P) |>
-        select(n_pseudo, B, K, alpha, beta, rep, everything()) |>
-        mutate(across(n_pseudo:rep, factor))
-    write_rds(ps_sims, "_building/ps_sims.rds", compress = "xz")
-} else {
-    ps_sims <- read_rds("_building/ps_sims.rds")
-}
-
-
+# Takes ~1 min
+ps_sims <- crossing(n_pseudo = c(0L, 3L),
+                    B = c(0.05, 0.01, 0),
+                    K = 12500 * c(0.25, 0.5, 1),
+                    alpha = c(0, 1, 2),
+                    beta = -1 * c(0, 1, 2),
+                    epsilon = 1,
+                    with_P = FALSE) |>
+    mutate(n_x = 3L, n_y = 3L, radius = 1, n_sims = 1000, max_t = 100,
+           time_inf_np = list(2:6)) |>
+    pmap(one_sim_combo, .progress = .prog_args) |>
+    list_rbind() |>
+    select(-epsilon, -with_P) |>
+    select(n_pseudo, B, K, alpha, beta, rep, everything()) |>
+    mutate(across(n_pseudo:rep, factor))
 
 
 # Parameter names that differ in ps_sims:
@@ -470,8 +553,7 @@ ps_sims_plotter <- function(yvar, .np = 4L, .K_lvl = 3L) {
                               "p_alates", "log_aphids", "aphids"))
 
     dd <- ps_sims |>
-        filter(n_pseudo %in% levels(n_pseudo)[c(1,3)],
-               K == levels(K)[.K_lvl]) |>
+        filter(K == levels(K)[.K_lvl]) |>
         pretty_facet_factors(c("alpha", "B", "K"),
                              .greek = c(TRUE, FALSE, FALSE)) |>
         mutate(beta = fct_rev(beta))
@@ -487,10 +569,10 @@ ps_sims_plotter <- function(yvar, .np = 4L, .K_lvl = 3L) {
     } else {
 
         .trans <- identity
-        .ylab <- list(log_alates = "Mean log<sub>10</sub>(Total alates)",
+        .ylab <- list(log_alates = "Mean log<sub>10</sub>(Total alates + 1)",
                        alates = "Mean total alates",
                        p_alates = "Mean proportion alates",
-                       log_aphids = "Mean log<sub>10</sub>(Total aphids)",
+                       log_aphids = "Mean log<sub>10</sub>(Total aphids + 1)",
                        aphids = "Mean total aphids")[[yvar]]
 
     }
@@ -499,16 +581,16 @@ ps_sims_plotter <- function(yvar, .np = 4L, .K_lvl = 3L) {
         ggplot(aes(beta, .trans(.data[[yvar]]), color = n_pseudo)) +
         # geom_hline(aes(yintercept = min(.trans(.data[[yvar]]))),
         #            linewidth = 0.75, color = "black") +
-        # geom_violin(position = position_dodge(0.5), fill = NA) +
+        geom_violin(position = position_dodge(0.5), fill = NA) +
         stat_summary(fun = mean, geom = "point", position = position_dodge(0.5)) +
         stat_summary(fun.data = "mean_cl_boot", geom = "errorbar",
                      position = position_dodge(0.5), width = 0.3) +
-        scale_color_viridis_d("Number of<br>*Pseudomonas*<br>patches",
-                              option = "viridis", end = 0.8) +
+        scale_color_manual(values = pseudo_pal,
+                           guide = "none", aesthetics = c("color", "fill")) +
         guides(color = guide_legend(override.aes = list(alpha = 1))) +
         ylab(.ylab) +
         xlab("Effect of *Pseudomonas* on alates alighting (&beta;)") +
-        facet_grid(B ~ alpha, scales = "free_y") +
+        facet_wrap(B ~ alpha, nrow = 3, scales = "free_y") +
         # facet_grid(K ~ beta) +
         theme(strip.text = element_markdown(size = 8),
               strip.text.y = element_markdown(angle = 0),
@@ -529,17 +611,50 @@ ps_sims_plotter("infect_time", .K_lvl = 2L) +
     plot_layout(ncol = 1, guides = "collect")
 
 # ps_sims_plotter("log_alates", .K_lvl = 1L) +
-ps_sims_plotter("alates", .K_lvl = 2L) +
-    ps_sims_plotter("alates", .K_lvl = 3L) +
+ps_sims_plotter("log_alates", .K_lvl = 2L) +
+    ps_sims_plotter("log_alates", .K_lvl = 3L) +
     plot_layout(ncol = 1, guides = "collect")
 
 # ps_sims_plotter("log_aphids")
 
 
 
+# >> First results talk plot ----
+
+# yvar <- "log_alates"
+yvar <- "infect_time"
+# yvar <- "outbreak_size"
+
+p <- ps_sims |>
+    unnest(infect_time) |>
+    filter(np == 5) |>
+    filter(K == levels(K)[3], alpha == 1, beta == -2, B == 0.05) |>
+    ggplot(aes(n_pseudo, .data[[yvar]], color = n_pseudo)) +
+    geom_violin(aes(fill = n_pseudo), alpha = 0.25) +
+    stat_summary(fun = mean, geom = "point") +
+    # scale_color_viridis_d(option = "viridis", end = 0.8,
+    scale_color_manual(values = pseudo_pal,
+                       guide = "none", aesthetics = c("color", "fill")) +
+    scale_y_continuous(list(infect_time = "Days to 5 plants infected",
+                            alates = "Mean total alates",
+                            log_alates = "Mean log<sub>10</sub>(total alates)",
+                            outbreak_size = "Outbreak size")[[yvar]],
+                       breaks = if (str_starts(yvar, "log")) {
+                           log10(c(800, 900, 1000)) } else waiver(),
+                       labels = if (str_starts(yvar, "log")) {
+                           c(800, 900, 1000) } else waiver()) +
+    xlab("Number of *Pseudomonas* patches") +
+    # facet_grid(n_pseudo ~ ., scales = "free_y") +
+    # facet_grid(K ~ beta) +
+    theme(axis.ticks.x = element_blank(),
+          axis.title = element_markdown()) +
+    .trans_theme
 
 
+p
 
+ggsave(sprintf("~/Desktop/violin_%s_p.svg", yvar), p + .no_axes,
+       width = 3, height = 2, bg = "transparent")
 
 
 
@@ -595,13 +710,28 @@ ps_sims |>
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ---------------------------*
 # How often does Pseudomonas increase time to fully infected? ----
 # ---------------------------*
 
 
 ps_inc_sims <- ps_sims |>
-    filter(n_pseudo %in% levels(n_pseudo)[c(1,3)]) |>
     split(as.formula(paste("~", paste(par_names[-1], collapse = "+")))) |>
     future_lapply(\(d) {
         .a0 <- d$alates[d$n_pseudo == 0]
@@ -638,14 +768,10 @@ pc_inc_plotter <- function(yvar) {
     ps_inc_sims |>
         filter(# beta %in% levels(beta)[c(1,4)],
             alpha %in% levels(alpha)[c(1,3)]) |>
-        filter(epsilon == 1) |>
         # filter(K %in% levels(K)[c(1,3)]) |>
         # alpha == levels(alpha)[1]) |>
-        pretty_facet_factors(c("alpha", "epsilon", "K"),
-                             .greek = c(rep(TRUE, 2), FALSE)) |>
+        pretty_facet_factors(c("alpha", "K"), .greek = c(TRUE, FALSE)) |>
         mutate(beta = fct_rev(beta)) |>
-        # mutate(with_P = factor(with_P, levels = c("without parasitoids", "with parasitoids"),
-        #                        labels = c("absent", "present"))) |>
         ggplot(aes(beta, .data[[yvar]] * 100, color = B)) +
         geom_hline(aes(yintercept = 50),
                    linewidth = 0.75, color = "gray70", linetype = "22") +
@@ -710,152 +836,5 @@ ps_inc_sims |>
           axis.title = element_markdown(),
           legend.title = element_markdown(),
           plot.title = element_markdown())
-
-
-
-
-
-# =============================================================================*
-# =============================================================================*
-# LARGER SIMULATIONS ========================
-# =============================================================================*
-# =============================================================================*
-
-if (!file.exists("_building/big_ps_sims.rds")) {
-    # Takes ~8 hrs for 134x134 landscape (and 12 instead of 100 sims)
-    t0 <- Sys.time()
-    set.seed(1952926471)
-    big_ps_sims <- crossing(n_pseudo = c(0.0, 0.2, 0.5),
-                            B = c(0.1, 0.05, 0.01, 0),
-                            K = 12500 * (-1:1 * 0.25 + 1),
-                            alpha = c(0, 0.25, 1, 2),
-                            beta = -1 * c(0, 0.25, 1, 2),
-                            epsilon = c(0.25, 1, 2)) |>
-        #' Below...
-        #' `max_t` is set to a reasonable value for pea growing season.
-        #' `n_x` and `n_y` approximate a square hectare with 0.75 m plant spacing
-        mutate(n_x = 134L, n_y = 134L,
-               radius = formals(sim_plantscape)[["radius"]],
-               max_t = 100, n_sims = 12,
-               # We are not outputting the time to full infection (all plants
-               # infected). Instead we're returning outbreak size.
-               .full_inf_time = FALSE) |>
-        pmap(one_sim_combo, .progress = .prog_args) |>
-        list_rbind() |>
-        select(n_pseudo, B, K, alpha, beta, epsilon, rep, everything()) |>
-        mutate(n_pseudo = round(n_pseudo, digits = 1)) |>
-        mutate(across(n_pseudo:rep, factor))
-    # write_rds(big_ps_sims, "_building/big_ps_sims.rds", compress = "xz")
-    t1 <- Sys.time()
-    print(t1 - t0); # rm(t0, t1)
-
-} else {
-    big_ps_sims <- read_rds("_building/big_ps_sims.rds")
-}
-
-
-big_ps_sims |>
-    filter(outbreak_size == max(outbreak_size))
-
-
-big_ps_sims |>
-    filter(epsilon == 2,
-           # K == median(as.numeric(paste(K)))) |>
-           alpha == levels(alpha)[1]) |>
-    pretty_facet_factors(c("alpha", "beta", "epsilon", "K"),
-                         .greek = c(rep(TRUE, 3), FALSE)) |>
-    ggplot(aes(B, (outbreak_size), color = n_pseudo)) +
-    # geom_hline(aes(yintercept = min((.data[["outbreak_size"]]))),
-    #            linewidth = 0.75, color = "black") +
-    geom_violin(position = position_dodge(0.5), fill = NA) +
-    stat_summary(fun = mean, geom = "point", position = position_dodge(0.5)) +
-    scale_color_viridis_d("Proportion of<br>*Pseudomonas*<br>patches",
-                          option = "plasma", end = 0.8) +
-    guides(color = guide_legend(override.aes = list(alpha = 1))) +
-    ylab("Outbreak size") +
-    xlab("*Pseudomonas*-induced mortality") +
-    # facet_grid(alpha ~ beta, scales = "free_y") +
-    facet_grid(K ~ beta, scales = "free_y") +
-    theme_minimal() +
-    theme(strip.text = element_markdown(size = 8),
-          axis.title = element_markdown(),
-          legend.title = element_markdown())
-
-
-
-
-
-
-
-
-# =============================================================================*
-# =============================================================================*
-# OLD CODE ========================
-# =============================================================================*
-# =============================================================================*
-
-
-ps_sims |>
-    mutate(rep = factor(rep), n_pseudo = factor(n_pseudo)) |>
-    group_by(n_pseudo, rep, time) |>
-    summarize(virus = sum(virus), .groups = "drop") |>
-    mutate(id = interaction(rep, n_pseudo, drop = TRUE)) |>
-    ggplot(aes(time, virus)) +
-    geom_hline(yintercept = c(0, length(land0[,,1])),
-               linetype = "22", color = "gray70") +
-    geom_line(aes(group = id, color = n_pseudo), alpha = 0.25) +
-    scale_color_viridis_d(option = "plasma", end = 0.8) +
-    guides(color = guide_legend(override.aes = list(alpha = 1))) +
-    # facet_wrap(~ n_pseudo, ncol = 1) +
-    theme_minimal()
-
-ps_sims |>
-    mutate(rep = factor(rep), n_pseudo = factor(n_pseudo)) |>
-    group_by(n_pseudo, rep, time) |>
-    summarize(virus = sum(virus), .groups = "drop") |>
-    group_by(n_pseudo, rep) |>
-    summarize(time = (\(t,v) {
-        if (any(v == 9)) return(t[v == 9][1])
-        return(Inf)
-    })(time, virus),
-              .groups = "drop") |>
-    ggplot(aes(n_pseudo, time)) +
-    geom_jitter(aes(color = n_pseudo), alpha = 0.25, width = 0.2, height = 0) +
-    stat_summary(fun.data = "mean_cl_boot") +
-    # ggplot(aes(time)) +
-    # geom_freqpoly(aes(color = n_pseudo), bins = 10) +
-    scale_color_viridis_d(option = "plasma", end = 0.8) +
-    guides(color = guide_legend(override.aes = list(alpha = 1))) +
-    ylab("Time to fully infected") +
-    theme_minimal()
-
-ps_sims |>
-    filter(rep == 1) |>
-    select(-virus) |>
-    pivot_longer(aphids:preds, names_to = "type", values_to = "density") |>
-    mutate(type = factor(type, levels = c("aphids", "alates", "preds")),
-           id = interaction(n_pseudo, rep, type, x, y, drop = TRUE)) |>
-    ggplot(aes(time, density, color = type)) +
-    geom_line(aes(group = id), alpha = 0.1) +
-    scale_color_viridis_d(begin = 0.2, end = 0.9) +
-    theme_minimal() +
-    facet_wrap(~ type, scales = "free_y")
-
-ps_sims |>
-    filter(rep == 1) |>
-    pivot_longer(virus:preds, names_to = "type", values_to = "density") |>
-    mutate(type = factor(type, levels = c("virus", "aphids", "alates", "preds")),
-           plant = interaction(x, y, drop = TRUE),
-           id = interaction(n_pseudo, rep, type, plant, drop = TRUE)) |>
-    filter(type != "preds", type != "virus") |>
-    ggplot(aes(time, density, color = type)) +
-    geom_line(aes(group = id)) +
-    scale_color_viridis_d(begin = 0.2, end = 0.9) +
-    theme_minimal() +
-    facet_grid(n_pseudo ~ plant)
-
-
-
-
 
 

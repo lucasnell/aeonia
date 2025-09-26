@@ -1,6 +1,7 @@
+
 library(tidyverse)
 library(gameofclones)
-library(aphidsync)  # calc_lambda
+library(kitchensync)  # calc_lambda
 library(aeonia)
 library(patchwork)
 library(ggtext)
