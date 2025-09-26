@@ -39,6 +39,41 @@ CC <- function(K, B, m){
 }
 
 
+spp_pal <- viridisLite::plasma(101)[c(10, 50, 90)] |>
+    set_names(c("aphids", "alates", "enemies"))
+
+
+p <- test_insect_pops(max_t = 100,
+                 B = 0,
+                 demog_error = FALSE,
+                 A0 = 10,
+                 W0 = 0,
+                 P0 = 0) |>
+    select(-enemies) |>
+    pivot_longer(aphids:alates, names_to = "morph", values_to = "N") |>
+    mutate(morph = factor(morph, levels = c("aphids", "alates"))) |>
+    # filter(morph == "aphids") |>
+    ggplot(aes(time, N, color = morph)) +
+    # geom_hline(yintercept = CC(12500, 0, 0.1), color = "gray80", linewidth = 1) +
+    geom_line(linewidth = 1) +
+    # scale_color_viridis_d(begin = 0.2, end = 0.9, drop = FALSE) +
+    scale_color_manual(values = spp_pal, guide = "none") +
+    ylab("Abundance") +
+    coord_cartesian(ylim = c(0, 1600)) +
+    theme(axis.title = element_blank(),
+          axis.text = element_blank(),
+          panel.background = element_rect(fill="transparent"), #transparent panel bg
+        plot.background = element_rect(fill="transparent", color=NA), #transparent plot bg
+        panel.grid.major = element_blank(), #remove major gridlines
+        panel.grid.minor = element_blank(), #remove minor gridlines
+        legend.background = element_rect(fill="transparent"), #transparent legend bg
+        legend.box.background = element_rect(fill="transparent") #transparent legend panel
+    )
+
+ggsave("~/Desktop/p.svg", p, width = 3, height = 2, bg = "transparent")
+
+
+
 
 
 insect_sims <- map(1:10, \(i){
