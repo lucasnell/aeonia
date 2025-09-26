@@ -1,0 +1,156 @@
+---
+title: "Host-parasitoid model description"
+author: "Lucas A. Nell"
+execute:
+  echo: false
+  message: false
+  warning: false
+format: 
+  html:
+    html-math-method: katex
+vignette: >
+  %\VignetteIndexEntry{Host-parasitoid model description}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{=html}
+<style type="text/css">
+  figure.quarto-float-tbl figcaption.quarto-float-caption-top {
+    margin-top: .5rem;
+    margin-bottom: .25rem;
+    text-align:left
+  }
+</style>
+```
+
+
+```{r}
+#| label: setup
+#| include: false
+library(knitr)
+library(kableExtra)
+library(gt)
+library(gameofclones)
+library(aeonia)
+# Make a number print in LaTeX friendly format:
+dbl4ltx <- function(x, .fmt = "$%.4f$") {
+    x <- sprintf(.fmt, x)
+    return(I(x))
+}
+```
+
+
+
+
+## Aphid population dynamics
+
+See @tbl-aphids for parameters:
+<!-- -->
+\begin{equation}
+\begin{split}
+    \mathbf{X}(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S(z(t)) \, 
+        \mathbf{A}(x(t), Y(t)) \odot \left\{ \mathbf{L} \, \mathbf{X}(t) \right\} \\
+    S(z(t)) &= \left( 1 + \frac{z(t)}{K} \right)^{-1} \\
+    \mathbf{L} &= \begin{pmatrix}
+        s_j     & f_N(z(t)) & 0     & f   \\
+        r       & s_a       & 0     & 0   \\
+        0       & f_W(z(t)) & s_j   & 0   \\
+        0       & 0         & r     & s_a \\
+        \end{pmatrix} \\
+    f_N(z(t)) &= f \, \left[1 - p_W(z(t))\right] \\
+    f_W(z(t)) &= f \, p_W(z(t)) \\
+    p_W(z(t)) &= \textrm{logit}^{-1}(\alpha_0 + \alpha_z \, z(t)) \\
+\end{split}
+\end{equation}
+
+
+```{r}
+#| label: tbl-aphids
+#| tbl-cap: "Model parameters for aphid population dynamics, including the value(s) used in simulations. For variables that change through time, the **Used** column is '$-$'."
+tribble(
+    ~Parameter,  ~Used,  ~Description ,
+    "$n$"    ,  "$2$", "number of aphid age stages",
+    "$\\mathbf{X}(t)$",  "$-$", "length-$2n$ vector of aphid abundances by stage",
+    "$m$"    ,  dbl4ltx(pop_info$m), "mortality from generalist predators and host-plant death",
+    "$B$"    ,  "varies", "mortality from *Pseudomonas* bacteria (0 if not present on plant)",
+    "$S(z(t))$",  "$-$",  "unparasitized aphid density dependence",
+    "$z(t)$",  "$-$",  "total alive aphids in a particular patch",
+    "$\\mathbf{A}$",  "$-$",  "length-$2n$ vector of the proportion of aphids surviving parasitism",
+    "$x(t)$",  "$-$",  "total unparasitized aphids in a particular patch",
+    "$Y(t)$",  "$-$",  "total adult, female parasitoids",
+    "$\\mathbf{L}$",  "$**$",  "$2n \\times 2n$ transition matrix that defines transitions among all stages",
+    "$K$",  dbl4ltx(pop_info$K),  "controls strength of unparasitized aphid density dependence",
+    "$s_j$",  dbl4ltx(pop_info$surv_j),  "aphid juvenile survival",
+    "$s_a$",  dbl4ltx(pop_info$surv_a),  "aphid adult survival",
+    "$r$",  dbl4ltx(pop_info$recruit),  "aphid recruitment",
+    "$f$",  dbl4ltx(pop_info$fecund),  "aphid fecundity",
+    "$f_N(z(t))$",  "$-$",  "non-winged aphid fecundity for non-winged offspring",
+    "$f_W(z(t))$",  "$-$",  "non-winged aphid fecundity for winged offspring",
+    "$p_W(z(t))$",  "$-$",  "proportion of winged offspring from non-winged mothers",
+    "$\\alpha_0$",  dbl4ltx(pop_info$alate_0),  "affects the proportion of winged offspring at low aphid densities",
+    "$\\alpha_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
+) |> 
+    kable(escape = FALSE)
+```
+
+
+
+
+## Parasitized aphids, mummies, adult parasitoids
+
+
+See Table @tbl-parasitized for new parameters:
+<!-- -->
+\begin{equation}
+\begin{split}
+    \mathbf{A}(x(t), Y(t)) &=  \left[1 + \mathbf{R} \, \frac{a \, Y(t) }{
+        k \, (h \, x(t) + 1)} \right]^{\circ -k} \\
+    P(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S_p(z(t)) \, \left(s_p \, P(t) + 
+        \left[1 - \mathbf{A}(x(t),Y(t))\right]^{\intercal} \,
+            \mathbf{L} \mathbf{X}(t)
+        \right) - \tilde{\theta}_{p} P(t) \\
+    S_p(z(t)) &= \left( 1 + \frac{z(t)}{K_p} \right)^{-1} \\
+    M(t+1) &= ( 1 - m ) \, \left[M(t) + \tilde{\theta}_{p} \, P(t) \right] - \tilde{\theta}_{m} \, M(t) \\
+    Y(t+1) &= s_y \, Y(t) + \frac{1}{2} \, \tilde{\theta}_{m} \, M(t) \\
+\end{split}
+\end{equation}
+
+In this case, the following must be true to avoid negative numbers:
+<!-- -->
+\begin{equation}
+\begin{split}
+    \tilde{\theta}_{m} &< 1 - m \\
+    \tilde{\theta}_{p} &< (1 - m) \, (1 - B) \, S_p(z(t)) \, s_p \\
+\end{split}
+\textrm{,}
+\end{equation}
+<!-- -->
+\noindent where the minimum value of $S_p(z(t))$ is $\sim 0.65$ 
+even when non-parasitized aphids are at their carrying capacity
+($K \, (\lambda - 1)$, where $\lambda$ is the leading 
+eigenvalue of $\mathbf{L}$),
+which is higher than for parasitized aphids.
+
+
+```{r}
+#| label: tbl-parasitized
+#| tbl-cap: "Model parameters for parasitized aphids, mummies, and adult parasitoids, including the value(s) used in simulations. For variables that change through time, the **Used** column is '$-$'. ** indicates that the vector used for $\\mathbf{R}$ was $\\\\{0.1861, 0.0053, 0.1861, 0\\\\}$"
+tribble(
+    ~Parameter,  ~Used,  ~Description ,
+    "$\\mathbf{R}$", "$**$", "length-$2n$ vector giving the relative parasitoid attack rates by aphid stage",
+    "$a$"    , dbl4ltx(pop_info$a), "overall parasitoid attack rate",
+    "$h$"    , dbl4ltx(pop_info$h), "parasitoid attack-rate handling time",
+    "$k$"    , dbl4ltx(pop_info$k), "negative binomial distribution's aggregation parameter",
+    "$P$"    , "$-$", "parasitized aphid abundance",
+    "$S_p(z(t))$"  , "$-$", "parasitized aphid density dependence",
+    "$K_p$"  , dbl4ltx(pop_info$K_p), "controls strength of parasitized aphid density dependence",
+    "$s_p$"  , dbl4ltx(pop_info$s_p), "daily survival for parasitized aphids",
+    "$\\tilde{\\theta}_{p}$", dbl4ltx(pop_info$theta_p), "proportion of parasitized aphids that transition to mummies each day",
+    "$M$"  , "$-$", "mummy (parasitized, dead aphid) abundance",
+    "$\\tilde{\\theta}_{m}$", dbl4ltx(pop_info$theta_m), "proportion of mummies that transition to adult parasitoids each day",
+    "$s_y$"  , dbl4ltx(pop_info$s_y), "adult parasitoid daily survival",
+) |> 
+    kable(escape = FALSE)
+```

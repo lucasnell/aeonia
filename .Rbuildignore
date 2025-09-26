@@ -5,3 +5,4 @@
 ^README\.
 ^.*\.svg$
 ^data-raw$
+^vignettes/*_files$
