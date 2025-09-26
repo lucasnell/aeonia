@@ -8,9 +8,9 @@ sim_plantscape(
   landscapes,
   max_t,
   insect_ptr,
-  A0,
+  N0,
   W0,
-  P0,
+  Y0,
   alpha,
   beta,
   epsilon,
@@ -38,7 +38,7 @@ indicate separate landscapes.}
 \item{insect_ptr}{External pointer to a C++ object with insect population
 information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
 
-\item{A0}{Numeric matrix indicating the starting aphid (non-winged) population
+\item{N0}{Numeric matrix indicating the starting aphid (non-winged) population
 density for each plant.
 To indicate separate densities for each plant, the matrix should
 have the same number of rows and columns as \code{landscapes}.
@@ -52,12 +52,12 @@ have the same number of rows and columns as \code{landscapes}.
 The matrix can also be 1x1, in which case it's assumed that all plants
 start with the same density of winged aphids.}
 
-\item{P0}{Numeric matrix indicating the starting predator population
+\item{Y0}{Numeric matrix indicating the starting parasitoid population
 density for each plant.
 To indicate separate densities for each plant, the matrix should
 have the same number of rows and columns as \code{landscapes}.
 The matrix can also be 1x1, in which case it's assumed that all plants
-start with the same density of predators.}
+start with the same density of parasitoids.}
 
 \item{alpha}{Effect of virus infection on alate alighting.
 Values \verb{> 0} cause alates to be attracted to virus-infected plants,

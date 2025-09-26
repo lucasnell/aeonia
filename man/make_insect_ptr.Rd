@@ -19,13 +19,18 @@ make_insect_ptr(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
+  K_p = NA_real_,
+  s_p = NA_real_,
+  R = as.numeric(c()),
+  theta_m = NA_real_,
+  theta_p = NA_real_,
   m = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
   h = NA_real_,
   k = NA_real_,
-  s = NA_real_
+  s_y = NA_real_
 )
 }
 \arguments{
@@ -78,7 +83,7 @@ Defaults to \code{NA}, which results in \code{pop_info$fecund} being used.
 This is from a previous study.}
 
 \item{K}{Single numeric indicating the carrying capacity (not including
-natural enemies or \emph{Pseudomonas}) of the aphid population.
+parasitoids or \emph{Pseudomonas}) of the aphid population.
 Defaults to \code{NA}, which results in \code{pop_info$K} being used.
 This is from a previous study.}
 
@@ -98,13 +103,13 @@ influences alate production. See \code{alate_0} above for the equation.
 Defaults to \code{NA}, which results in \code{pop_info$alate_1} being used.
 This is from a previous study.}
 
-\item{a}{Single numeric indicating the natural enemy attack rate.}
+\item{a}{Single numeric indicating the parasitoid attack rate.}
 
-\item{h}{Single numeric indicating the natural enemy handling time.}
+\item{h}{Single numeric indicating the parasitoid handling time.}
 
-\item{k}{Single numeric indicating the natural enemy aggregation parameter.}
+\item{k}{Single numeric indicating the parasitoid aggregation parameter.}
 
-\item{s}{Single numeric indicating the natural enemy daily survival.}
+\item{s_y}{Single numeric indicating the adult parasitoid daily survival.}
 }
 \description{
 This pointer is used as an argument to \code{\link[=sim_plantscape]{sim_plantscape()}}.

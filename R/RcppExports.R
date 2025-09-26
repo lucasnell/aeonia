@@ -44,7 +44,7 @@
 #'     Defaults to `NA`, which results in `pop_info$fecund` being used.
 #'     This is from a previous study.
 #' @param K Single numeric indicating the carrying capacity (not including
-#'     natural enemies or *Pseudomonas*) of the aphid population.
+#'     parasitoids or *Pseudomonas*) of the aphid population.
 #'     Defaults to `NA`, which results in `pop_info$K` being used.
 #'     This is from a previous study.
 #' @param m Single numeric indicating aphid mortality.
@@ -60,15 +60,15 @@
 #'     influences alate production. See `alate_0` above for the equation.
 #'     Defaults to `NA`, which results in `pop_info$alate_1` being used.
 #'     This is from a previous study.
-#' @param a Single numeric indicating the natural enemy attack rate.
-#' @param h Single numeric indicating the natural enemy handling time.
-#' @param k Single numeric indicating the natural enemy aggregation parameter.
-#' @param s Single numeric indicating the natural enemy daily survival.
+#' @param a Single numeric indicating the parasitoid attack rate.
+#' @param h Single numeric indicating the parasitoid handling time.
+#' @param k Single numeric indicating the parasitoid aggregation parameter.
+#' @param s_y Single numeric indicating the adult parasitoid daily survival.
 #'
 #' @export
 #'
-make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s)
+make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p = NA_real_, s_p = NA_real_, R = as.numeric( c()), theta_m = NA_real_, theta_p = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -81,8 +81,8 @@ make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disast
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, A0, W0, P0, B, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, A0, W0, P0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, m, alate_0, alate_1, a, h, k, s)
+test_insect_pops <- function(max_t, N0, W0, Y0, B = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p = NA_real_, s_p = NA_real_, R = as.numeric( c()), theta_m = NA_real_, theta_p = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y)
 }
 
 #' Logit and inverse logit functions.
@@ -135,7 +135,7 @@ sad_leslie <- function(L) {
 #' @param max_t Single integer giving the maximum time the simulations run.
 #' @param insect_ptr External pointer to a C++ object with insect population
 #'     information, output from function [make_insect_ptr()].
-#' @param A0 Numeric matrix indicating the starting aphid (non-winged) population
+#' @param N0 Numeric matrix indicating the starting aphid (non-winged) population
 #'     density for each plant.
 #'     To indicate separate densities for each plant, the matrix should
 #'     have the same number of rows and columns as `landscapes`.
@@ -147,12 +147,12 @@ sad_leslie <- function(L) {
 #'     have the same number of rows and columns as `landscapes`.
 #'     The matrix can also be 1x1, in which case it's assumed that all plants
 #'     start with the same density of winged aphids.
-#' @param P0 Numeric matrix indicating the starting predator population
+#' @param Y0 Numeric matrix indicating the starting parasitoid population
 #'     density for each plant.
 #'     To indicate separate densities for each plant, the matrix should
 #'     have the same number of rows and columns as `landscapes`.
 #'     The matrix can also be 1x1, in which case it's assumed that all plants
-#'     start with the same density of predators.
+#'     start with the same density of parasitoids.
 #' @param alpha Effect of virus infection on alate alighting.
 #'     Values `> 0` cause alates to be attracted to virus-infected plants,
 #'     while values `< 0` cause them to be repelled by virus-infected plants.
@@ -227,8 +227,8 @@ sad_leslie <- function(L) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, A0, W0, P0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

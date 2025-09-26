@@ -2,7 +2,7 @@
 #define __AEONIA_APHID_POPULATION_H
 
 /*
- This contains code for aphid and natural enemy population dynamics in a single patch.
+ This contains code for aphid and parasitoid population dynamics in a single patch.
  */
 
 #include <RcppArmadillo.h>
@@ -37,6 +37,11 @@ class InsectPops {
     // constants:
     arma::mat L;    // transition matrix
     double K;       // aphid density dependence
+    double K_p;     // parasitized aphid density dependence
+    double s_p;     // parasitized aphid daily survival
+    arma::vec R;    // relative parasitoid attack rates by aphid stage
+    double theta_m; // proportion of mummies that transition to adults each day
+    double theta_p; // proportion of parasitized aphids that transition to mummies each day
     double m;       // aphid mortality
     double B;       // effect of Pseudomonas bacteria on aphid growth
     double disaster_p; // probability of disaster
@@ -44,32 +49,39 @@ class InsectPops {
     double extinct_N;  // extinction threshold
     bool demog_error;// whether to include demographic stochasticity
     double sigma_x; // environmental stochasticity
-    double a;       // natural enemy attack rate
-    double h;       // natural enemy handling time
-    double k;       // natural enemy aggregation parameter
-    double s;       // natural enemy daily survival
+    double a;       // parasitoid attack rate
+    double h;       // parasitoid handling time
+    double k;       // parasitoid aggregation parameter
+    double s_y;     // parasitoid adult daily survival
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
-    double alate_1; // intercept for Pr(alates) ~ log(aphid density)
+    double alate_1; // slope for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
     double wasp_disp_m0;// proportion of adult parasitoids added to dispersal pool each day when no aphids present
     double wasp_disp_m1;// effect of aphid density on parasitoid emigration
 
 
-    // Non-dispersal of `iterate`, updates `A`, `W`, and `P` without
+    // Non-dispersal of `iterate`, updates `N`, `W`, and `Y` without
     // producing alates:
     void no_disp_iterate(pcg32& eng) {
 
         // max adults there could be (used for if stochasticity is added):
         arma::vec max_adults = {arma::accu(X.head(2)), arma::accu(X.tail(2))};
 
+        // Predator and Pseudomonas survival:
+        double s_m = 1 - m;
+        double s_B = 1 - B;
+
         // Total aphids:
-        double z = arma::accu(X);
+        double x = arma::accu(X);
+        double z = x + P;
         // Density dependence:
         double S = 1 / (1 + z / K);
-        // survival from natural enemies:
-        double attack_surv;
-        if (P > 0) attack_surv = std::pow(1 + a * P / (k * (h * z + 1)), -k);
-        else attack_surv = 1;
+        double S_p = 1 / (1 + z / K_p);
+        // survival from parasitoids:
+        arma::vec A;
+        if (Y > 0) {
+            A = arma::pow(1 + R * a * Y / (k * (h * x + 1)), -k);
+        } else A = arma::ones(R.n_elem);
 
         // Proportion of new aphids (from apterous females) that are alates
         double alate_p = inv_logit__(alate_0 + alate_1 * z);
@@ -81,12 +93,18 @@ class InsectPops {
 
         arma::vec LX = L * X;
 
-        if (P > 0) {
-            P *= s; // daily survival of existing
-            P += arma::accu((1 - B) * S * (1 - attack_surv) * LX); // new individuals
-        }
+        // new parasitized aphids:
+        double new_P = arma::as_scalar((1 - A).t() * LX);
+        // new mummies:
+        double new_M = theta_p * P;
+        // new adult parasitoids (both male and female!):
+        double new_Y = theta_m * M;
 
-        X = (1 - m) * (1 - B) * S * attack_surv * LX;
+        P = s_m * s_B * S_p * (s_p * P + new_P) - new_M;
+        M = s_m * (M + new_M) - new_Y;
+        Y = s_y * Y + 0.5 * new_Y;
+
+        X = (s_m * s_B * S * A) % LX;
 
 
         // Variance for all process error:
@@ -119,6 +137,11 @@ public:
                const double& recruit,
                const double& fecund,
                const double& K_,
+               const double& K_p_,
+               const double& s_p_,
+               const arma::vec& R_,
+               const double& theta_m_,
+               const double& theta_p_,
                const double& m_,
                const double& B_,
                const double& disaster_p_,
@@ -129,18 +152,23 @@ public:
                const double& a_,
                const double& h_,
                const double& k_,
-               const double& s_,
+               const double& s_y_,
                const double& alate_0_,
                const double& alate_1_,
                const double& fly_p_,
                const double& wasp_disp_m0_,
                const double& wasp_disp_m1_,
-               const double& A0,
+               const double& N0,
                const double& W0,
-               const double& P0)
+               const double& Y0)
         : distr(1, 0.5),
           L(4, 4, arma::fill::zeros),
           K(K_),
+          K_p(K_p_),
+          s_p(s_p_),
+          R(R_),
+          theta_m(theta_m_),
+          theta_p(theta_p_),
           m(m_),
           B(B_),
           disaster_p(disaster_p_),
@@ -151,14 +179,24 @@ public:
           a(a_),
           h(h_),
           k(k_),
-          s(s_),
+          s_y(s_y_),
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
           wasp_disp_m0(wasp_disp_m0_),
           wasp_disp_m1(wasp_disp_m1_),
           X(4, arma::fill::zeros),
-          P(P0) {
+          P(0),
+          M(0),
+          Y(Y0) {
+
+        // Checks for parameter values that could cause negative numbers:
+        if (theta_m >= (1-m)) stop("theta_m cannot be >= 1-m");
+        if (theta_p >= (1-m) * (1-B) * 0.65 * s_p) {
+            std::string err_msg = "theta_p cannot be >= (1-m) * (1-B) * 0.65 ";
+            err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
+            stop(err_msg.c_str());
+        }
 
         L(0,0) = surv_j;
         L(2,2) = surv_j;
@@ -175,19 +213,21 @@ public:
         L(1,0) = recruit;
         L(3,2) = recruit;
 
-        set_aphids(A0, W0);
+        set_aphids(N0, W0);
 
     };
 
     InsectPops(const InsectPops& other)
-        : distr(other.distr), L(other.L), K(other.K), m(other.m), B(other.B),
+        : distr(other.distr), L(other.L), K(other.K), K_p(other.K_p),
+          s_p(other.s_p), R(other.R), theta_m(other.theta_m),
+          theta_p(other.theta_p), m(other.m), B(other.B),
           disaster_p(other.disaster_p), disaster_s(other.disaster_s),
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
-          a(other.a), h(other.h), k(other.k), s(other.s),
+          a(other.a), h(other.h), k(other.k), s_y(other.s_y),
           alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
           wasp_disp_m0(other.wasp_disp_m0), wasp_disp_m1(other.wasp_disp_m1),
-          X(other.X), P(other.P) {};
+          X(other.X), P(other.P), M(other.M), Y(other.Y) {};
 
 
     // iterate and set number of alates and add parasitoids moving from this
@@ -205,8 +245,8 @@ public:
             } else {
                 p_out = wasp_disp_m0;
             }
-            wasp_disp_pool += P * p_out;
-            P *= (1 - p_out);
+            wasp_disp_pool += Y * p_out;
+            Y *= (1 - p_out);
         };
 
         n_alates = 0;
@@ -232,6 +272,11 @@ public:
      the landscape:
      */
     void set_B(const double& new_B) {
+        if (theta_p >= (1-m) * (1-new_B) * 0.65 * s_p) {
+            std::string err_msg = "theta_p cannot be >= (1-m) * (1-B) * 0.65 ";
+            err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
+            stop(err_msg.c_str());
+        }
         B = new_B;
         return;
     }
@@ -241,31 +286,33 @@ public:
      the landscape to have variation:
      */
     void set_K(const double& new_K) {
+        K_p /= K;
         K = new_K;
+        K_p *= new_K;
         return;
     }
 
 
     // Get non-winged aphid population density:
-    double A() const {
+    double aphids() const {
         return arma::accu(X.head(2));
     }
     // Get winged aphid population density:
-    double W() const {
+    double alates() const {
         return arma::accu(X.tail(2));
     }
-    double& winged_adults() {
+    double& alate_adults() {
         return X.back();
     }
 
     // Fill non-winged and winged aphids using stable age distributions,
     // for each separately:
-    void set_aphids(const double& A0, const double& W0) {
-        if (A0 <= 0 && W0 <= 0) return;
+    void set_aphids(const double& N0, const double& W0) {
+        if (N0 <= 0 && W0 <= 0) return;
         arma::vec dens;
         sad_leslie__(L, dens);
-        if (A0 > 0) {
-            X.head(2) = A0 * dens.head(2) / arma::accu(dens.head(2));
+        if (N0 > 0) {
+            X.head(2) = N0 * dens.head(2) / arma::accu(dens.head(2));
         }
         if (W0 > 0) {
             X.tail(2) = W0 * dens.tail(2) / arma::accu(dens.tail(2));
@@ -275,7 +322,9 @@ public:
 
 
     arma::vec X;    // aphids by stage
-    double P;       // natural enemy population density
+    double P;       // parasitized aphid density
+    double M;       // mummy density
+    double Y;       // parasitoid population density
 
 };
 

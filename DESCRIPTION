@@ -22,7 +22,7 @@ LinkingTo:
     Rcpp (>= 1.0.0),
     RcppArmadillo,
     RcppThread
-SystemRequirements: GNU make, C++11
+SystemRequirements: GNU make
 NeedsCompilation: yes
 URL: https://github.com/lucasnell/aeonia
 BugReports: https://github.com/lucasnell/aeonia/issues
@@ -37,4 +37,4 @@ Suggests:
     rmarkdown
 VignetteBuilder: knitr
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

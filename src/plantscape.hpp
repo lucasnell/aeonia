@@ -72,7 +72,9 @@ class PlantScape {
          3) plant infectious with virus (0 or 1)
          4) aphid (non-winged) density
          5) alate density
-         6) predator density
+         6) parasitized aphid density
+         7) mummy density
+         8) parasitoid density
 
      If `summ == "pseudo"`, two rows are output for each time point.
      The columns are...
@@ -81,20 +83,24 @@ class PlantScape {
          3) number of plants infectious with virus
          4) total aphid (non-winged) density summed across all plants of this type
          5) total alate density summed across all plants of this type
-         6) total predator density summed across all plants of this type
+         6) total parasitized aphid density summed across all plants of this type
+         7) total mummy density summed across all plants of this type
+         8) total parasitoid density summed across all plants of this type
 
      If `summ == "all"`, only one row is output per time point.
      The columns are...
          1) number of plants infectious with virus
          2) total aphid (non-winged) density summed across all plants
          3) total alate density summed across all plants
-         4) total predator density summed across all plants
+         4) total parasitized aphid density summed across all plants
+         5) total mummy density summed across all plants
+         6) total parasitoid density summed across all plants
      ==========================================================================*
      */
     void fill_output() {
 
         if (summ == "none") {
-            output.push_back(arma::mat(n_x * n_y, 6, arma::fill::none));
+            output.push_back(arma::mat(n_x * n_y, 8, arma::fill::none));
             arma::mat& output_t(output.back());
             uint32 k = 0;
             for (uint32 x = 0; x < n_x; x++) {
@@ -103,15 +109,17 @@ class PlantScape {
                     output_t(k,0) = static_cast<double>(x+1U);
                     output_t(k,1) = static_cast<double>(y+1U);
                     output_t(k,2) = static_cast<double>(plant.infectious);
-                    output_t(k,3) = plant.insects.A();
-                    output_t(k,4) = plant.insects.W();
+                    output_t(k,3) = plant.insects.aphids();
+                    output_t(k,4) = plant.insects.alates();
                     output_t(k,5) = plant.insects.P;
+                    output_t(k,6) = plant.insects.M;
+                    output_t(k,7) = plant.insects.Y;
                     k++;
                 }
             }
         } else if (summ == "pseudo") {
 
-            output.push_back(arma::mat(2, 6, arma::fill::zeros));
+            output.push_back(arma::mat(2, 8, arma::fill::zeros));
             arma::mat& output_t(output.back());
             // Set value indicating Pseudomonas present:
             output_t(1,0) = 1;
@@ -123,23 +131,27 @@ class PlantScape {
                     k = (plant.pseudo) ? 1UL : 0UL;
                     output_t(k,1) += 1.0;
                     output_t(k,2) += static_cast<double>(plant.infectious);
-                    output_t(k,3) += plant.insects.A();
-                    output_t(k,4) += plant.insects.W();
+                    output_t(k,3) += plant.insects.aphids();
+                    output_t(k,4) += plant.insects.alates();
                     output_t(k,5) += plant.insects.P;
+                    output_t(k,6) += plant.insects.M;
+                    output_t(k,7) += plant.insects.Y;
                 }
             }
 
         } else if (summ == "all") {
 
-            output.push_back(arma::mat(1, 4, arma::fill::zeros));
+            output.push_back(arma::mat(1, 6, arma::fill::zeros));
             arma::mat& output_t(output.back());
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
                     const OnePlant& plant(plants[x][y]);
                     output_t(0,0) += static_cast<double>(plant.infectious);
-                    output_t(0,1) += plant.insects.A();
-                    output_t(0,2) += plant.insects.W();
+                    output_t(0,1) += plant.insects.aphids();
+                    output_t(0,2) += plant.insects.alates();
                     output_t(0,3) += plant.insects.P;
+                    output_t(0,4) += plant.insects.M;
+                    output_t(0,5) += plant.insects.Y;
                 }
             }
 
@@ -191,7 +203,7 @@ class PlantScape {
         if (wasp_disp_pool > 0) {
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
-                    plants[x][y].insects.P += (wasp_disp_pool * wasp_attract(x,y));
+                    plants[x][y].insects.Y += (wasp_disp_pool * wasp_attract(x,y));
                 }
             }
         }
@@ -241,9 +253,9 @@ public:
                const double& delta_p_,
                const uint32& total_exp_days_,
                const InsectPops& insects_,
-               const arma::mat& A0,
+               const arma::mat& N0,
                const arma::mat& W0,
-               const arma::mat& P0,
+               const arma::mat& Y0,
                const std::vector<uint64>& seeds)
         : flight(max_fly_t_, landscape_, radius_, alpha_, beta_, epsilon_, w_),
           plants(),
@@ -280,12 +292,12 @@ public:
                 plants_x.push_back(OnePlant(infectious, pseudo, total_exp_days_,
                                             insects_));
                 InsectPops& insects(plants_x.back().insects);
-                if (A0.n_elem == 1) {
-                    insects.set_aphids(A0(0,0), W0(0,0));
-                    insects.P = P0(0,0);
+                if (N0.n_elem == 1) {
+                    insects.set_aphids(N0(0,0), W0(0,0));
+                    insects.Y = Y0(0,0);
                 } else {
-                    insects.set_aphids(A0(x,y), W0(x,y));
-                    insects.P = P0(x,y);
+                    insects.set_aphids(N0(x,y), W0(x,y));
+                    insects.Y = Y0(x,y);
                 }
                 if (!pseudo) insects.set_B(0.0);
             }
