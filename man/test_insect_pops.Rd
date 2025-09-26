@@ -79,49 +79,63 @@ stochasticity.
 Defaults to \code{0}.}
 
 \item{surv_j}{Single numeric indicating aphid juvenile survival.
-Defaults to \code{NA}, which results in \code{pop_info$surv_j} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{surv_a}{Single numeric indicating aphid adult survival.
-Defaults to \code{NA}, which results in \code{pop_info$surv_a} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{recruit}{Single numeric indicating aphid recruitment.
-Defaults to \code{NA}, which results in \code{pop_info$recruit} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{fecund}{Single numeric indicating aphid fecundity.
-Defaults to \code{NA}, which results in \code{pop_info$fecund} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{K}{Single numeric indicating the carrying capacity (not including
-parasitoids or \emph{Pseudomonas}) of the aphid population.
-Defaults to \code{NA}, which results in \code{pop_info$K} being used.
-This is from a previous study.}
+\item{K}{Single numeric indicating the density dependence of the
+aphid population.
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{m}{Single numeric indicating aphid mortality.
-Defaults to \code{NA}, which results in \code{pop_info$m} being used.
-This is from a previous study.}
+\item{K_p}{Single numeric indicating parasitized aphid density dependence.
+Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{s_p}{Single numeric indicating parasitized aphid daily survival.
+Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{R}{Single numeric indicating
+Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{theta_m}{Single numeric indicating the proportion of mummies that
+transition to adult parasitoids each day.
+Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{theta_p}{Single numeric indicating the proportion of parasitized
+aphids that transition to mummies each day.
+Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{m}{Single numeric indicating aphid and mummy mortality due
+to generalist predators.
+Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{alate_0}{Single numeric.
 The proportion of winged offspring from apterous aphids is
 \code{inv_logit(alate_0 + alate_1 * z)} where \code{z} is the total number of
 aphids on that plant.
-Defaults to \code{NA}, which results in \code{pop_info$alate_0} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{alate_1}{Single numeric affecting how strongly aphid density
 influences alate production. See \code{alate_0} above for the equation.
-Defaults to \code{NA}, which results in \code{pop_info$alate_1} being used.
-This is from a previous study.}
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{a}{Single numeric indicating the parasitoid attack rate.}
+\item{a}{Single numeric indicating the parasitoid attack rate.
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{h}{Single numeric indicating the parasitoid handling time.}
+\item{h}{Single numeric indicating the parasitoid handling time.
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{k}{Single numeric indicating the parasitoid aggregation parameter.}
+\item{k}{Single numeric indicating the parasitoid aggregation parameter.
+Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{s_y}{Single numeric indicating the adult parasitoid daily survival.}
+\item{s_y}{Single numeric indicating the adult parasitoid daily survival.
+Defaults to \code{NA}. See 'Details' for more info.}
 }
 \description{
 This function is just for one plant, so the probability that an
