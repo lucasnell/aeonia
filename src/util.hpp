@@ -12,14 +12,16 @@
 using namespace Rcpp;
 
 
-// Get # of cores from options("mc.cores")
+// Get # of cores from options("mc.cores"), or 1 if it's not set.
 inline void assign_mc_cores(uint32& cores) {
 
     Rcpp::Environment base("package:base");
     Rcpp::Function get_option = base["getOption"];
     Rcpp::Nullable<Rcpp::IntegerVector> mc_cores = get_option("mc.cores");
 
-    if (mc_cores != R_NilValue) cores = as<uint32>(mc_cores);
+    if (mc_cores != R_NilValue) {
+        cores = as<uint32>(mc_cores);
+    } else cores = 1;
 
     return;
 }
