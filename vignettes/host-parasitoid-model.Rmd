@@ -35,7 +35,8 @@ library(gt)
 library(gameofclones)
 library(aeonia)
 # Make a number print in LaTeX friendly format:
-dbl4ltx <- function(x, .fmt = "$%.4f$") {
+dbl4ltx <- function(x, .digits = 4) {
+    .fmt <- sprintf("$%%.%if$", .digits)
     x <- sprintf(.fmt, x)
     return(I(x))
 }
@@ -73,7 +74,7 @@ tribble(
     ~Parameter,  ~Used,  ~Description ,
     "$n$"    ,  "$2$", "number of aphid age stages",
     "$\\mathbf{X}(t)$",  "$-$", "length-$2n$ vector of aphid abundances by stage",
-    "$m$"    ,  dbl4ltx(pop_info$m), "mortality from generalist predators and host-plant death",
+    "$m$"    ,  dbl4ltx(pop_info$m, 1), "mortality from generalist predators and host-plant death",
     "$B$"    ,  "varies", "mortality from *Pseudomonas* bacteria (0 if not present on plant)",
     "$S(z(t))$",  "$-$",  "unparasitized aphid density dependence",
     "$z(t)$",  "$-$",  "total alive aphids in a particular patch",
@@ -81,7 +82,7 @@ tribble(
     "$x(t)$",  "$-$",  "total unparasitized aphids in a particular patch",
     "$Y(t)$",  "$-$",  "total adult, female parasitoids",
     "$\\mathbf{L}$",  "$**$",  "$2n \\times 2n$ transition matrix that defines transitions among all stages",
-    "$K$",  dbl4ltx(pop_info$K),  "controls strength of unparasitized aphid density dependence",
+    "$K$",  dbl4ltx(pop_info$K, 0),  "controls strength of unparasitized aphid density dependence",
     "$s_j$",  dbl4ltx(pop_info$surv_j),  "aphid juvenile survival",
     "$s_a$",  dbl4ltx(pop_info$surv_a),  "aphid adult survival",
     "$r$",  dbl4ltx(pop_info$recruit),  "aphid recruitment",
@@ -89,7 +90,7 @@ tribble(
     "$f_N(z(t))$",  "$-$",  "non-winged aphid fecundity for non-winged offspring",
     "$f_W(z(t))$",  "$-$",  "non-winged aphid fecundity for winged offspring",
     "$p_W(z(t))$",  "$-$",  "proportion of winged offspring from non-winged mothers",
-    "$\\alpha_0$",  dbl4ltx(pop_info$alate_0),  "affects the proportion of winged offspring at low aphid densities",
+    "$\\alpha_0$",  dbl4ltx(pop_info$alate_0, 0),  "affects the proportion of winged offspring at low aphid densities",
     "$\\alpha_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
 ) |> 
     kable(escape = FALSE)
@@ -140,17 +141,17 @@ which is higher than for parasitized aphids.
 tribble(
     ~Parameter,  ~Used,  ~Description ,
     "$\\mathbf{R}$", "$**$", "length-$2n$ vector giving the relative parasitoid attack rates by aphid stage",
-    "$a$"    , dbl4ltx(pop_info$a), "overall parasitoid attack rate",
-    "$h$"    , dbl4ltx(pop_info$h), "parasitoid attack-rate handling time",
-    "$k$"    , dbl4ltx(pop_info$k), "negative binomial distribution's aggregation parameter",
+    "$a$"    , dbl4ltx(pop_info$a, 2), "overall parasitoid attack rate",
+    "$h$"    , dbl4ltx(pop_info$h, 3), "parasitoid attack-rate handling time",
+    "$k$"    , dbl4ltx(pop_info$k, 2), "negative binomial distribution's aggregation parameter",
     "$P$"    , "$-$", "parasitized aphid abundance",
     "$S_p(z(t))$"  , "$-$", "parasitized aphid density dependence",
-    "$K_p$"  , dbl4ltx(pop_info$K_p), "controls strength of parasitized aphid density dependence",
+    "$K_p$"  , dbl4ltx(pop_info$K_p, 0), "controls strength of parasitized aphid density dependence",
     "$s_p$"  , dbl4ltx(pop_info$s_p), "daily survival for parasitized aphids",
     "$\\tilde{\\theta}_{p}$", dbl4ltx(pop_info$theta_p), "proportion of parasitized aphids that transition to mummies each day",
     "$M$"  , "$-$", "mummy (parasitized, dead aphid) abundance",
     "$\\tilde{\\theta}_{m}$", dbl4ltx(pop_info$theta_m), "proportion of mummies that transition to adult parasitoids each day",
-    "$s_y$"  , dbl4ltx(pop_info$s_y), "adult parasitoid daily survival",
+    "$s_y$"  , dbl4ltx(pop_info$s_y, 2), "adult parasitoid daily survival",
 ) |> 
     kable(escape = FALSE)
 ```
