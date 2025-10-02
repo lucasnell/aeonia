@@ -64,6 +64,9 @@ class PlantScape {
      Write the current state of the PlantScape to the `output` field.
      `summ` is for how to summarize output (if at all).
      `summ = "none"` isn't recommended for long time series of many plants!
+     Note also that `summ = "time"` and `summ = "all"` result in the same
+     output here, but they get summarized differently in the `sim_plantscape`
+     function.
 
      If `summ == "none"`, `n_x * n_y` rows are output for each time point.
      The columns are...
@@ -87,7 +90,7 @@ class PlantScape {
          7) total mummy density summed across all plants of this type
          8) total parasitoid density summed across all plants of this type
 
-     If `summ == "all"`, only one row is output per time point.
+     If `summ %in% c("time", "all")`, only one row is output per time point.
      The columns are...
          1) number of plants infectious with virus
          2) total aphid (non-winged) density summed across all plants
@@ -139,7 +142,7 @@ class PlantScape {
                 }
             }
 
-        } else if (summ == "all") {
+        } else if (summ == "time" || summ == "all") {
 
             output.push_back(arma::mat(1, 6, arma::fill::zeros));
             arma::mat& output_t(output.back());
@@ -157,7 +160,7 @@ class PlantScape {
 
         } else {
 
-            stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'all')`");
+            stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
 
         }
 

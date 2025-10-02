@@ -146,6 +146,68 @@ sad_leslie <- function(L) {
 #' 0.75 meters apart (typical spacing for pea):
 #' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
 #'
+#' # Summarizing
+#' If `summ == "none"`, `n_x * n_y` rows are output for each rep and time point.
+#' The columns are...
+#' 1.  `rep`: repetition number
+#' 2.  `time`: time point
+#' 3.  `x`: plant x coordinate
+#' 4.  `y`: plant y coordinate
+#' 5.  `pseudo`: plant contains *Pseudomonas* (0 or 1); note: this column isn't
+#'     included if `out_pseudo = FALSE`
+#' 6.  `virus`: plant infectious with virus (0 or 1)
+#' 7.  `aphids`: aphid (non-winged) density
+#' 8.  `alates`: alate density
+#' 9.  `parasitized`: parasitized aphid density
+#' 10. `mummies`: mummy density
+#' 11. `wasps`: parasitoid density
+#'
+#' If `summ == "pseudo"`, two rows are output for each rep and time point.
+#' The columns are...
+#' 1.  `rep`: repetition number
+#' 2.  `time`: time point
+#' 3. `pseudo`: plant contains *Pseudomonas* (0 or 1)
+#' 4. `n`: total plants of this type
+#' 5. `virus`: number of plants infectious with virus
+#' 6. `aphids`: total aphid (non-winged) density summed across all plants of
+#'    this type
+#' 7. `alates`: total alate density summed across all plants of this type
+#' 8. `parasitized`: total parasitized aphid density summed across all plants
+#'    of this type
+#' 9. `mummies`: total mummy density summed across all plants of this type
+#' 10.`wasps`:  total parasitoid density summed across all plants of this type
+#'
+#' If `summ == "time"`, one row is output per rep and time point.
+#' The columns are...
+#' 1.  `rep`: repetition number
+#' 2.  `time`: time point
+#' 3. `virus`: number of plants infectious with virus
+#' 4. `aphids`: total aphid (non-winged) density summed across all plants
+#' 5. `alates`: total alate density summed across all plants
+#' 6. `parasitized`: total parasitized aphid density summed across all plants
+#' 7. `mummies`: total mummy density summed across all plants
+#' 8. `wasps` total parasitoid density summed across all plants
+#'
+#' If `summ == "all"`, one row is output per rep.
+#' The columns are...
+#' 1.  `rep`: repetition number
+#' 2.  `p_alates`: mean total alates / total aphids
+#' 3.  `log_aphids`: mean log(aphids+1)
+#' 4.  `aphids`: mean aphids
+#' 5.  `log_alates`: mean log(alates+1)
+#' 6.  `alates`: mean alates
+#' 7.  `log_alates`: mean log(parasitized aphids+1)
+#' 8.  `alates`: mean parasitized aphids
+#' 9.  `log_mummies`: mean log(mummies+1)
+#' 10. `mummies`: mean mummies
+#' 11. `log_wasps`: mean log(wasps+1)
+#' 12. `wasps`: mean wasps
+#' 13. `infect_time`: time it took to have `infect_time_n` plants infected
+#' 14. `outbreak_size`: maximum number of plants infected with virus
+#'
+#'
+#'
+#'
 #' @param landscapes Integer cube with the types of each plant in each
 #'     landscape. It's assumed that rows are x the dimension,
 #'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)
@@ -226,9 +288,19 @@ sad_leslie <- function(L) {
 #'     by plant.
 #'     If `summ == "pseudo"`, then output is summarized by whether plants
 #'     contain *Pseudomonas*.
-#'     If `summ == "all"`, then output is summarized across all plants
+#'     If `summ == "time"`, then output is summarized across all plants, so
 #'     will only be separated by time and rep.
+#'     If `summ == "all"`, then output is summarized across all plants and
+#'     time points, so will only be separated by rep.
+#'     See "Summarizing" section below for details on output columns.
 #'     Defaults to `"none"`.
+#' @param infect_time_n Single integer specifying the number of plants
+#'     to use when calculating the `infect_time` column when `summ == "all"`.
+#'     Ignored when `summ != "all"` except for error checking.
+#'     Note that since this is coerced to an unsigned integer, using
+#'     a negative number here could cause an error to occur.
+#'     Defaults to `0`, which results in the total number of plants
+#'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
 #' @param infect_stop Single logical for whether to stop simulations
 #'     when all plants are infected with virus.
 #'     Defaults to `TRUE`.
@@ -245,8 +317,12 @@ sad_leslie <- function(L) {
 #'
 #' @export
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_stop, out_pseudo, show_progress, n_threads)
+#' @return A tibble with columns following the description in the
+#' "Summarizing" section.
+#'
+#'
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

@@ -42,6 +42,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            const double& radius,
                                            Nullable<NumericMatrix> wasp_plant_attract,
                                            const std::string& summ,
+                                           uint32& infect_time_n,
                                            const bool& infect_stop,
                                            const bool& out_pseudo,
                                            const bool& show_progress,
@@ -78,9 +79,11 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     if ((w*epsilon) > 1) stop("w*epsilon > 1");
     if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
     if (radius < 1) stop("radius < 1");
-    if (summ != "none" && summ != "pseudo" && summ != "all") {
-        stop("`summ` should be 'none', 'pseudo', or 'all'");
+    if (summ != "none" && summ != "pseudo" && summ != "time" && summ != "all") {
+        stop("`summ` should be 'none', 'pseudo', 'time', or 'all'");
     }
+    if (infect_time_n == 0) infect_time_n = n_x * n_y;
+    if (infect_time_n > n_x * n_y) stop("infect_time_n > n_x * n_y");
 
     arma::mat wasp_attract(n_x, n_y, arma::fill::none);
     if (wasp_plant_attract.isNotNull()){
@@ -112,7 +115,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     // Make sure output object won't be too big for R:
     if  (R_output) {
         uint32 n_rows = n_reps * (max_t + (uint32)1U);
-        if (summ == "plant") n_rows *= (n_x * n_y);
+        if (summ == "none") n_rows *= (n_x * n_y);
         if (summ == "pseudo") n_rows *= (uint32)2U;
         if (n_rows > (uint32)2147483647)
             stop("This combo of parameters will produce too large of an output for R");
@@ -151,6 +154,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
         }
     }
 
+    return plantscapes;
+
 }
 
 
@@ -170,6 +175,68 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //' I'm dividing by 0.75 to convert from meters to plant locations that are
 //' 0.75 meters apart (typical spacing for pea):
 //' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
+//'
+//' # Summarizing
+//' If `summ == "none"`, `n_x * n_y` rows are output for each rep and time point.
+//' The columns are...
+//' 1.  `rep`: repetition number
+//' 2.  `time`: time point
+//' 3.  `x`: plant x coordinate
+//' 4.  `y`: plant y coordinate
+//' 5.  `pseudo`: plant contains *Pseudomonas* (0 or 1); note: this column isn't
+//'     included if `out_pseudo = FALSE`
+//' 6.  `virus`: plant infectious with virus (0 or 1)
+//' 7.  `aphids`: aphid (non-winged) density
+//' 8.  `alates`: alate density
+//' 9.  `parasitized`: parasitized aphid density
+//' 10. `mummies`: mummy density
+//' 11. `wasps`: parasitoid density
+//'
+//' If `summ == "pseudo"`, two rows are output for each rep and time point.
+//' The columns are...
+//' 1.  `rep`: repetition number
+//' 2.  `time`: time point
+//' 3. `pseudo`: plant contains *Pseudomonas* (0 or 1)
+//' 4. `n`: total plants of this type
+//' 5. `virus`: number of plants infectious with virus
+//' 6. `aphids`: total aphid (non-winged) density summed across all plants of
+//'    this type
+//' 7. `alates`: total alate density summed across all plants of this type
+//' 8. `parasitized`: total parasitized aphid density summed across all plants
+//'    of this type
+//' 9. `mummies`: total mummy density summed across all plants of this type
+//' 10.`wasps`:  total parasitoid density summed across all plants of this type
+//'
+//' If `summ == "time"`, one row is output per rep and time point.
+//' The columns are...
+//' 1.  `rep`: repetition number
+//' 2.  `time`: time point
+//' 3. `virus`: number of plants infectious with virus
+//' 4. `aphids`: total aphid (non-winged) density summed across all plants
+//' 5. `alates`: total alate density summed across all plants
+//' 6. `parasitized`: total parasitized aphid density summed across all plants
+//' 7. `mummies`: total mummy density summed across all plants
+//' 8. `wasps` total parasitoid density summed across all plants
+//'
+//' If `summ == "all"`, one row is output per rep.
+//' The columns are...
+//' 1.  `rep`: repetition number
+//' 2.  `p_alates`: mean total alates / total aphids
+//' 3.  `log_aphids`: mean log(aphids+1)
+//' 4.  `aphids`: mean aphids
+//' 5.  `log_alates`: mean log(alates+1)
+//' 6.  `alates`: mean alates
+//' 7.  `log_alates`: mean log(parasitized aphids+1)
+//' 8.  `alates`: mean parasitized aphids
+//' 9.  `log_mummies`: mean log(mummies+1)
+//' 10. `mummies`: mean mummies
+//' 11. `log_wasps`: mean log(wasps+1)
+//' 12. `wasps`: mean wasps
+//' 13. `infect_time`: time it took to have `infect_time_n` plants infected
+//' 14. `outbreak_size`: maximum number of plants infected with virus
+//'
+//'
+//'
 //'
 //' @param landscapes Integer cube with the types of each plant in each
 //'     landscape. It's assumed that rows are x the dimension,
@@ -251,9 +318,19 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     by plant.
 //'     If `summ == "pseudo"`, then output is summarized by whether plants
 //'     contain *Pseudomonas*.
-//'     If `summ == "all"`, then output is summarized across all plants
+//'     If `summ == "time"`, then output is summarized across all plants, so
 //'     will only be separated by time and rep.
+//'     If `summ == "all"`, then output is summarized across all plants and
+//'     time points, so will only be separated by rep.
+//'     See "Summarizing" section below for details on output columns.
 //'     Defaults to `"none"`.
+//' @param infect_time_n Single integer specifying the number of plants
+//'     to use when calculating the `infect_time` column when `summ == "all"`.
+//'     Ignored when `summ != "all"` except for error checking.
+//'     Note that since this is coerced to an unsigned integer, using
+//'     a negative number here could cause an error to occur.
+//'     Defaults to `0`, which results in the total number of plants
+//'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
 //' @param infect_stop Single logical for whether to stop simulations
 //'     when all plants are infected with virus.
 //'     Defaults to `TRUE`.
@@ -269,6 +346,10 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'
 //'
 //' @export
+//'
+//' @return A tibble with columns following the description in the
+//' "Summarizing" section.
+//'
 //'
 //[[Rcpp::export]]
 DataFrame sim_plantscape(const arma::ucube& landscapes,
@@ -287,6 +368,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const double& radius = 7.336451,
                          Nullable<NumericMatrix> wasp_plant_attract = R_NilValue,
                          const std::string& summ = "none",
+                         uint32 infect_time_n = 0,
                          const bool& infect_stop = true,
                          const bool& out_pseudo = false,
                          const bool& show_progress = false,
@@ -296,7 +378,9 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         sim_plantscape_cpp(true, landscapes, max_t, insect_ptr, N0, W0, Y0,
                            alpha, beta, epsilon, delta_a, delta_p,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
+                           infect_time_n,
                            infect_stop, out_pseudo, show_progress, n_threads);
+
 
     // Produce output dataframe:
     DataFrame out_df;
@@ -305,10 +389,12 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         ps_out_none(out_df, plantscapes, landscapes, max_t, out_pseudo);
     } else if (summ == "pseudo") {
         ps_out_pseudo(out_df, plantscapes, landscapes, max_t);
+    } else if (summ == "time") {
+        ps_out_time(out_df, plantscapes, landscapes, max_t);
     } else if (summ == "all") {
-        ps_out_all(out_df, plantscapes, landscapes, max_t);
+        ps_out_all(out_df, plantscapes, landscapes, max_t, infect_time_n);
     } else {
-        stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'all')`");
+        stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
     }
 
     return out_df;
