@@ -21,6 +21,7 @@ sim_plantscape(
   radius = 7.336451,
   wasp_plant_attract = NULL,
   summ = "none",
+  infect_time_n = 0L,
   infect_stop = TRUE,
   out_pseudo = FALSE,
   show_progress = FALSE,
@@ -123,9 +124,20 @@ If \code{summ == "none"}, then no summarizing is done, so output is separate
 by plant.
 If \code{summ == "pseudo"}, then output is summarized by whether plants
 contain \emph{Pseudomonas}.
-If \code{summ == "all"}, then output is summarized across all plants
+If \code{summ == "time"}, then output is summarized across all plants, so
 will only be separated by time and rep.
+If \code{summ == "all"}, then output is summarized across all plants and
+time points, so will only be separated by rep.
+See "Summarizing" section below for details on output columns.
 Defaults to \code{"none"}.}
+
+\item{infect_time_n}{Single integer specifying the number of plants
+to use when calculating the \code{infect_time} column when \code{summ == "all"}.
+Ignored when \code{summ != "all"} except for error checking.
+Note that since this is coerced to an unsigned integer, using
+a negative number here could cause an error to occur.
+Defaults to \code{0}, which results in the total number of plants
+(i.e., \code{prod(dim(landscapes)[1:2])}) being used.}
 
 \item{infect_stop}{Single logical for whether to stop simulations
 when all plants are infected with virus.
@@ -143,6 +155,10 @@ Ignored if \code{dim(landscapes)[3] == 1}.
 Defaults to \code{0L}, in which case it takes the value from
 \code{options("mc.cores")} if assigned, and \code{1L} if not assigned.}
 }
+\value{
+A tibble with columns following the description in the
+"Summarizing" section.
+}
 \description{
 Simulation plant landscapes with virus spread.
 }
@@ -156,5 +172,73 @@ distribution.
 I'm dividing by 0.75 to convert from meters to plant locations that are
 0.75 meters apart (typical spacing for pea):
 \code{radius = qweibull(0.5, 0.6569, 9.613) / 0.75}.
+}
+
+\section{Summarizing}{
+If \code{summ == "none"}, \code{n_x * n_y} rows are output for each rep and time point.
+The columns are...
+\enumerate{
+\item \code{rep}: repetition number
+\item \code{time}: time point
+\item \code{x}: plant x coordinate
+\item \code{y}: plant y coordinate
+\item \code{pseudo}: plant contains \emph{Pseudomonas} (0 or 1); note: this column isn't
+included if \code{out_pseudo = FALSE}
+\item \code{virus}: plant infectious with virus (0 or 1)
+\item \code{aphids}: aphid (non-winged) density
+\item \code{alates}: alate density
+\item \code{parasitized}: parasitized aphid density
+\item \code{mummies}: mummy density
+\item \code{wasps}: parasitoid density
+}
+
+If \code{summ == "pseudo"}, two rows are output for each rep and time point.
+The columns are...
+\enumerate{
+\item \code{rep}: repetition number
+\item \code{time}: time point
+\item \code{pseudo}: plant contains \emph{Pseudomonas} (0 or 1)
+\item \code{n}: total plants of this type
+\item \code{virus}: number of plants infectious with virus
+\item \code{aphids}: total aphid (non-winged) density summed across all plants of
+this type
+\item \code{alates}: total alate density summed across all plants of this type
+\item \code{parasitized}: total parasitized aphid density summed across all plants
+of this type
+\item \code{mummies}: total mummy density summed across all plants of this type
+10.\code{wasps}:  total parasitoid density summed across all plants of this type
+}
+
+If \code{summ == "time"}, one row is output per rep and time point.
+The columns are...
+\enumerate{
+\item \code{rep}: repetition number
+\item \code{time}: time point
+\item \code{virus}: number of plants infectious with virus
+\item \code{aphids}: total aphid (non-winged) density summed across all plants
+\item \code{alates}: total alate density summed across all plants
+\item \code{parasitized}: total parasitized aphid density summed across all plants
+\item \code{mummies}: total mummy density summed across all plants
+\item \code{wasps} total parasitoid density summed across all plants
+}
+
+If \code{summ == "all"}, one row is output per rep.
+The columns are...
+\enumerate{
+\item \code{rep}: repetition number
+\item \code{p_alates}: mean total alates / total aphids
+\item \code{log_aphids}: mean log(aphids+1)
+\item \code{aphids}: mean aphids
+\item \code{log_alates}: mean log(alates+1)
+\item \code{alates}: mean alates
+\item \code{log_alates}: mean log(parasitized aphids+1)
+\item \code{alates}: mean parasitized aphids
+\item \code{log_mummies}: mean log(mummies+1)
+\item \code{mummies}: mean mummies
+\item \code{log_wasps}: mean log(wasps+1)
+\item \code{wasps}: mean wasps
+\item \code{infect_time}: time it took to have \code{infect_time_n} plants infected
+\item \code{outbreak_size}: maximum number of plants infected with virus
+}
 }
 
