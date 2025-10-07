@@ -43,6 +43,11 @@ dbl4ltx <- function(x, .digits = 4) {
 ```
 
 
+In the equations below, $\odot~$indicates element-wise
+multiplication (Hadamard product), 
+$^{\circ}~$indicates element-wise power (Hadamard power),
+and $^{\intercal}~$indicates matrix transposition.
+Vectors and matrices are in bold.
 
 
 ## Aphid population dynamics
