@@ -5,7 +5,7 @@
 
 library(sensobol)
 
-source("_building/01-sensitivity/_00-preamble.R")
+source("_scripts/01-sensitivity/_00-preamble.R")
 
 
 #'

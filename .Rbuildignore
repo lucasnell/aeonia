@@ -6,3 +6,4 @@
 ^.*\.svg$
 ^data-raw$
 ^vignettes/*_files$
+^_scripts$
