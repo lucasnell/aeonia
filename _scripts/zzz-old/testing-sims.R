@@ -394,7 +394,7 @@ dts |>
 # =============================================================================*
 
 
-if (!file.exists("_building/ps_sims.rds")) {
+if (!file.exists("_scripts/ps_sims.rds")) {
     # Takes ~15 sec for 3x3 landscape
     set.seed(1114260777)
     ps_sims <- crossing(n_pseudo = c(0L, 1L, 3L),
@@ -411,9 +411,9 @@ if (!file.exists("_building/ps_sims.rds")) {
         select(-epsilon, -with_P) |>
         select(n_pseudo, B, K, alpha, beta, rep, everything()) |>
         mutate(across(n_pseudo:rep, factor))
-    write_rds(ps_sims, "_building/ps_sims.rds", compress = "xz")
+    write_rds(ps_sims, "_scripts/ps_sims.rds", compress = "xz")
 } else {
-    ps_sims <- read_rds("_building/ps_sims.rds")
+    ps_sims <- read_rds("_scripts/ps_sims.rds")
 }
 
 
@@ -721,7 +721,7 @@ ps_inc_sims |>
 # =============================================================================*
 # =============================================================================*
 
-if (!file.exists("_building/big_ps_sims.rds")) {
+if (!file.exists("_scripts/big_ps_sims.rds")) {
     # Takes ~8 hrs for 134x134 landscape (and 12 instead of 100 sims)
     t0 <- Sys.time()
     set.seed(1952926471)
@@ -745,12 +745,12 @@ if (!file.exists("_building/big_ps_sims.rds")) {
         select(n_pseudo, B, K, alpha, beta, epsilon, rep, everything()) |>
         mutate(n_pseudo = round(n_pseudo, digits = 1)) |>
         mutate(across(n_pseudo:rep, factor))
-    # write_rds(big_ps_sims, "_building/big_ps_sims.rds", compress = "xz")
+    # write_rds(big_ps_sims, "_scripts/big_ps_sims.rds", compress = "xz")
     t1 <- Sys.time()
     print(t1 - t0); # rm(t0, t1)
 
 } else {
-    big_ps_sims <- read_rds("_building/big_ps_sims.rds")
+    big_ps_sims <- read_rds("_scripts/big_ps_sims.rds")
 }
 
 

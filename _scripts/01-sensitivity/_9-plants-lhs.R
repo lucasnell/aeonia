@@ -7,7 +7,7 @@
 library(lhs)
 library(ppcor)
 
-source("_building/01-sensitivity/_00-preamble.R")
+source("_scripts/01-sensitivity/_00-preamble.R")
 
 
 #'
@@ -138,7 +138,7 @@ one_combo <- function(mu_Y, mu_N, n_pseudo, K,
 
 
 
-# if (!file.exists("_building/lhs-sims.rds")) {
+# if (!file.exists("_scripts/lhs-sims.rds")) {
 #     # Takes ~6 min with 108 combos of 1000 reps
 #     t0 <- Sys.time()
 #     set.seed(891393509)
@@ -149,11 +149,11 @@ one_combo <- function(mu_Y, mu_N, n_pseudo, K,
 #                 list_rbind() |>
 #                 select(all_of(par_names), everything())
 #         }, .progress = .prog_args)
-#     write_rds(lhs_sims, "_building/lhs-sims.rds", compress = "gz")
+#     write_rds(lhs_sims, "_scripts/lhs-sims.rds", compress = "gz")
 #     t1 <- Sys.time()
 #     t1 - t0
 # } else {
-#     lhs_sims <- read_rds("_building/lhs-sims.rds")
+#     lhs_sims <- read_rds("_scripts/lhs-sims.rds")
 # }
 
 lhs_sims <- read_rds("~/_globus/lhs-sims.rds") |>
