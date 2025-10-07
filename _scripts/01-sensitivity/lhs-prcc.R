@@ -1,13 +1,14 @@
 
 #'
-#' Simulations of 9-plant landscapes
+#' Sensitivity via Latin hypercube sampling (LHS) with partial rank
+#' correlation coefficients (PRCC)
 #'
 
 # make sure these come before preamble to avoid masking dplyr::select:
 library(lhs)
 library(ppcor)
 
-source("_scripts/01-sensitivity/_00-preamble.R")
+source("_scripts/01-sensitivity/00-preamble.R")
 
 
 #'

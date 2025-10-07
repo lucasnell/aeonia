@@ -41,7 +41,7 @@ CC <- function(K, B, m){
 
 
 spp_pal <- viridisLite::plasma(101)[c(10, 50, 80)] |>
-    set_names(c("aphids", "alates", "enemies"))
-pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
+    set_names(c("aphids", "alates", "wasps"))
+# pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 
