@@ -17,6 +17,7 @@ Imports:
     methods,
     purrr,
     Rcpp (>= 1.0.0),
+    svglite,
     tidyr
 LinkingTo:
     Rcpp (>= 1.0.0),
