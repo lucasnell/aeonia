@@ -21,7 +21,7 @@ void check_insect_args(const uint32& max_t,
                        const double& N0,
                        const double& W0,
                        const double& Y0,
-                       const double& B,
+                       const double& pseudo_surv,
                        const double& disaster_p,
                        const double& disaster_s,
                        const double& extinct_N,
@@ -31,12 +31,12 @@ void check_insect_args(const uint32& max_t,
                        const double& recruit,
                        const double& fecund,
                        const double& K,
-                       const double& K_p,
+                       const double& K_p_mult,
                        const double& s_p,
                        const arma::vec& R_,
-                       const double& theta_m,
-                       const double& theta_p,
-                       const double& m,
+                       const double& trans_ma,
+                       const double& trans_pm,
+                       const double& pred_surv,
                        const double& alate_1,
                        const double& a,
                        const double& h,
@@ -49,7 +49,7 @@ void check_insect_args(const uint32& max_t,
     if (N0 < 0) stop("N0 < 0");
     if (W0 < 0) stop("W0 < 0");
     if (Y0 < 0) stop("Y0 < 0");
-    if (B < 0 || B > 1) stop("B < 0 || B > 1");
+    if (pseudo_surv < 0 || pseudo_surv > 1) stop("pseudo_surv < 0 || pseudo_surv > 1");
     if (disaster_p < 0 || disaster_p > 1) stop("disaster_p < 0 || disaster_p > 1");
     if (disaster_s < 0 || disaster_s > 1) stop("disaster_s < 0 || disaster_s > 1");
     if (extinct_N < 0) stop("extinct_N < 0");
@@ -59,13 +59,13 @@ void check_insect_args(const uint32& max_t,
     if (recruit <= 0 || recruit > 1) stop("recruit <= 0 || recruit > 1");
     if (fecund <= 0) stop("fecund <= 0");
     if (K <= 0) stop("K <= 0");
-    if (K_p <= 0) stop("K_p <= 0");
+    if (K_p_mult <= 0) stop("K_p_mult <= 0");
     if (s_p < 0 || s_p > 1) stop("s_p < 0 || s_p > 1");
     if (arma::any(R_ < 0) || arma::any(R_ > 1)) stop("any(R < 0 | R > 1)");
     if (R_.n_elem != 4) stop("length(R) != 4");
-    if (theta_m < 0 || theta_m > 1) stop("theta_m < 0 || theta_m > 1");
-    if (theta_p < 0 || theta_p > 1) stop("theta_p < 0 || theta_p > 1");
-    if (m < 0 || m >= 1) stop("m < 0 || m >= 1");
+    if (trans_ma < 0 || trans_ma > 1) stop("trans_ma < 0 || trans_ma > 1");
+    if (trans_pm < 0 || trans_pm > 1) stop("trans_pm < 0 || trans_pm > 1");
+    if (pred_surv < 0 || pred_surv >= 1) stop("pred_surv < 0 || pred_surv >= 1");
     if (alate_1 < 0) stop("alate_1 < 0");
     if (a < 0) stop("a < 0");
     if (h < 0) stop("h < 0");
@@ -87,12 +87,12 @@ void fill_pop_info(double& surv_j,
                    double& recruit,
                    double& fecund,
                    double& K,
-                   double& K_p,
+                   double& K_p_mult,
                    double& s_p,
                    Rcpp::NumericVector& R,
-                   double& theta_m,
-                   double& theta_p,
-                   double& m,
+                   double& trans_ma,
+                   double& trans_pm,
+                   double& pred_surv,
                    double& alate_0,
                    double& alate_1,
                    double& a,
@@ -107,12 +107,12 @@ void fill_pop_info(double& surv_j,
     if (NumericVector::is_na(recruit)) recruit = pop_info["recruit"];
     if (NumericVector::is_na(fecund)) fecund = pop_info["fecund"];
     if (NumericVector::is_na(K)) K = pop_info["K"];
-    if (NumericVector::is_na(K_p)) K_p = pop_info["K_p"];
+    if (NumericVector::is_na(K_p_mult)) K_p_mult = pop_info["K_p_mult"];
     if (NumericVector::is_na(s_p)) s_p = pop_info["s_p"];
     if (R.size() == 0) R = pop_info["R"];
-    if (NumericVector::is_na(theta_m)) theta_m = pop_info["theta_m"];
-    if (NumericVector::is_na(theta_p)) theta_p = pop_info["theta_p"];
-    if (NumericVector::is_na(m)) m = pop_info["m"];
+    if (NumericVector::is_na(trans_ma)) trans_ma = pop_info["trans_ma"];
+    if (NumericVector::is_na(trans_pm)) trans_pm = pop_info["trans_pm"];
+    if (NumericVector::is_na(pred_surv)) pred_surv = pop_info["pred_surv"];
     if (NumericVector::is_na(alate_0)) alate_0 = pop_info["alate_0"];
     if (NumericVector::is_na(alate_1)) alate_1 = pop_info["alate_1"];
     if (NumericVector::is_na(a)) a = pop_info["a"];
@@ -137,8 +137,7 @@ void fill_pop_info(double& surv_j,
 //' See `data-raw/pop_info.R` for how these were generated.
 //'
 //'
-//' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
-//'     population growth.
+//' @param pseudo_surv Single numeric indicating aphid survival from *Pseudomonas*.
 //' @param fly_p Single numeric indicating the proportion of alates that fly
 //'     off plants each day.
 //' @param wasp_disp_m0 Proportion of adult wasps from each field that
@@ -173,19 +172,20 @@ void fill_pop_info(double& surv_j,
 //' @param K Single numeric indicating the density dependence of the
 //'     aphid population.
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param K_p Single numeric indicating parasitized aphid density dependence.
+//' @param K_p_mult Single numeric indicating the multiplier for parasitized
+//'     aphid density dependence (`K_p = K * K_p_mult`).
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param s_p Single numeric indicating parasitized aphid daily survival.
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param R Single numeric indicating
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param theta_m Single numeric indicating the proportion of mummies that
+//' @param trans_ma Single numeric indicating the proportion of mummies that
 //'     transition to adult parasitoids each day.
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param theta_p Single numeric indicating the proportion of parasitized
+//' @param trans_pm Single numeric indicating the proportion of parasitized
 //'     aphids that transition to mummies each day.
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param m Single numeric indicating aphid and mummy mortality due
+//' @param pred_surv Single numeric indicating aphid and mummy mortality due
 //'     to generalist predators.
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param alate_0 Single numeric.
@@ -211,7 +211,7 @@ void fill_pop_info(double& surv_j,
 //' be pass to [sim_plantscape()].
 //'
 //[[Rcpp::export]]
-SEXP make_insect_ptr(const double& B,
+SEXP make_insect_ptr(const double& pseudo_surv,
                      const double& fly_p,
                      const double& wasp_disp_m0 = 0,
                      const double& wasp_disp_m1 = 0,
@@ -225,12 +225,12 @@ SEXP make_insect_ptr(const double& B,
                      double recruit = NA_REAL,
                      double fecund = NA_REAL,
                      double K = NA_REAL,
-                     double K_p = NA_REAL,
+                     double K_p_mult = NA_REAL,
                      double s_p = NA_REAL,
                      NumericVector R = NumericVector::create(),
-                     double theta_m = NA_REAL,
-                     double theta_p = NA_REAL,
-                     double m = NA_REAL,
+                     double trans_ma = NA_REAL,
+                     double trans_pm = NA_REAL,
+                     double pred_surv = NA_REAL,
                      double alate_0 = NA_REAL,
                      double alate_1 = NA_REAL,
                      double a = NA_REAL,
@@ -238,8 +238,8 @@ SEXP make_insect_ptr(const double& B,
                      double k = NA_REAL,
                      double s_y = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p, s_p, R,
-                  theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y);
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R,
+                  trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y);
 
     arma::vec R_ = Rcpp::as<arma::vec>(R);
 
@@ -249,15 +249,15 @@ SEXP make_insect_ptr(const double& B,
     double Y0 = 0;
     uint32 max_t = 100;
 
-    check_insect_args(max_t, N0, W0, Y0, B, disaster_p, disaster_s,
+    check_insect_args(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
-                      K, K_p, s_p, R_, theta_m, theta_p, m, alate_1,
+                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
                       a, h, k, s_y,
                       fly_p, wasp_disp_m0);
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
-                                                K, K_p, s_p, R_,
-                                                theta_m, theta_p, m, B,
+                                                K, K_p_mult, s_p, R_,
+                                                trans_ma, trans_pm, pred_surv, pseudo_surv,
                                                 disaster_p, disaster_s, extinct_N,
                                                 demog_error, sigma_x,
                                                 a, h, k, s_y,
@@ -287,7 +287,7 @@ DataFrame test_insect_pops(const uint32& max_t,
                            const double& N0,
                            const double& W0,
                            const double& Y0,
-                           const double& B = 0,
+                           const double& pseudo_surv = 1,
                            const double& disaster_p = 0,
                            const double& disaster_s = 0,
                            const double& extinct_N = 0,
@@ -298,12 +298,12 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double recruit = NA_REAL,
                            double fecund = NA_REAL,
                            double K = NA_REAL,
-                           double K_p = NA_REAL,
+                           double K_p_mult = NA_REAL,
                            double s_p = NA_REAL,
                            NumericVector R = NumericVector::create(),
-                           double theta_m = NA_REAL,
-                           double theta_p = NA_REAL,
-                           double m = NA_REAL,
+                           double trans_ma = NA_REAL,
+                           double trans_pm = NA_REAL,
+                           double pred_surv = NA_REAL,
                            double alate_0 = NA_REAL,
                            double alate_1 = NA_REAL,
                            double a = NA_REAL,
@@ -311,8 +311,8 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double k = NA_REAL,
                            double s_y = NA_REAL) {
 
-    fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p, s_p, R,
-                  theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y);
+    fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R,
+                  trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y);
 
     arma::vec R_ = Rcpp::as<arma::vec>(R);
 
@@ -320,13 +320,13 @@ DataFrame test_insect_pops(const uint32& max_t,
     double wasp_disp_m0 = 0;
     double wasp_disp_m1 = 0;
 
-    check_insect_args(max_t, N0, W0, Y0, B, disaster_p, disaster_s,
+    check_insect_args(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
-                      K, K_p, s_p, R_, theta_m, theta_p, m, alate_1,
+                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
                       a, h, k, s_y, fly_p, wasp_disp_m0);
 
-    InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p, s_p, R_,
-                       theta_m, theta_p, m, B,
+    InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
+                       trans_ma, trans_pm, pred_surv, pseudo_surv,
                        disaster_p, disaster_s, extinct_N, demog_error, sigma_x,
                        a, h, k, s_y,
                        alate_0, alate_1, fly_p, wasp_disp_m0, wasp_disp_m1,

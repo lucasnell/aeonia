@@ -40,10 +40,10 @@ class InsectPops {
     double K_p;     // parasitized aphid density dependence
     double s_p;     // parasitized aphid daily survival
     arma::vec R;    // relative parasitoid attack rates by aphid stage
-    double theta_m; // proportion of mummies that transition to adults each day
-    double theta_p; // proportion of parasitized aphids that transition to mummies each day
-    double m;       // aphid mortality
-    double B;       // effect of Pseudomonas bacteria on aphid growth
+    double trans_ma; // proportion of mummies that transition to adults each day
+    double trans_pm; // proportion of parasitized aphids that transition to mummies each day
+    double pred_surv;       // aphid survival from generalist predators and host plant death
+    double pseudo_surv;       // survival from Pseudomonas infection
     double disaster_p; // probability of disaster
     double disaster_s; // disaster survival
     double extinct_N;  // extinction threshold
@@ -66,10 +66,6 @@ class InsectPops {
 
         // max adults there could be (used for if stochasticity is added):
         arma::vec max_adults = {arma::accu(X.head(2)), arma::accu(X.tail(2))};
-
-        // Predator and Pseudomonas survival:
-        double s_m = 1 - m;
-        double s_B = 1 - B;
 
         // Total aphids:
         double x = arma::accu(X);
@@ -96,15 +92,15 @@ class InsectPops {
         // new parasitized aphids:
         double new_P = arma::as_scalar((1 - A).t() * LX);
         // new mummies:
-        double new_M = theta_p * P;
+        double new_M = trans_pm * P;
         // new adult parasitoids (both male and female!):
-        double new_Y = theta_m * M;
+        double new_Y = trans_ma * M;
 
-        P = s_m * s_B * S_p * (s_p * P + new_P) - new_M;
-        M = s_m * (M + new_M) - new_Y;
+        P = pred_surv * pseudo_surv * S_p * (s_p * P + new_P) - new_M;
+        M = pred_surv * (M + new_M) - new_Y;
         Y = s_y * Y + 0.5 * new_Y;
 
-        X = (s_m * s_B * S * A) % LX;
+        X = (pred_surv * pseudo_surv * S * A) % LX;
 
         bool extinct_X = (arma::accu(X) + P) < extinct_N;
         if (extinct_X) {
@@ -145,13 +141,13 @@ public:
                const double& recruit,
                const double& fecund,
                const double& K_,
-               const double& K_p_,
+               const double& K_p_mult,
                const double& s_p_,
                const arma::vec& R_,
-               const double& theta_m_,
-               const double& theta_p_,
-               const double& m_,
-               const double& B_,
+               const double& trans_ma_,
+               const double& trans_pm_,
+               const double& pred_surv_,
+               const double& pseudo_surv_,
                const double& disaster_p_,
                const double& disaster_s_,
                const double& extinct_N_,
@@ -172,13 +168,13 @@ public:
         : distr(1, 0.5),
           L(4, 4, arma::fill::zeros),
           K(K_),
-          K_p(K_p_),
+          K_p(K * K_p_mult),
           s_p(s_p_),
           R(R_),
-          theta_m(theta_m_),
-          theta_p(theta_p_),
-          m(m_),
-          B(B_),
+          trans_ma(trans_ma_),
+          trans_pm(trans_pm_),
+          pred_surv(pred_surv_),
+          pseudo_surv(pseudo_surv_),
           disaster_p(disaster_p_),
           disaster_s(disaster_s_),
           extinct_N(extinct_N_),
@@ -199,9 +195,9 @@ public:
           Y(Y0) {
 
         // Checks for parameter values that could cause negative numbers:
-        if (theta_m >= (1-m)) stop("theta_m cannot be >= 1-m");
-        if (theta_p >= (1-m) * (1-B) * 0.65 * s_p) {
-            std::string err_msg = "theta_p cannot be >= (1-m) * (1-B) * 0.65 ";
+        if (trans_ma >= pred_surv) stop("trans_ma cannot be >= pred_surv");
+        if (trans_pm >= pred_surv * pseudo_surv * 0.65 * s_p) {
+            std::string err_msg = "trans_pm cannot be >= pred_surv * pseudo_surv * 0.65 ";
             err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
             stop(err_msg.c_str());
         }
@@ -227,8 +223,8 @@ public:
 
     InsectPops(const InsectPops& other)
         : distr(other.distr), L(other.L), K(other.K), K_p(other.K_p),
-          s_p(other.s_p), R(other.R), theta_m(other.theta_m),
-          theta_p(other.theta_p), m(other.m), B(other.B),
+          s_p(other.s_p), R(other.R), trans_ma(other.trans_ma),
+          trans_pm(other.trans_pm), pred_surv(other.pred_surv), pseudo_surv(other.pseudo_surv),
           disaster_p(other.disaster_p), disaster_s(other.disaster_s),
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
@@ -275,17 +271,17 @@ public:
     }
 
     /*
-     Set B, which is useful for using a single InsectPops to populate a vector
-     of them, then going back and changing some values of `B` based on
+     Set pseudo_surv, which is useful for using a single InsectPops to populate a vector
+     of them, then going back and changing some values of `pseudo_surv` based on
      the landscape:
      */
-    void set_B(const double& new_B) {
-        if (theta_p >= (1-m) * (1-new_B) * 0.65 * s_p) {
-            std::string err_msg = "theta_p cannot be >= (1-m) * (1-B) * 0.65 ";
+    void set_pseudo_surv(const double& new_pseudo_surv) {
+        if (trans_pm >= pred_surv * pseudo_surv * 0.65 * s_p) {
+            std::string err_msg = "trans_pm cannot be >= pred_surv * pseudo_surv * 0.65 ";
             err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
             stop(err_msg.c_str());
         }
-        B = new_B;
+        pseudo_surv = new_pseudo_surv;
         return;
     }
     /*
