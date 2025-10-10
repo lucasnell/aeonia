@@ -139,5 +139,10 @@ sim_ts_plotter <- function(.df, .title = waiver()) {
 }
 
 
-bind_rows(sim_goc, sims_aeonia) |>
+comp_p <- bind_rows(sim_goc, sims_aeonia) |>
     sim_ts_plotter(.title = "aeonia vs gameofclones")
+
+save_plot("_plots/host-paras-model-comp.pdf", comp_p, width = 6, height = 6)
+save_plot("_plots/host-paras-model-comp.svg", comp_p, width = 6, height = 6)
+
+

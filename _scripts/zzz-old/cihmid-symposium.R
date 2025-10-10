@@ -59,28 +59,28 @@ spp_pal <- viridisLite::plasma(101)[c(10, 50, 80)] |>
 pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 
-# >> Insect pops ----
-p <- test_insect_pops(max_t = 100,
-                 B = 0,
-                 demog_error = FALSE,
-                 A0 = 10,
-                 W0 = 0,
-                 P0 = 0) |>
-    select(-enemies) |>
-    pivot_longer(aphids:alates, names_to = "morph", values_to = "N") |>
-    mutate(morph = factor(morph, levels = c("aphids", "alates"))) |>
-    # filter(morph == "aphids") |>
-    ggplot(aes(time, N, color = morph)) +
-    # geom_hline(yintercept = CC(12500, 0, 0.1), color = "gray80", linewidth = 1) +
-    geom_line(linewidth = 1) +
-    # scale_color_viridis_d(begin = 0.2, end = 0.9, drop = FALSE) +
-    scale_color_manual(values = spp_pal, guide = "none") +
-    ylab("Abundance") +
-    coord_cartesian(ylim = c(0, 1600)) +
-    .no_axes +
-    .trans_theme
-
-ggsave("~/Desktop/p.svg", p, width = 3, height = 2, bg = "transparent")
+# # >> Insect pops ----
+# p <- test_insect_pops(max_t = 100,
+#                  B = 0,
+#                  demog_error = FALSE,
+#                  N0 = 10,
+#                  W0 = 0,
+#                  Y0 = 0) |>
+#     select(-enemies) |>
+#     pivot_longer(aphids:alates, names_to = "morph", values_to = "N") |>
+#     mutate(morph = factor(morph, levels = c("aphids", "alates"))) |>
+#     # filter(morph == "aphids") |>
+#     ggplot(aes(time, N, color = morph)) +
+#     # geom_hline(yintercept = CC(12500, 0, 0.1), color = "gray80", linewidth = 1) +
+#     geom_line(linewidth = 1) +
+#     # scale_color_viridis_d(begin = 0.2, end = 0.9, drop = FALSE) +
+#     scale_color_manual(values = spp_pal, guide = "none") +
+#     ylab("Abundance") +
+#     coord_cartesian(ylim = c(0, 1600)) +
+#     .no_axes +
+#     .trans_theme
+#
+# ggsave("~/Desktop/p.svg", p, width = 3, height = 2, bg = "transparent")
 
 
 
@@ -96,8 +96,8 @@ make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
     stopifnot(round(n_pseudo) == n_pseudo && n_pseudo >= 0 && n_pseudo <= (n_plants-1L))
 
     land <- array(0L, c(n_x, n_y, n_sims))
-    A0 <- array(0.0, c(n_x, n_y, n_sims))
-    P0 <- array(0.0, c(n_x, n_y, n_sims))
+    N0 <- array(0.0, c(n_x, n_y, n_sims))
+    Y0 <- array(0.0, c(n_x, n_y, n_sims))
     for (i in 1:n_sims) {
         land[1,1,i] <- 1L
         if (n_pseudo > 0) {
@@ -108,17 +108,17 @@ make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
         }
 
         # if (with_P) {
-        #     idx <- sample.int(length(starts$A0), n_plants, replace = TRUE)
-        #     A0[,,i] <- starts$A0[idx]
-        #     P0[,,i] <- starts$P0[idx]
-        # } else A0[,,i] <- sample(starts$A0, n_plants, replace = TRUE)\
+        #     idx <- sample.int(length(starts$N0), n_plants, replace = TRUE)
+        #     N0[,,i] <- starts$N0[idx]
+        #     Y0[,,i] <- starts$Y0[idx]
+        # } else N0[,,i] <- sample(starts$N0, n_plants, replace = TRUE)\
 
-        # A0[,,i] <- 10
-        A0[,,i] <- exp(runif(n_plants, -3, 5))
-        # A0[,,i] <- runif(n_plants, 0, 100)
+        # N0[,,i] <- 10
+        N0[,,i] <- exp(runif(n_plants, -3, 5))
+        # N0[,,i] <- runif(n_plants, 0, 100)
         if (with_P) {
-            # P0[,,i] <- runif(n_plants, 0, 3)
-            P0[,,i] <- A0[,,i] * exp(runif(length(A0[,,i]), -10, -1))
+            # Y0[,,i] <- runif(n_plants, 0, 3)
+            Y0[,,i] <- N0[,,i] * exp(runif(length(N0[,,i]), -10, -1))
         }
 
     }
@@ -126,9 +126,9 @@ make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
     insect_args <- list(K = K, B = B, h = 5, fly_p = 0.05, wasp_disp_m0 = 0.3)
     plant_args <- list(landscapes = land,
                        max_t = max_t,
-                       A0 = A0,
+                       N0 = N0,
                        W0 = array(0.0, c(n_x, n_y, n_sims)),
-                       P0 = P0,
+                       Y0 = Y0,
                        alpha = alpha,
                        beta = beta,
                        epsilon = epsilon,
@@ -156,7 +156,7 @@ make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
         nm_plant_args <- names(other_args)[names(other_args) %in%
                                                names(formals(sim_plantscape))]
         for (n in nm_plant_args) {
-            if (n %in% c("A0", "W0", "P0", "landscape")) {
+            if (n %in% c("N0", "W0", "Y0", "landscape")) {
                 plant_args[[n]] <- array(other_args[[n]], c(n_x, n_y, n_sims))
             } else plant_args[[n]] <- other_args[[n]]
         }
@@ -175,30 +175,34 @@ make_arg_list <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
 
 one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                           max_t, n_x, n_y, radius, n_sims, ...,
-                          summarize = TRUE, doomsday = FALSE, p_A0 = 1,
+                          summarize = TRUE, doomsday = FALSE, p_N0 = 1,
                           time_inf_np = NULL) {
 
+    # n_pseudo = 2; B = 0.1; K = 12500; alpha = 1; beta = -1; epsilon = 1;
+    # with_P = TRUE; max_t = 100; n_x = 3; n_y = 3; radius = 1; n_sims = 100;
+    # summarize = TRUE; doomsday = FALSE; p_N0 = 1; time_inf_np = NULL
+
     n_plants <- n_x * n_y
-    if (p_A0 < 1 && doomsday) stop("Ambiguous: p_A0 < 1 && doomsday")
+    if (p_N0 < 1 && doomsday) stop("Ambiguous: p_N0 < 1 && doomsday")
     if (doomsday) {
-        .A0 <- c(10, rep(0, n_plants-1L))
+        .N0 <- c(10, rep(0, n_plants-1L))
     } else {
-        # .A0 <- rep(10, n_plants * n_sims) # runif(n_plants * n_sims, 0, 1000)
-        .A0 <- rep(10, n_plants * n_sims)  # exp(runif(n_plants * n_sims, -3, 5))
-        if (p_A0 < 1) {
+        # .N0 <- rep(10, n_plants * n_sims) # runif(n_plants * n_sims, 0, 1000)
+        .N0 <- rep(10, n_plants * n_sims)  # exp(runif(n_plants * n_sims, -3, 5))
+        if (p_N0 < 1) {
             for (i in 1:n_sims) {
                 idx0 <- (i - 1L) * n_plants
-                idx <- sample.int(n_plants, round(p_A0 * n_plants))
-                .A0[idx0 + idx] <- 0
+                idx <- sample.int(n_plants, round(p_N0 * n_plants))
+                .N0[idx0 + idx] <- 0
             }
         }
     }
-    .P0 <- 0
-    if (with_P) .P0 <- .A0 * exp(runif(n_plants * n_sims, -10, -1))
+    .Y0 <- 0
+    if (with_P) .Y0 <- .N0 * exp(runif(n_plants * n_sims, -10, -1))
 
     arg_list <- make_arg_list(n_pseudo, B, K, alpha, beta, epsilon, with_P,
                               max_t, n_x, n_y, radius, n_sims,
-                              A0 = .A0, P0 = .P0, ...)
+                              N0 = .N0, Y0 = .Y0, ...)
 
     if (!summarize) arg_list[["summ"]] <- "none"
 
@@ -215,22 +219,7 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
 
     if (is.null(time_inf_np)) time_inf_np <- n_plants
 
-    out <- do.call(sim_plantscape, arg_list)
-
-
-    if (summarize) {
-        out <- out |>
-            mutate(aphids = alates + aphids) |>
-            group_by(rep) |>
-            summarize(p_alates = mean(alates[aphids > 0] / aphids[aphids > 0]),
-                      log_aphids = mean(log10(aphids+1)),
-                      aphids = mean(aphids),
-                      log_alates = mean(log10(alates+1)),
-                      alates = mean(alates),
-                      infect_time = time_inf_fun(time_inf_np, time, virus),
-                      outbreak_size = max(virus))
-    }
-    out <- out |>
+    out <- do.call(sim_plantscape, arg_list) |>
         mutate(n_pseudo = n_pseudo, B = B, K = K, alpha = alpha,
                beta = beta, epsilon = epsilon, with_P = with_P)
     return(out)
@@ -255,14 +244,14 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
     np <- 5L
     args <- list(max_t = 100, n_x = 3, n_y = 3, radius = 1, n_sims = 1e3,
                  epsilon = 1,
-                 alpha = 1,
+                 alpha = 0,
                  beta = -2,
                  B = 0.1,
                  K = 12500 * 1,
                  time_inf_np = np,
                  with_P = TRUE,
                  # doomsday = TRUE,
-                 # p_A0 = 0.5,
+                 # p_N0 = 0.5,
                  # wasp_disp_m0 = 0,
                  wasp_disp_m1 = 0.349 * 0.1,
                  demog_error = FALSE,
@@ -280,11 +269,12 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
         stat_summary(fun = mean, geom = "point") +
         scale_color_manual(values = pseudo_pal,
                            guide = "none", aesthetics = c("color", "fill")) +
-        scale_y_continuous("Mean log<sub>10</sub>(total alates)",
-                           breaks = log10(2^(c(1,3,5)) + 1),
-                           labels = 2^(c(1,3,5))) +
-        xlab("Number of *Pseudomonas* patches") +
-        theme(axis.title = element_markdown(),
+        # scale_y_continuous(breaks = log10(2^(c(1,3,5)) + 1),
+        #                    labels = 2^(c(1,3,5))) +
+        labs(x = "Number of *Pseudomonas* patches",
+             y = "Mean log<sub>10</sub>(total alates)") +
+        theme(axis.title.x = element_markdown(),
+              axis.title.y = element_markdown(),
               axis.ticks.x = element_blank()) +
         .trans_theme
     # p2 <- d |>
@@ -304,9 +294,11 @@ one_sim_combo <- function(n_pseudo, B, K, alpha, beta, epsilon, with_P,
         stat_summary(fun = mean, geom = "point") +
         scale_color_manual(values = pseudo_pal,
                            guide = "none", aesthetics = c("color", "fill")) +
-        scale_y_continuous("Outbreak size", breaks = c(1,5,9)) +
-        xlab("Number of *Pseudomonas* patches") +
-        theme(axis.title = element_markdown(),
+        # scale_y_continuous(breaks = c(1,5,9)) +
+        labs(x = "Number of *Pseudomonas* patches",
+             y = "Outbreak size") +
+        theme(axis.title.x = element_markdown(),
+              axis.title.y = element_markdown(),
               axis.ticks.x = element_blank()) +
         .trans_theme
     p1 + p2 + plot_layout(nrow = 1)
