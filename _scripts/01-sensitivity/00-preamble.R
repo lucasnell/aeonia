@@ -45,3 +45,14 @@ spp_pal <- viridisLite::plasma(101)[c(10, 50, 80)] |>
 # pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 
+pretty_params <- function(x) {
+    case_when(x == "alpha" ~ "&alpha;",
+              x == "beta" ~ "&beta;",
+              x == "epsilon" ~ "&epsilon;",
+              x == "wasp_disp_m0" ~ "&delta;<sub>0</sub>",
+              x == "wasp_disp_m1" ~ "&delta;<sub>z</sub>",
+              x == "mu_Y" ~ "&mu;<sub>Y</sub>",
+              x == "mu_N" ~ "&mu;<sub>N</sub>",
+              x == "n_pseudo" ~ "n<sub>P</sub>",
+              .default = x)
+}
