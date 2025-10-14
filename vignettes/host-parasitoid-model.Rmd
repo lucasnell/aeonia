@@ -52,24 +52,27 @@ Vectors and matrices are in bold.
 
 ## Aphid population dynamics
 
-See @tbl-aphids for parameters:
+Aphid populations ($\mathbf{X}$) on patch $i$ follow the following equations
+(see @tbl-aphids for parameters):
+
+
 <!-- -->
-\begin{equation}
+$$
 \begin{split}
-    \mathbf{X}(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S(z(t)) \, 
-        \mathbf{A}(x(t), Y(t)) \odot \left\{ \mathbf{L} \, \mathbf{X}(t) \right\} \\
-    S(z(t)) &= \left( 1 + \frac{z(t)}{K} \right)^{-1} \\
+    \mathbf{X}_i(t+1) &= g \, \rho_i \, S(z_i(t)) \, 
+        \mathbf{A}(x_i(t), \hat{z}_i(t), Y(t)) \odot \left[ \mathbf{L} \, \mathbf{X}_i(t) \right] \\
+    S(z_i(t)) &= \left( 1 + \frac{z_i(t)}{K} \right)^{-1} \\
     \mathbf{L} &= \begin{pmatrix}
-        s_j     & f_N(z(t)) & 0     & f   \\
+        s_j     & f \, (1{-}W(z_i(t))) & 0     & f   \\
         r       & s_a       & 0     & 0   \\
-        0       & f_W(z(t)) & s_j   & 0   \\
+        0       & f \, W(z_i(t)) & s_j   & 0   \\
         0       & 0         & r     & s_a \\
         \end{pmatrix} \\
-    f_N(z(t)) &= f \, \left[1 - p_W(z(t))\right] \\
-    f_W(z(t)) &= f \, p_W(z(t)) \\
-    p_W(z(t)) &= \textrm{logit}^{-1}(\alpha_0 + \alpha_z \, z(t)) \\
+    W(z_i(t)) &= \textrm{logit}^{-1}(\delta_0 + \delta_z \, z_i(t)) \\
 \end{split}
-\end{equation}
+$$ {#eq-aphids}
+
+
 
 
 ```{r}
@@ -77,26 +80,25 @@ See @tbl-aphids for parameters:
 #| tbl-cap: "Model parameters for aphid population dynamics, including the value(s) used in simulations. For variables that change through time, the **Used** column is '$-$'."
 tribble(
     ~Parameter,  ~Used,  ~Description ,
-    "$n$"    ,  "$2$", "number of aphid age stages",
-    "$\\mathbf{X}(t)$",  "$-$", "length-$2n$ vector of aphid abundances by stage",
-    "$m$"    ,  dbl4ltx(pop_info$m, 1), "mortality from generalist predators and host-plant death",
-    "$B$"    ,  "varies", "mortality from *Pseudomonas* bacteria (0 if not present on plant)",
+    "$n$"    ,  "$4$", "number of aphid stages",
+    "$\\mathbf{X}(t)$",  "$-$", "length-$n$ vector of aphid abundances by stage",
+    "$g$"    ,  dbl4ltx(pop_info$m, 1), "survival from generalist predators and host-plant death",
+    "$\\rho$"    ,  "varies", "survival from *Pseudomonas* bacteria (1 if not present on patch)",
     "$S(z(t))$",  "$-$",  "unparasitized aphid density dependence",
-    "$z(t)$",  "$-$",  "total alive aphids in a particular patch",
-    "$\\mathbf{A}$",  "$-$",  "length-$2n$ vector of the proportion of aphids surviving parasitism",
+    "$z(t)$",  "$-$",  "total alive aphids in a particular patch (i.e., $P(t) + \\sum_{j=1}^{n}{X_j(t)}$)",
+    "$\\hat{z}(t)$",  "$-$",  "relative alive aphid abundance in patch $i$ (i.e., $z_i(t) / \\sum_{k=1}^{q}{z_k(t)}$)",
+    "$\\mathbf{A}$",  "$-$",  "length-$n$ vector of the proportion of aphids surviving parasitism",
     "$x(t)$",  "$-$",  "total unparasitized aphids in a particular patch",
     "$Y(t)$",  "$-$",  "total adult, female parasitoids",
-    "$\\mathbf{L}$",  "$**$",  "$2n \\times 2n$ transition matrix that defines transitions among all stages",
+    "$\\mathbf{L}$",  "$**$",  "$n \\times n$ transition matrix that defines transitions among all stages",
     "$K$",  dbl4ltx(pop_info$K, 0),  "controls strength of unparasitized aphid density dependence",
-    "$s_j$",  dbl4ltx(pop_info$surv_j),  "aphid juvenile survival",
-    "$s_a$",  dbl4ltx(pop_info$surv_a),  "aphid adult survival",
-    "$r$",  dbl4ltx(pop_info$recruit),  "aphid recruitment",
+    "$s_j$",  dbl4ltx(pop_info$surv_j),  "proportion of aphid juveniles that stay as juveniles each day",
+    "$s_a$",  dbl4ltx(pop_info$surv_a),  "proportion of aphid adults that survive each day",
+    "$r$",  dbl4ltx(pop_info$recruit),  "proportion of aphid juveniles that transition to adults each day",
     "$f$",  dbl4ltx(pop_info$fecund),  "aphid fecundity",
-    "$f_N(z(t))$",  "$-$",  "non-winged aphid fecundity for non-winged offspring",
-    "$f_W(z(t))$",  "$-$",  "non-winged aphid fecundity for winged offspring",
-    "$p_W(z(t))$",  "$-$",  "proportion of winged offspring from non-winged mothers",
-    "$\\alpha_0$",  dbl4ltx(pop_info$alate_0, 0),  "affects the proportion of winged offspring at low aphid densities",
-    "$\\alpha_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
+    "$W(z(t))$",  "$-$",  "proportion of winged offspring from non-winged mothers",
+    "$\\delta_0$",  dbl4ltx(pop_info$alate_0, 0),  "affects the proportion of winged offspring at low aphid densities",
+    "$\\delta_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
 ) |> 
     kable(escape = FALSE)
 ```
@@ -104,34 +106,34 @@ tribble(
 
 
 
-## Parasitized aphids, mummies, adult parasitoids
+## Parasitized aphids and mummies
 
 
-See Table @tbl-parasitized for new parameters:
+Parasitized aphid ($P$) and mummy ($M$) populations on patch $i$ follow 
+the following equations
+(see @tbl-parasitized for new parameters):
+
 <!-- -->
-\begin{equation}
+$$
 \begin{split}
-    \mathbf{A}(x(t), Y(t)) &=  \left[1 + \mathbf{R} \, \frac{a \, Y(t) }{
-        k \, (h \, x(t) + 1)} \right]^{\circ -k} \\
-    P(t+1) &= ( 1 - m ) \, ( 1 - B ) \, S_p(z(t)) \, \left(s_p \, P(t) + 
-        \left[1 - \mathbf{A}(x(t),Y(t))\right]^{\intercal} \,
-            \mathbf{L} \mathbf{X}(t)
-        \right) - \tilde{\theta}_{p} P(t) \\
-    S_p(z(t)) &= \left( 1 + \frac{z(t)}{K_p} \right)^{-1} \\
-    M(t+1) &= ( 1 - m ) \, \left[M(t) + \tilde{\theta}_{p} \, P(t) \right] - \tilde{\theta}_{m} \, M(t) \\
-    Y(t+1) &= s_y \, Y(t) + \frac{1}{2} \, \tilde{\theta}_{m} \, M(t) \\
+    P_i(t+1) &= g \, \rho_i \, S_p(z_i(t)) \, \left(s_p \, P_i(t) + 
+        \left[1 - \mathbf{A}(x_i(t),\hat{z}_i(t),Y(t))\right]^{\intercal} \,
+            \mathbf{L} \mathbf{X}_i(t)
+        \right) - \phi \, P_i(t) \\
+    S_p(z_i(t)) &= \left( 1 + \frac{z_i(t)}{\nu \, K} \right)^{-1} \\
+    M_i(t+1) &= g \, \left[M_i(t) + \phi \, P_i(t) \right] - \theta \, M_i(t) \\
 \end{split}
-\end{equation}
+$$ {#eq-paras-mummimes}
 
 In this case, the following must be true to avoid negative numbers:
 <!-- -->
-\begin{equation}
+$$
 \begin{split}
-    \tilde{\theta}_{m} &< 1 - m \\
-    \tilde{\theta}_{p} &< (1 - m) \, (1 - B) \, S_p(z(t)) \, s_p \\
+    \theta &< g \\
+    \phi &< g \, \rho \, S_p(z(t)) \, s_p \\
 \end{split}
 \textrm{,}
-\end{equation}
+$$
 <!-- -->
 \noindent where the minimum value of $S_p(z(t))$ is $\sim 0.65$ 
 even when non-parasitized aphids are at their carrying capacity
@@ -145,18 +147,62 @@ which is higher than for parasitized aphids.
 #| tbl-cap: "Model parameters for parasitized aphids, mummies, and adult parasitoids, including the value(s) used in simulations. For variables that change through time, the **Used** column is '$-$'. ** indicates that the vector used for $\\mathbf{R}$ was $\\\\{0.1861, 0.0053, 0.1861, 0\\\\}$"
 tribble(
     ~Parameter,  ~Used,  ~Description ,
-    "$\\mathbf{R}$", "$**$", "length-$2n$ vector giving the relative parasitoid attack rates by aphid stage",
+    "$\\mathbf{R}$", "$**$", "length-$n$ vector giving the relative parasitoid attack rates by aphid stage",
     "$a$"    , dbl4ltx(pop_info$a, 2), "overall parasitoid attack rate",
     "$h$"    , dbl4ltx(pop_info$h, 3), "parasitoid attack-rate handling time",
     "$k$"    , dbl4ltx(pop_info$k, 2), "negative binomial distribution's aggregation parameter",
     "$P$"    , "$-$", "parasitized aphid abundance",
     "$S_p(z(t))$"  , "$-$", "parasitized aphid density dependence",
-    "$K_p$"  , dbl4ltx(pop_info$K_p, 0), "controls strength of parasitized aphid density dependence",
+    "$\\nu$"  , dbl4ltx(pop_info$K_p_mult, 4), "density dependence for parasitized aphids relative to unparasitized ($0 < \\nu \\le 1$)",
     "$s_p$"  , dbl4ltx(pop_info$s_p), "daily survival for parasitized aphids",
-    "$\\tilde{\\theta}_{p}$", dbl4ltx(pop_info$theta_p), "proportion of parasitized aphids that transition to mummies each day",
+    "$\\phi$", dbl4ltx(pop_info$trans_pm), "proportion of parasitized aphids that transition to mummies each day",
     "$M$"  , "$-$", "mummy (parasitized, dead aphid) abundance",
-    "$\\tilde{\\theta}_{m}$", dbl4ltx(pop_info$theta_m), "proportion of mummies that transition to adult parasitoids each day",
+    "$\\theta$", dbl4ltx(pop_info$trans_ma), "proportion of mummies that transition to adult parasitoids each day",
     "$s_y$"  , dbl4ltx(pop_info$s_y, 2), "adult parasitoid daily survival",
+    "$\\zeta$", "varies", "constant between 0 and 1 that affects the extent to which parasitoids respond to aphid density"
 ) |> 
     kable(escape = FALSE)
 ```
+
+
+
+
+## Adult parasitoids and attacks on aphids
+
+There is a single adult parasitoid population across all $q$ patches
+that operates as such:
+
+$$
+    Y(t+1) = s_y \, Y(t) + \frac{1}{2} \, \theta \sum_{i=1}^{q}{M_i(t)}
+$$ {#eq-adult-paras}
+
+
+The number of parasitoids on each patch $i$ ($\gamma$) is affected by 
+the total number of parasitoids and the
+relative number of aphids on that patch ($\hat{z}_i$):
+
+$$
+    \gamma(\hat{z}_i(t)) = Y(t) \left[ 
+            (1 - \zeta) \, \frac{1}{q} + \zeta \, \hat{z}_i(t)
+        \right]
+$$ {#eq-wasp-abunds-i}
+
+\noindent where $\zeta$ is a constant between 0 and 1 that affects the extent
+to which parasitoids respond to aphid density
+([Godfray \& Pacala, 1992](https://doi.org/10.1086/285401)).
+
+
+Because parasitoid abundances vary across patches, so do the proportion of 
+aphids that survive parasitoid attacks
+($\mathbf{A}$).
+This survival is affected by 
+non-parasitized aphid density on the patch $i$ ($x$),
+the relative number of aphids on the patch $i$ ($\hat{z}_i$), and
+adult parasitoid density ($Y$):
+
+
+$$
+\mathbf{A}(x(t),\hat{z}(t),Y(t)) =  \left[1 + \mathbf{R} \, \frac{a \, \gamma(\hat{z}_i(t)) }{
+    k \, (h \, x(t) + 1)} \right]^{\circ -k}
+$$ {#eq-wasp-attacks}
+
