@@ -14,17 +14,17 @@
 #'                    where `z` is the total number of aphids on that plant.}
 #'   \item{`alate_1`}{How strongly aphid density affects alate production.
 #'                    See `alate_0` above for the equation.}
-#'   \item{K}{Unparasitized aphid density dependence.}
-#'   \item{m}{Aphid and mummy mortality due to generalist predators.}
-#'   \item{a}{Parasitoid attack rate.}
-#'   \item{h}{Parasitoid handling time.}
-#'   \item{k}{Parasitoid aggregation parameter.}
-#'   \item{s_y}{Adult parasitoid daily survival.}
-#'   \item{s_p}{Parasitized aphid daily survival.}
-#'   \item{K_p}{Parasitized aphid density dependence.}
-#'   \item{R}{Relative parasitoid attack rates by aphid stage.}
-#'   \item{theta_m}{Proportion of mummies that transition to adult parasitoids each day.}
-#'   \item{theta_p}{Proportion of parasitized aphids that transition to mummies each day.}
+#'   \item{`K`}{Unparasitized aphid density dependence.}
+#'   \item{`pred_surv`}{Aphid and mummy survival from generalist predators.}
+#'   \item{`a`}{Parasitoid attack rate.}
+#'   \item{`h`}{Parasitoid handling time.}
+#'   \item{`k`}{Parasitoid aggregation parameter.}
+#'   \item{`s_y`}{Adult parasitoid daily survival.}
+#'   \item{`s_p`}{Parasitized aphid daily survival.}
+#'   \item{`K_p_mult`}{Multiplier to get parasitized aphid density dependence (`K_p = K_p_mult * K`).}
+#'   \item{`R`}{Relative parasitoid attack rates by aphid stage.}
+#'   \item{`trans_ma`}{Proportion of mummies that transition to adult parasitoids each day.}
+#'   \item{`trans_pm`}{Proportion of parasitized aphids that transition to mummies each day.}
 #' }
 #'
 #' All are single numeric values, except for `R` that is a vector of length 4.

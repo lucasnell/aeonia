@@ -80,9 +80,9 @@ cbind(orig = c(sum(X0[1:8]), sum(X0[9:29])),
 # These are just the defaults from this package that were vetted to work
 # well in the experiments:
 K <- eval(formals(gameofclones::sim_experiments)[["K"]])
-K_p <- K * eval(formals(gameofclones::sim_experiments)[["K_y_mult"]])
+K_p_mult <- eval(formals(gameofclones::sim_experiments)[["K_y_mult"]])
 s_p <- line_s$leslie[,,3][2,1]
-m <- eval(formals(gameofclones::sim_experiments)[["pred_rate"]])
+pred_surv <- 1 - eval(formals(gameofclones::sim_experiments)[["pred_rate"]])
 a0 <- eval(formals(gameofclones::sim_experiments)[["alate_b0"]])
 a1 <- eval(formals(gameofclones::sim_experiments)[["alate_b1"]])
 a <- wasp_attack$a
@@ -100,14 +100,15 @@ R <- (X0 * rep(wasp_attack$rel_attack, c(rep(2, 4), 21))) |>
 
 
 # ------------------------*
-# Optimizations for theta_p and theta_m
+# Optimizations for trans_pm and trans_ma
 # ------------------------*
 
 # Simplified R version of host-parasitoid model (no alates):
 run_paras_pm1 <- function(aphids0, wasps0, max_t = 100,
-                          theta_m = 1,
-                          theta_p = 1) {
+                          trans_ma = 1,
+                          trans_pm = 1) {
     R <- R[1:2]  # <:-- Because we're not simulating alates
+    K_p <- K * K_p_mult
     aphids <- numeric(max_t+1)
     wasps <- numeric(max_t+1)
     aphids[1] <- aphids0
@@ -119,15 +120,15 @@ run_paras_pm1 <- function(aphids0, wasps0, max_t = 100,
         A <- (1 + R * a * wasps[t] / (k * (h * sum(X) + 1)))^(-k)
         S <- 1 / (1 + aphids[t] / K)
         S_p <- 1 / (1 + aphids[t] / K_p)
-        new_adult_wasps <- theta_m * M
-        new_M <- theta_p * P
+        new_adult_wasps <- trans_ma * M
+        new_M <- trans_pm * P
         new_P <- sum((1 - A) * (L %*% X))
         wasps[t+1] = wasps[t] * s_y + 0.5 * new_adult_wasps
-        M <- (1 - m) * (M + new_M) - new_adult_wasps
+        M <- pred_surv * (M + new_M) - new_adult_wasps
         if (M < 0) stop("M < 0")
-        P <- (1 - m) * S_p * (s_p * P + new_P) - new_M
+        P <- pred_surv * S_p * (s_p * P + new_P) - new_M
         if (P < 0) stop("P < 0")
-        X <- (1 - m) * S * A * (L %*% X)
+        X <- pred_surv * S * A * (L %*% X)
         aphids[t+1] <- sum(X) + P
     }
     d <- tibble(time = 0:max_t, aphids = aphids, wasps = wasps) |>
@@ -172,8 +173,8 @@ fit_pm1 <- function(pars) {
     pars <- inv_logit(pars)
     sims <- pmap(combos, \(a0, w0) {
         run_paras_pm1(aphids0 = a0, wasps0 = w0,
-                      theta_m = pars[1],
-                      theta_p = pars[2])
+                      trans_ma = pars[1],
+                      trans_pm = pars[2])
     }) |>
         list_rbind()
     .sse <- sse(sims, sims_full)
@@ -184,8 +185,8 @@ set.seed(1974834691)
 op_pm1 <- optim(logit(c(0.25, 0.1)), fit_pm1)
 # inv_logit(op_pm1$par)
 # [1] 0.05206727 0.17706238
-theta_m <- inv_logit(op_pm1$par[1])
-theta_p <- inv_logit(op_pm1$par[2])
+trans_ma <- inv_logit(op_pm1$par[1])
+trans_pm <- inv_logit(op_pm1$par[2])
 
 
 
@@ -195,9 +196,9 @@ theta_p <- inv_logit(op_pm1$par[2])
 # Create dataset
 # ------------------------*
 pop_info <- list(surv_j = sj, surv_a = sa, recruit = r, fecund = f,
-                 alate_0 = a0, alate_1 = a1, K = K, m = m,
+                 alate_0 = a0, alate_1 = a1, K = K, pred_surv = pred_surv,
                  a = a, h = h, k = k, s_y = s_y,
-                 s_p = s_p, K_p = K_p, R = R,
-                 theta_m = theta_m, theta_p = theta_p)
+                 s_p = s_p, K_p_mult = K_p_mult, R = R,
+                 trans_ma = trans_ma, trans_pm = trans_pm)
 
 usethis::use_data(pop_info, overwrite = TRUE)
