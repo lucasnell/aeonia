@@ -12,8 +12,7 @@
 #' See `data-raw/pop_info.R` for how these were generated.
 #'
 #'
-#' @param B Single numeric indicating the effect of *Pseudomonas* on aphid
-#'     population growth.
+#' @param pseudo_surv Single numeric indicating aphid survival from *Pseudomonas*.
 #' @param fly_p Single numeric indicating the proportion of alates that fly
 #'     off plants each day.
 #' @param wasp_disp_m0 Proportion of adult wasps from each field that
@@ -48,19 +47,20 @@
 #' @param K Single numeric indicating the density dependence of the
 #'     aphid population.
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param K_p Single numeric indicating parasitized aphid density dependence.
+#' @param K_p_mult Single numeric indicating the multiplier for parasitized
+#'     aphid density dependence (`K_p = K * K_p_mult`).
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param s_p Single numeric indicating parasitized aphid daily survival.
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param R Single numeric indicating
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param theta_m Single numeric indicating the proportion of mummies that
+#' @param trans_ma Single numeric indicating the proportion of mummies that
 #'     transition to adult parasitoids each day.
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param theta_p Single numeric indicating the proportion of parasitized
+#' @param trans_pm Single numeric indicating the proportion of parasitized
 #'     aphids that transition to mummies each day.
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param m Single numeric indicating aphid and mummy mortality due
+#' @param pred_surv Single numeric indicating aphid and mummy mortality due
 #'     to generalist predators.
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param alate_0 Single numeric.
@@ -85,8 +85,8 @@
 #' @return An `externalptr` object that points to a C++ object that can
 #' be pass to [sim_plantscape()].
 #'
-make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p = NA_real_, s_p = NA_real_, R = as.numeric( c()), theta_m = NA_real_, theta_p = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y)
+make_insect_ptr <- function(pseudo_surv, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -99,8 +99,8 @@ make_insect_ptr <- function(B, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disast
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, N0, W0, Y0, B = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p = NA_real_, s_p = NA_real_, R = as.numeric( c()), theta_m = NA_real_, theta_p = NA_real_, m = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y)
+test_insect_pops <- function(max_t, N0, W0, Y0, pseudo_surv = 1, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
 }
 
 #' Logit and inverse logit functions.

@@ -14,12 +14,12 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // make_insect_ptr
-SEXP make_insect_ptr(const double& B, const double& fly_p, const double& wasp_disp_m0, const double& wasp_disp_m1, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p, double s_p, NumericVector R, double theta_m, double theta_p, double m, double alate_0, double alate_1, double a, double h, double k, double s_y);
-RcppExport SEXP _aeonia_make_insect_ptr(SEXP BSEXP, SEXP fly_pSEXP, SEXP wasp_disp_m0SEXP, SEXP wasp_disp_m1SEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_pSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP theta_mSEXP, SEXP theta_pSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
+SEXP make_insect_ptr(const double& pseudo_surv, const double& fly_p, const double& wasp_disp_m0, const double& wasp_disp_m1, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p_mult, double s_p, NumericVector R, double trans_ma, double trans_pm, double pred_surv, double alate_0, double alate_1, double a, double h, double k, double s_y);
+RcppExport SEXP _aeonia_make_insect_ptr(SEXP pseudo_survSEXP, SEXP fly_pSEXP, SEXP wasp_disp_m0SEXP, SEXP wasp_disp_m1SEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_p_multSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP trans_maSEXP, SEXP trans_pmSEXP, SEXP pred_survSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const double& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const double& >::type pseudo_surv(pseudo_survSEXP);
     Rcpp::traits::input_parameter< const double& >::type fly_p(fly_pSEXP);
     Rcpp::traits::input_parameter< const double& >::type wasp_disp_m0(wasp_disp_m0SEXP);
     Rcpp::traits::input_parameter< const double& >::type wasp_disp_m1(wasp_disp_m1SEXP);
@@ -33,25 +33,25 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type recruit(recruitSEXP);
     Rcpp::traits::input_parameter< double >::type fecund(fecundSEXP);
     Rcpp::traits::input_parameter< double >::type K(KSEXP);
-    Rcpp::traits::input_parameter< double >::type K_p(K_pSEXP);
+    Rcpp::traits::input_parameter< double >::type K_p_mult(K_p_multSEXP);
     Rcpp::traits::input_parameter< double >::type s_p(s_pSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type R(RSEXP);
-    Rcpp::traits::input_parameter< double >::type theta_m(theta_mSEXP);
-    Rcpp::traits::input_parameter< double >::type theta_p(theta_pSEXP);
-    Rcpp::traits::input_parameter< double >::type m(mSEXP);
+    Rcpp::traits::input_parameter< double >::type trans_ma(trans_maSEXP);
+    Rcpp::traits::input_parameter< double >::type trans_pm(trans_pmSEXP);
+    Rcpp::traits::input_parameter< double >::type pred_surv(pred_survSEXP);
     Rcpp::traits::input_parameter< double >::type alate_0(alate_0SEXP);
     Rcpp::traits::input_parameter< double >::type alate_1(alate_1SEXP);
     Rcpp::traits::input_parameter< double >::type a(aSEXP);
     Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
     Rcpp::traits::input_parameter< double >::type s_y(s_ySEXP);
-    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(B, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y));
+    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(pseudo_surv, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y));
     return rcpp_result_gen;
 END_RCPP
 }
 // test_insect_pops
-DataFrame test_insect_pops(const uint32& max_t, const double& N0, const double& W0, const double& Y0, const double& B, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p, double s_p, NumericVector R, double theta_m, double theta_p, double m, double alate_0, double alate_1, double a, double h, double k, double s_y);
-RcppExport SEXP _aeonia_test_insect_pops(SEXP max_tSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP BSEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_pSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP theta_mSEXP, SEXP theta_pSEXP, SEXP mSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
+DataFrame test_insect_pops(const uint32& max_t, const double& N0, const double& W0, const double& Y0, const double& pseudo_surv, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p_mult, double s_p, NumericVector R, double trans_ma, double trans_pm, double pred_surv, double alate_0, double alate_1, double a, double h, double k, double s_y);
+RcppExport SEXP _aeonia_test_insect_pops(SEXP max_tSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP pseudo_survSEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_p_multSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP trans_maSEXP, SEXP trans_pmSEXP, SEXP pred_survSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -59,7 +59,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double& >::type N0(N0SEXP);
     Rcpp::traits::input_parameter< const double& >::type W0(W0SEXP);
     Rcpp::traits::input_parameter< const double& >::type Y0(Y0SEXP);
-    Rcpp::traits::input_parameter< const double& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const double& >::type pseudo_surv(pseudo_survSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_p(disaster_pSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_s(disaster_sSEXP);
     Rcpp::traits::input_parameter< const double& >::type extinct_N(extinct_NSEXP);
@@ -70,19 +70,19 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type recruit(recruitSEXP);
     Rcpp::traits::input_parameter< double >::type fecund(fecundSEXP);
     Rcpp::traits::input_parameter< double >::type K(KSEXP);
-    Rcpp::traits::input_parameter< double >::type K_p(K_pSEXP);
+    Rcpp::traits::input_parameter< double >::type K_p_mult(K_p_multSEXP);
     Rcpp::traits::input_parameter< double >::type s_p(s_pSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type R(RSEXP);
-    Rcpp::traits::input_parameter< double >::type theta_m(theta_mSEXP);
-    Rcpp::traits::input_parameter< double >::type theta_p(theta_pSEXP);
-    Rcpp::traits::input_parameter< double >::type m(mSEXP);
+    Rcpp::traits::input_parameter< double >::type trans_ma(trans_maSEXP);
+    Rcpp::traits::input_parameter< double >::type trans_pm(trans_pmSEXP);
+    Rcpp::traits::input_parameter< double >::type pred_surv(pred_survSEXP);
     Rcpp::traits::input_parameter< double >::type alate_0(alate_0SEXP);
     Rcpp::traits::input_parameter< double >::type alate_1(alate_1SEXP);
     Rcpp::traits::input_parameter< double >::type a(aSEXP);
     Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
     Rcpp::traits::input_parameter< double >::type s_y(s_ySEXP);
-    rcpp_result_gen = Rcpp::wrap(test_insect_pops(max_t, N0, W0, Y0, B, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p, s_p, R, theta_m, theta_p, m, alate_0, alate_1, a, h, k, s_y));
+    rcpp_result_gen = Rcpp::wrap(test_insect_pops(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y));
     return rcpp_result_gen;
 END_RCPP
 }

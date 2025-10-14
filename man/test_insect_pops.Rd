@@ -9,7 +9,7 @@ test_insect_pops(
   N0,
   W0,
   Y0,
-  B = 0,
+  pseudo_surv = 1,
   disaster_p = 0,
   disaster_s = 0,
   extinct_N = 0,
@@ -20,12 +20,12 @@ test_insect_pops(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
-  K_p = NA_real_,
+  K_p_mult = NA_real_,
   s_p = NA_real_,
   R = as.numeric(c()),
-  theta_m = NA_real_,
-  theta_p = NA_real_,
-  m = NA_real_,
+  trans_ma = NA_real_,
+  trans_pm = NA_real_,
+  pred_surv = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
@@ -58,8 +58,7 @@ have the same number of rows and columns as \code{landscapes}.
 The matrix can also be 1x1, in which case it's assumed that all plants
 start with the same density of parasitoids.}
 
-\item{B}{Single numeric indicating the effect of \emph{Pseudomonas} on aphid
-population growth.}
+\item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
 
 \item{disaster_p}{Single numeric indicating the probability of disaster
 each day. Defaults to \code{0}.}
@@ -94,7 +93,8 @@ Defaults to \code{NA}. See 'Details' for more info.}
 aphid population.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{K_p}{Single numeric indicating parasitized aphid density dependence.
+\item{K_p_mult}{Single numeric indicating the multiplier for parasitized
+aphid density dependence (\code{K_p = K * K_p_mult}).
 Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{s_p}{Single numeric indicating parasitized aphid daily survival.
@@ -103,15 +103,15 @@ Defaults to \code{NA}. See 'Details' for more info.}
 \item{R}{Single numeric indicating
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{theta_m}{Single numeric indicating the proportion of mummies that
+\item{trans_ma}{Single numeric indicating the proportion of mummies that
 transition to adult parasitoids each day.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{theta_p}{Single numeric indicating the proportion of parasitized
+\item{trans_pm}{Single numeric indicating the proportion of parasitized
 aphids that transition to mummies each day.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{m}{Single numeric indicating aphid and mummy mortality due
+\item{pred_surv}{Single numeric indicating aphid and mummy mortality due
 to generalist predators.
 Defaults to \code{NA}. See 'Details' for more info.}
 
