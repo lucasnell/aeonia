@@ -48,7 +48,7 @@ struct OnePlant {
           exp_days(0),
           insects(insects_),
           total_exp_days(total_exp_days_) {
-        if (!pseudo) insects.set_B(0.0);
+        if (!pseudo) insects.set_pseudo_surv(1.0);
     }
 
     // iterate and set number of alates moving from this plant:

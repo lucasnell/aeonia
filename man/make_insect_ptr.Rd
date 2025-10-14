@@ -5,7 +5,7 @@
 \title{Create a pointer object in which to store insect population info.}
 \usage{
 make_insect_ptr(
-  B,
+  pseudo_surv,
   fly_p,
   wasp_disp_m0 = 0,
   wasp_disp_m1 = 0,
@@ -19,12 +19,12 @@ make_insect_ptr(
   recruit = NA_real_,
   fecund = NA_real_,
   K = NA_real_,
-  K_p = NA_real_,
+  K_p_mult = NA_real_,
   s_p = NA_real_,
   R = as.numeric(c()),
-  theta_m = NA_real_,
-  theta_p = NA_real_,
-  m = NA_real_,
+  trans_ma = NA_real_,
+  trans_pm = NA_real_,
+  pred_surv = NA_real_,
   alate_0 = NA_real_,
   alate_1 = NA_real_,
   a = NA_real_,
@@ -34,8 +34,7 @@ make_insect_ptr(
 )
 }
 \arguments{
-\item{B}{Single numeric indicating the effect of \emph{Pseudomonas} on aphid
-population growth.}
+\item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
 
 \item{fly_p}{Single numeric indicating the proportion of alates that fly
 off plants each day.}
@@ -82,7 +81,8 @@ Defaults to \code{NA}. See 'Details' for more info.}
 aphid population.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{K_p}{Single numeric indicating parasitized aphid density dependence.
+\item{K_p_mult}{Single numeric indicating the multiplier for parasitized
+aphid density dependence (\code{K_p = K * K_p_mult}).
 Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{s_p}{Single numeric indicating parasitized aphid daily survival.
@@ -91,15 +91,15 @@ Defaults to \code{NA}. See 'Details' for more info.}
 \item{R}{Single numeric indicating
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{theta_m}{Single numeric indicating the proportion of mummies that
+\item{trans_ma}{Single numeric indicating the proportion of mummies that
 transition to adult parasitoids each day.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{theta_p}{Single numeric indicating the proportion of parasitized
+\item{trans_pm}{Single numeric indicating the proportion of parasitized
 aphids that transition to mummies each day.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{m}{Single numeric indicating aphid and mummy mortality due
+\item{pred_surv}{Single numeric indicating aphid and mummy mortality due
 to generalist predators.
 Defaults to \code{NA}. See 'Details' for more info.}
 

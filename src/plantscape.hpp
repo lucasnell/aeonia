@@ -302,7 +302,7 @@ public:
                     insects.set_aphids(N0(x,y), W0(x,y));
                     insects.Y = Y0(x,y);
                 }
-                if (!pseudo) insects.set_B(0.0);
+                if (!pseudo) insects.set_pseudo_surv(1.0);
             }
         }
 
