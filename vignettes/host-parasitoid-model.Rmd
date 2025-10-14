@@ -48,6 +48,8 @@ multiplication (Hadamard product),
 $^{\circ}~$indicates element-wise power (Hadamard power),
 and $^{\intercal}~$indicates matrix transposition.
 Vectors and matrices are in bold.
+Unless otherwise noted, indexing occurs first by space, then by time,
+so $x_{it}$ is for patch $i$ at time $t$.
 
 
 ## Aphid population dynamics
@@ -59,16 +61,16 @@ Aphid populations ($\mathbf{X}$) on patch $i$ follow the following equations
 <!-- -->
 $$
 \begin{split}
-    \mathbf{X}_i(t+1) &= g \, \rho_i \, S(z_i(t)) \, 
-        \mathbf{A}(x_i(t), \hat{z}_i(t), Y(t)) \odot \left[ \mathbf{L} \, \mathbf{X}_i(t) \right] \\
-    S(z_i(t)) &= \left( 1 + \frac{z_i(t)}{K} \right)^{-1} \\
-    \mathbf{L} &= \begin{pmatrix}
-        s_j     & f \, (1{-}W(z_i(t))) & 0     & f   \\
+    \mathbf{X}_{i,t+1} &= g \, \rho_i \, S(z_{it}) \, 
+        \mathbf{A}(x_{it}, \hat{z}_{it}, Y_{t}) \odot \left[ \mathbf{L} \, \mathbf{X}_{it} \right] \\
+    S(z_{it}) &= \left( 1 + \frac{z_{it}}{K} \right)^{-1} \\
+    \mathbf{L} &= \begin{bmatrix}
+        s_j     & f \, (1{-}W(z_{it})) & 0     & f   \\
         r       & s_a       & 0     & 0   \\
-        0       & f \, W(z_i(t)) & s_j   & 0   \\
+        0       & f \, W(z_{it}) & s_j   & 0   \\
         0       & 0         & r     & s_a \\
-        \end{pmatrix} \\
-    W(z_i(t)) &= \textrm{logit}^{-1}(\delta_0 + \delta_z \, z_i(t)) \\
+        \end{bmatrix} \\
+    W(z_{it}) &= \textrm{logit}^{-1}(\delta_0 + \delta_z \, z_{it}) \\
 \end{split}
 $$ {#eq-aphids}
 
@@ -81,22 +83,22 @@ $$ {#eq-aphids}
 tribble(
     ~Parameter,  ~Used,  ~Description ,
     "$n$"    ,  "$4$", "number of aphid stages",
-    "$\\mathbf{X}(t)$",  "$-$", "length-$n$ vector of aphid abundances by stage",
+    "$\\mathbf{X}$",  "$-$", "length-$n$ vector of aphid abundances by stage",
     "$g$"    ,  dbl4ltx(pop_info$m, 1), "survival from generalist predators and host-plant death",
     "$\\rho$"    ,  "varies", "survival from *Pseudomonas* bacteria (1 if not present on patch)",
-    "$S(z(t))$",  "$-$",  "unparasitized aphid density dependence",
-    "$z(t)$",  "$-$",  "total alive aphids in a particular patch (i.e., $P(t) + \\sum_{j=1}^{n}{X_j(t)}$)",
-    "$\\hat{z}(t)$",  "$-$",  "relative alive aphid abundance in patch $i$ (i.e., $z_i(t) / \\sum_{k=1}^{q}{z_k(t)}$)",
-    "$\\mathbf{A}$",  "$-$",  "length-$n$ vector of the proportion of aphids surviving parasitism",
-    "$x(t)$",  "$-$",  "total unparasitized aphids in a particular patch",
-    "$Y(t)$",  "$-$",  "total adult, female parasitoids",
+    "$S(\\cdot)$",  "$-$",  "unparasitized aphid density dependence",
+    "$z$",  "$-$",  "total alive aphids in a particular patch (i.e., $P + \\sum_{j=1}^{n}{X_{j}}$, where $j$ indexes by aphid stage)",
+    "$\\hat{z}$",  "$-$",  "relative alive aphid abundance in patch $i$ (i.e., $z_{i} / \\sum_{j=1}^{q}{z_{j}}$, where $i$ and $j$ index through space)",
+    "$\\mathbf{A}(\\cdot)$",  "$-$",  "length-$n$ vector of the proportion of aphids surviving parasitism",
+    "$x$",  "$-$",  "total unparasitized aphids in a particular patch",
+    "$Y$",  "$-$",  "total adult, female parasitoids across all patches",
     "$\\mathbf{L}$",  "$**$",  "$n \\times n$ transition matrix that defines transitions among all stages",
     "$K$",  dbl4ltx(pop_info$K, 0),  "controls strength of unparasitized aphid density dependence",
     "$s_j$",  dbl4ltx(pop_info$surv_j),  "proportion of aphid juveniles that stay as juveniles each day",
     "$s_a$",  dbl4ltx(pop_info$surv_a),  "proportion of aphid adults that survive each day",
     "$r$",  dbl4ltx(pop_info$recruit),  "proportion of aphid juveniles that transition to adults each day",
     "$f$",  dbl4ltx(pop_info$fecund),  "aphid fecundity",
-    "$W(z(t))$",  "$-$",  "proportion of winged offspring from non-winged mothers",
+    "$W(\\cdot)$",  "$-$",  "proportion of winged offspring from non-winged mothers",
     "$\\delta_0$",  dbl4ltx(pop_info$alate_0, 0),  "affects the proportion of winged offspring at low aphid densities",
     "$\\delta_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
 ) |> 
@@ -116,12 +118,12 @@ the following equations
 <!-- -->
 $$
 \begin{split}
-    P_i(t+1) &= g \, \rho_i \, S_p(z_i(t)) \, \left(s_p \, P_i(t) + 
-        \left[1 - \mathbf{A}(x_i(t),\hat{z}_i(t),Y(t))\right]^{\intercal} \,
-            \mathbf{L} \mathbf{X}_i(t)
-        \right) - \phi \, P_i(t) \\
-    S_p(z_i(t)) &= \left( 1 + \frac{z_i(t)}{\nu \, K} \right)^{-1} \\
-    M_i(t+1) &= g \, \left[M_i(t) + \phi \, P_i(t) \right] - \theta \, M_i(t) \\
+    P_{i,t+1} &= g \, \rho_i \, S_p(z_{it}) \, \left(s_p \, P_{it} + 
+        \left[1 - \mathbf{A}(x_{it},\hat{z}_{it},Y_{t})\right]^{\intercal} \,
+            \mathbf{L} \mathbf{X}_{it}
+        \right) - \phi \, P_{it} \\
+    S_p(z_{it}) &= \left( 1 + \frac{z_{it}}{\nu \, K} \right)^{-1} \\
+    M_{i,t+1} &= g \, \left( M_{it} + \phi \, P_{it} \right) - \theta \, M_{it} \\
 \end{split}
 $$ {#eq-paras-mummimes}
 
@@ -130,12 +132,12 @@ In this case, the following must be true to avoid negative numbers:
 $$
 \begin{split}
     \theta &< g \\
-    \phi &< g \, \rho \, S_p(z(t)) \, s_p \\
+    \phi &< g \, \rho \, S_p(z_{t}) \, s_p \\
 \end{split}
 \textrm{,}
 $$
 <!-- -->
-\noindent where the minimum value of $S_p(z(t))$ is $\sim 0.65$ 
+\noindent where the minimum value of $S_p(z_{t})$ is $\sim 0.65$ 
 even when non-parasitized aphids are at their carrying capacity
 ($K \, (\lambda - 1)$, where $\lambda$ is the leading 
 eigenvalue of $\mathbf{L}$),
@@ -152,14 +154,15 @@ tribble(
     "$h$"    , dbl4ltx(pop_info$h, 3), "parasitoid attack-rate handling time",
     "$k$"    , dbl4ltx(pop_info$k, 2), "negative binomial distribution's aggregation parameter",
     "$P$"    , "$-$", "parasitized aphid abundance",
-    "$S_p(z(t))$"  , "$-$", "parasitized aphid density dependence",
+    "$S_p(\\cdot)$"  , "$-$", "parasitized aphid density dependence",
     "$\\nu$"  , dbl4ltx(pop_info$K_p_mult, 4), "density dependence for parasitized aphids relative to unparasitized ($0 < \\nu \\le 1$)",
     "$s_p$"  , dbl4ltx(pop_info$s_p), "daily survival for parasitized aphids",
     "$\\phi$", dbl4ltx(pop_info$trans_pm), "proportion of parasitized aphids that transition to mummies each day",
     "$M$"  , "$-$", "mummy (parasitized, dead aphid) abundance",
     "$\\theta$", dbl4ltx(pop_info$trans_ma), "proportion of mummies that transition to adult parasitoids each day",
     "$s_y$"  , dbl4ltx(pop_info$s_y, 2), "adult parasitoid daily survival",
-    "$\\zeta$", "varies", "constant between 0 and 1 that affects the extent to which parasitoids respond to aphid density"
+    "$\\zeta$", "varies", "constant between 0 and 1 that affects the extent to which parasitoids respond to aphid density",
+    "$\\gamma(\\cdot)$", "$-$", "number of parasitoids on each patch"
 ) |> 
     kable(escape = FALSE)
 ```
@@ -173,17 +176,17 @@ There is a single adult parasitoid population across all $q$ patches
 that operates as such:
 
 $$
-    Y(t+1) = s_y \, Y(t) + \frac{1}{2} \, \theta \sum_{i=1}^{q}{M_i(t)}
+    Y_{t+1} = s_y \, Y_{t} + \frac{1}{2} \, \theta \sum_{i=1}^{q}{M_{it}}
 $$ {#eq-adult-paras}
 
 
 The number of parasitoids on each patch $i$ ($\gamma$) is affected by 
 the total number of parasitoids and the
-relative number of aphids on that patch ($\hat{z}_i$):
+relative number of aphids on that patch ($\hat{z}$):
 
 $$
-    \gamma(\hat{z}_i(t)) = Y(t) \left[ 
-            (1 - \zeta) \, \frac{1}{q} + \zeta \, \hat{z}_i(t)
+    \gamma(\hat{z}_{it}) = Y_{t} \left[ 
+            (1 - \zeta) \, \frac{1}{q} + \zeta \, \hat{z}_{it}
         \right]
 $$ {#eq-wasp-abunds-i}
 
@@ -197,12 +200,12 @@ aphids that survive parasitoid attacks
 ($\mathbf{A}$).
 This survival is affected by 
 non-parasitized aphid density on the patch $i$ ($x$),
-the relative number of aphids on the patch $i$ ($\hat{z}_i$), and
+the relative number of aphids on the patch $i$ ($\hat{z}$), and
 adult parasitoid density ($Y$):
 
 
 $$
-\mathbf{A}(x(t),\hat{z}(t),Y(t)) =  \left[1 + \mathbf{R} \, \frac{a \, \gamma(\hat{z}_i(t)) }{
-    k \, (h \, x(t) + 1)} \right]^{\circ -k}
+\mathbf{A}(x_{it},\hat{z}_{it},Y_{t}) =  \left[1 + \mathbf{R} \, \frac{a \, \gamma(\hat{z}_{it}) }{
+    k \, (h \, x_{it} + 1)} \right]^{\circ -k}
 $$ {#eq-wasp-attacks}
 
