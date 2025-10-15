@@ -22,8 +22,6 @@ void check_insect_args(const uint32& max_t,
                        const double& W0,
                        const double& Y0,
                        const double& pseudo_surv,
-                       const double& disaster_p,
-                       const double& disaster_s,
                        const double& extinct_N,
                        const double& sigma_x,
                        const double& surv_j,
@@ -50,8 +48,6 @@ void check_insect_args(const uint32& max_t,
     if (W0 < 0) stop("W0 < 0");
     if (Y0 < 0) stop("Y0 < 0");
     if (pseudo_surv < 0 || pseudo_surv > 1) stop("pseudo_surv < 0 || pseudo_surv > 1");
-    if (disaster_p < 0 || disaster_p > 1) stop("disaster_p < 0 || disaster_p > 1");
-    if (disaster_s < 0 || disaster_s > 1) stop("disaster_s < 0 || disaster_s > 1");
     if (extinct_N < 0) stop("extinct_N < 0");
     if (sigma_x < 0) stop("sigma_x < 0");
     if (surv_j <= 0 || surv_j > 1) stop("surv_j <= 0 || surv_j > 1");
@@ -145,12 +141,6 @@ void fill_pop_info(double& surv_j,
 //'     distribution of parasitoids, and 1 results in a linear relationship
 //'     between aphid density and parasitoids.
 //'     Defaults to `0`.
-//' @param disaster_p Single numeric indicating the probability of disaster
-//'     each day. Defaults to `0`.
-//' @param disaster_s Single numeric indicating disaster survival.
-//'     Defaults to `0`.
-//' @param disaster_p Single numeric indicating the probability of disaster
-//'     each day. Defaults to `0`.
 //' @param extinct_N Single numeric indicating the extinction threshold.
 //'     Defaults to `0`.
 //' @param demog_error Single logical for whether to include demographic
@@ -212,8 +202,6 @@ void fill_pop_info(double& surv_j,
 SEXP make_insect_ptr(const double& pseudo_surv,
                      const double& fly_p,
                      const double& zeta = 0,
-                     const double& disaster_p = 0,
-                     const double& disaster_s = 0,
                      const double& extinct_N = 0,
                      const bool& demog_error = false,
                      const double& sigma_x = 0,
@@ -246,7 +234,7 @@ SEXP make_insect_ptr(const double& pseudo_surv,
     double Y0 = 0;
     uint32 max_t = 100;
 
-    check_insect_args(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s,
+    check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
                       a, h, k, s_y,
@@ -256,7 +244,6 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                                                 K, K_p_mult, s_p, R_,
                                                 trans_ma, trans_pm,
                                                 pred_surv, pseudo_surv,
-                                                disaster_p, disaster_s,
                                                 extinct_N, demog_error,
                                                 sigma_x, a, h, k, alate_0,
                                                 alate_1, fly_p, N0, W0,
@@ -285,8 +272,6 @@ DataFrame test_insect_pops(const uint32& max_t,
                            const double& W0,
                            const double& Y0,
                            const double& pseudo_surv = 1,
-                           const double& disaster_p = 0,
-                           const double& disaster_s = 0,
                            const double& extinct_N = 0,
                            const bool& demog_error = false,
                            const double& sigma_x = 0,
@@ -316,14 +301,13 @@ DataFrame test_insect_pops(const uint32& max_t,
     double fly_p = 0;
     double zeta = 0;
 
-    check_insect_args(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s,
+    check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
                       a, h, k, s_y, fly_p, zeta);
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
                        trans_ma, trans_pm, pred_surv, pseudo_surv,
-                       disaster_p, disaster_s,
                        extinct_N, demog_error, sigma_x, a, h, k, alate_0,
                        alate_1, fly_p, N0, W0, s_y, zeta, Y0);
 

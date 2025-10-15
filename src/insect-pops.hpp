@@ -52,8 +52,6 @@ class AphidPops {
     double trans_pm; // proportion of parasitized aphids that transition to mummies each day
     double pred_surv;       // aphid survival from generalist predators and host plant death
     double pseudo_surv;     // survival from Pseudomonas infection
-    double disaster_p; // probability of disaster
-    double disaster_s; // disaster survival
     double extinct_N;  // extinction threshold
     bool demog_error;// whether to include demographic stochasticity
     double sigma_x; // environmental stochasticity
@@ -129,11 +127,6 @@ class AphidPops {
             if (X(3) > max_adults(1)) X(3) = max_adults(1);
         }
 
-        // Sample for disaster:
-        if (!extinct_X && (disaster_p > 0 && runif_01(eng) < disaster_p)) {
-            X *= disaster_s;
-        }
-
         return new_Y;
 
     }
@@ -154,8 +147,6 @@ public:
               const double& trans_pm_,
               const double& pred_surv_,
               const double& pseudo_surv_,
-              const double& disaster_p_,
-              const double& disaster_s_,
               const double& extinct_N_,
               const bool& demog_error_,
               const double& sigma_x_,
@@ -177,8 +168,6 @@ public:
           trans_pm(trans_pm_),
           pred_surv(pred_surv_),
           pseudo_surv(pseudo_surv_),
-          disaster_p(disaster_p_),
-          disaster_s(disaster_s_),
           extinct_N(extinct_N_),
           demog_error(demog_error_),
           sigma_x(sigma_x_),
@@ -223,7 +212,6 @@ public:
         : distr(other.distr), L(other.L), K(other.K), K_p(other.K_p),
           s_p(other.s_p), R(other.R), trans_ma(other.trans_ma),
           trans_pm(other.trans_pm), pred_surv(other.pred_surv), pseudo_surv(other.pseudo_surv),
-          disaster_p(other.disaster_p), disaster_s(other.disaster_s),
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
           a(other.a), h(other.h), k(other.k),
@@ -441,8 +429,6 @@ struct InsectPops {
                const double& trans_pm_,
                const double& pred_surv_,
                const double& pseudo_surv_,
-               const double& disaster_p_,
-               const double& disaster_s_,
                const double& extinct_N_,
                const bool& demog_error_,
                const double& sigma_x_,
@@ -459,7 +445,6 @@ struct InsectPops {
                const double& Y0)
         : aphids(surv_j, surv_a, recruit, fecund, K_, K_p_mult, s_p_, R_,
                  trans_ma_, trans_pm_, pred_surv_, pseudo_surv_,
-                 disaster_p_, disaster_s_,
                  extinct_N_, demog_error_, sigma_x_, a_, h_, k_,
                  alate_0_, alate_1_, fly_p_, N0, W0),
           wasps(s_y_, zeta_, extinct_N_, Y0) {};

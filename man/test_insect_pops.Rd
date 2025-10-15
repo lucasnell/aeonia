@@ -10,8 +10,6 @@ test_insect_pops(
   W0,
   Y0,
   pseudo_surv = 1,
-  disaster_p = 0,
-  disaster_s = 0,
   extinct_N = 0,
   demog_error = FALSE,
   sigma_x = 0,
@@ -57,12 +55,6 @@ The vector can also be of length 1, in which case it's assumed that
 all reps start with the same density of parasitoids.}
 
 \item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
-
-\item{disaster_p}{Single numeric indicating the probability of disaster
-each day. Defaults to \code{0}.}
-
-\item{disaster_s}{Single numeric indicating disaster survival.
-Defaults to \code{0}.}
 
 \item{extinct_N}{Single numeric indicating the extinction threshold.
 Defaults to \code{0}.}
