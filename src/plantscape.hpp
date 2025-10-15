@@ -30,6 +30,68 @@ using namespace Rcpp;
 
 
 
+// Class to store densities by whatever grouping is desired for output.
+// These values are shared no matter what type of output summary is used.
+struct OutDensities {
+
+    std::vector<double> virus;          // virus density (0 or 1 when this summarizes 1 patch)
+    std::vector<double> aphids;         // aphids (non-winged) density
+    std::vector<double> alates;         // alates density
+    std::vector<double> parasitized;    // parasitized aphid density
+    std::vector<double> mummies;        // mummy density
+    double wasps;                       // adult, female parasitoid wasp density
+
+
+    // Don't include any values, but reserve vectors for length `n`.
+    OutDensities(const uint32& n)
+        : virus(), aphids(), alates(), parasitized(), mummies(), wasps() {
+        virus.reserve(n);
+        aphids.reserve(n);
+        alates.reserve(n);
+        parasitized.reserve(n);
+        mummies.reserve(n);
+    };
+
+    // Fill values for vectors of length `n`.
+    // `wasps` double is simply set to `value`
+    OutDensities(const uint32& n, const double& value)
+        : virus(n, value), aphids(n, value), alates(n, value),
+          parasitized(n, value), mummies(n, value),
+          wasps(value) {};
+
+    // Fill a single value for all vectors and `wasps` double
+    OutDensities(const double& value)
+        : virus(1, value), aphids(1, value), alates(1, value),
+          parasitized(1, value), mummies(1, value),
+          wasps(value) {};
+
+
+    // Push back all values except wasps (bc wasps are at scale of all plants):
+    void push_back(const double& virus_,
+                   const double& aphids_,
+                   const double& alates_,
+                   const double& parasitized_,
+                   const double& mummies_) {
+        virus.push_back(virus_);
+        aphids.push_back(aphids_);
+        alates.push_back(alates_);
+        parasitized.push_back(parasitized_);
+        mummies.push_back(mummies_);
+        return;
+    }
+
+
+    uint32 size() const {
+        return virus.size();
+    }
+
+};
+
+
+
+
+
+
 class PlantScape {
 
     AdultWaspPop wasps;
@@ -105,58 +167,80 @@ class PlantScape {
     void fill_output() {
 
         if (summ == "none") {
-            output.push_back(arma::mat(n_x * n_y, 8, arma::fill::none));
-            arma::mat& output_t(output.back());
+            // Densities (all vectors except wasps start with length 0 but
+            // are reserved for length n_x * n_y,
+            // wasps are reserved for length 1):
+            output_dens.push_back(OutDensities(n_x * n_y));
+            OutDensities& output_dens_t(output_dens.back());
+            // plant x, plant y:
+            output_ids.push_back(arma::umat(n_x * n_y, 2, arma::fill::none));
+            arma::umat& output_ids_t(output_ids.back());
+
             uint32 k = 0;
+            output_dens_t.wasps = wasps.Y;
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
+
                     const OnePlant& plant(plants[x][y]);
-                    output_t(k,0) = static_cast<double>(x+1U);
-                    output_t(k,1) = static_cast<double>(y+1U);
-                    output_t(k,2) = static_cast<double>(plant.infectious);
-                    output_t(k,3) = plant.aphids.aphids();
-                    output_t(k,4) = plant.aphids.alates();
-                    output_t(k,5) = plant.aphids.P;
-                    output_t(k,6) = plant.aphids.M;
-                    output_t(k,7) = wasps.Y;  // <<<<<<<<   WRONG!
+
+                    output_ids_t(k,0) = x+1U;
+                    output_ids_t(k,1) = y+1U;
+
+                    output_dens_t.push_back(static_cast<double>(plant.infectious),
+                                            plant.aphids.aphids(),
+                                            plant.aphids.alates(),
+                                            plant.aphids.P,
+                                            plant.aphids.M);
                     k++;
                 }
             }
+
         } else if (summ == "pseudo") {
 
-            output.push_back(arma::mat(2, 8, arma::fill::zeros));
-            arma::mat& output_t(output.back());
-            // Set value indicating Pseudomonas present:
-            output_t(1,0) = 1;
-            // Fill the rest:
+            // Densities (wasps vector starts with length 1, all others start
+            // with length 2, all values (including wasps) = 0):
+            output_dens.push_back(OutDensities(2, 0.0));
+            OutDensities& output_dens_t(output_dens.back());
+            // plant pseudo (0 or 1), # of each type:
+            output_ids.push_back(arma::umat({{0, 0},
+                                             {1, 0}}));
+            arma::umat& output_ids_t(output_ids.back());
+
+            output_dens_t.wasps = wasps.Y;
             uint32 k;
             for (uint32 x = 0; x < n_x; x++) {
-                for (uint32 y = 0; y < n_y; y++) {
-                    const OnePlant& plant(plants[x][y]);
+                for (const OnePlant& plant : plants[x]) {
+
                     k = (plant.pseudo) ? 1UL : 0UL;
-                    output_t(k,1) += 1.0;
-                    output_t(k,2) += static_cast<double>(plant.infectious);
-                    output_t(k,3) += plant.aphids.aphids();
-                    output_t(k,4) += plant.aphids.alates();
-                    output_t(k,5) += plant.aphids.P;
-                    output_t(k,6) += plant.aphids.M;
-                    output_t(k,7) += wasps.Y;  // <<<<<<<<   WRONG!
+
+                    output_ids_t(k,1) += 1U;
+
+                    output_dens_t.virus[k] += static_cast<double>(plant.infectious);
+                    output_dens_t.aphids[k] += plant.aphids.aphids();
+                    output_dens_t.alates[k] += plant.aphids.alates();
+                    output_dens_t.parasitized[k] += plant.aphids.P;
+                    output_dens_t.mummies[k] += plant.aphids.M;
+
+                    k++;
                 }
             }
 
         } else if (summ == "time" || summ == "all") {
 
-            output.push_back(arma::mat(1, 6, arma::fill::zeros));
-            arma::mat& output_t(output.back());
+            // Densities (all vectors start with length 1, values = 0):
+            output_dens.push_back(OutDensities(0.0));
+            OutDensities& output_dens_t(output_dens.back());
+            // (no ids here)
+
+            output_dens_t.wasps = wasps.Y;
+
             for (uint32 x = 0; x < n_x; x++) {
-                for (uint32 y = 0; y < n_y; y++) {
-                    const OnePlant& plant(plants[x][y]);
-                    output_t(0,0) += static_cast<double>(plant.infectious);
-                    output_t(0,1) += plant.aphids.aphids();
-                    output_t(0,2) += plant.aphids.alates();
-                    output_t(0,3) += plant.aphids.P;
-                    output_t(0,4) += plant.aphids.M;
-                    output_t(0,5) += wasps.Y;  // <<<<<<<<   WRONG!
+                for (const OnePlant& plant : plants[x]) {
+                    output_dens_t.virus[0] += static_cast<double>(plant.infectious);
+                    output_dens_t.aphids[0] += plant.aphids.aphids();
+                    output_dens_t.alates[0] += plant.aphids.alates();
+                    output_dens_t.parasitized[0] += plant.aphids.P;
+                    output_dens_t.mummies[0] += plant.aphids.M;
                 }
             }
 
@@ -237,8 +321,9 @@ class PlantScape {
 
 public:
 
-    // Output object:
-    std::vector<arma::mat> output;
+    // Output objects:
+    std::vector<OutDensities> output_dens;  // densities of organism types
+    std::vector<arma::umat> output_ids;     // identifiers for each set of densities
 
 
     PlantScape(const uint32& max_t_,
@@ -272,7 +357,8 @@ public:
           eng(),
           summ(summ_),
           max_t(max_t_),
-          output() {
+          output_dens(),
+          output_ids() {
 
         wasps.Y = Y0;
 
@@ -303,7 +389,8 @@ public:
         }
 
         // Reserve max memory required:
-        output.reserve(max_t_+1U);
+        output_dens.reserve(max_t_+1U);
+        if (summ == "none" || summ == "pseudo") output_ids.reserve(max_t_+1U);
         // fill starting conditions:
         fill_output();
 

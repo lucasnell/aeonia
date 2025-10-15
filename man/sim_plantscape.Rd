@@ -187,7 +187,7 @@ included if \code{out_pseudo = FALSE}
 \item \code{alates}: alate density
 \item \code{parasitized}: parasitized aphid density
 \item \code{mummies}: mummy density
-\item \code{wasps}: parasitoid density
+\item \code{wasps}: total parasitoid density (\code{x} and \code{y} for this row will be 0)
 }
 
 If \code{summ == "pseudo"}, two rows are output for each rep and time point.
@@ -204,7 +204,7 @@ this type
 \item \code{parasitized}: total parasitized aphid density summed across all plants
 of this type
 \item \code{mummies}: total mummy density summed across all plants of this type
-10.\code{wasps}:  total parasitoid density summed across all plants of this type
+10.\code{wasps}:  total parasitoid density (\code{type} for this row will be \code{2})
 }
 
 If \code{summ == "time"}, one row is output per rep and time point.
@@ -217,7 +217,7 @@ The columns are...
 \item \code{alates}: total alate density summed across all plants
 \item \code{parasitized}: total parasitized aphid density summed across all plants
 \item \code{mummies}: total mummy density summed across all plants
-\item \code{wasps} total parasitoid density summed across all plants
+\item \code{wasps} total parasitoid density
 }
 
 If \code{summ == "all"}, one row is output per rep.
