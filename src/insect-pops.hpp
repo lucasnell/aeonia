@@ -25,13 +25,21 @@ using namespace Rcpp;
 
 
 
-class InsectPops {
+/*
+ * ============================================================================
+ * Aphid class
+ * ============================================================================
+ */
+
+class AphidPops {
 
     typedef std::normal_distribution<double> Norm;
     typedef std::binomial_distribution<uint32> Binom;
     typedef std::binomial_distribution<uint32>::param_type BinomParams;
 
+    // For demographic stochasticity:
     Norm norm = Norm(0, 1);
+    // For sampling numbers of alate leaving plant:
     Binom distr;
 
     // constants:
@@ -43,7 +51,7 @@ class InsectPops {
     double trans_ma; // proportion of mummies that transition to adults each day
     double trans_pm; // proportion of parasitized aphids that transition to mummies each day
     double pred_surv;       // aphid survival from generalist predators and host plant death
-    double pseudo_surv;       // survival from Pseudomonas infection
+    double pseudo_surv;     // survival from Pseudomonas infection
     double disaster_p; // probability of disaster
     double disaster_s; // disaster survival
     double extinct_N;  // extinction threshold
@@ -52,17 +60,17 @@ class InsectPops {
     double a;       // parasitoid attack rate
     double h;       // parasitoid handling time
     double k;       // parasitoid aggregation parameter
-    double s_y;     // parasitoid adult daily survival
     double alate_0; // intercept for Pr(alates) ~ log(aphid density)
     double alate_1; // slope for Pr(alates) ~ log(aphid density)
     double fly_p;   // probability of an alate leaving patch each day
-    double wasp_disp_m0;// proportion of adult parasitoids added to dispersal pool each day when no aphids present
-    double wasp_disp_m1;// effect of aphid density on parasitoid emigration
 
 
-    // Non-dispersal of `iterate`, updates `N`, `W`, and `Y` without
-    // producing alates:
-    void no_disp_iterate(pcg32& eng) {
+    /*
+     Non-dispersal of `iterate`, updates `N`, `W` without
+     producing alates.
+     Returns number of new adult (both male and female) parasitoids
+     */
+    double no_disp_iterate(const double& Yi, pcg32& eng) {
 
         // max adults there could be (used for if stochasticity is added):
         arma::vec max_adults = {arma::accu(X.head(2)), arma::accu(X.tail(2))};
@@ -75,8 +83,8 @@ class InsectPops {
         double S_p = 1 / (1 + z / K_p);
         // survival from parasitoids:
         arma::vec A;
-        if (Y > 0) {
-            A = arma::pow(1 + R * a * Y / (k * (h * x + 1)), -k);
+        if (Yi > 0) {
+            A = arma::pow(1 + R * a * Yi / (k * (h * x + 1)), -k);
         } else A = arma::ones(R.n_elem);
 
         // Proportion of new aphids (from apterous females) that are alates
@@ -98,7 +106,6 @@ class InsectPops {
 
         P = pred_surv * pseudo_surv * S_p * (s_p * P + new_P) - new_M;
         M = pred_surv * (M + new_M) - new_Y;
-        Y = s_y * Y + 0.5 * new_Y;
 
         X = (pred_surv * pseudo_surv * S * A) % LX;
 
@@ -108,7 +115,6 @@ class InsectPops {
             P = 0;
         }
         if (M < extinct_N) M = 0;
-        if (Y < extinct_N) Y = 0;
 
 
         // Variance for all process error:
@@ -128,7 +134,7 @@ class InsectPops {
             X *= disaster_s;
         }
 
-        return;
+        return new_Y;
 
     }
 
@@ -136,35 +142,31 @@ class InsectPops {
 
 public:
 
-    InsectPops(const double& surv_j,
-               const double& surv_a,
-               const double& recruit,
-               const double& fecund,
-               const double& K_,
-               const double& K_p_mult,
-               const double& s_p_,
-               const arma::vec& R_,
-               const double& trans_ma_,
-               const double& trans_pm_,
-               const double& pred_surv_,
-               const double& pseudo_surv_,
-               const double& disaster_p_,
-               const double& disaster_s_,
-               const double& extinct_N_,
-               const bool& demog_error_,
-               const double& sigma_x_,
-               const double& a_,
-               const double& h_,
-               const double& k_,
-               const double& s_y_,
-               const double& alate_0_,
-               const double& alate_1_,
-               const double& fly_p_,
-               const double& wasp_disp_m0_,
-               const double& wasp_disp_m1_,
-               const double& N0,
-               const double& W0,
-               const double& Y0)
+    AphidPops(const double& surv_j,
+              const double& surv_a,
+              const double& recruit,
+              const double& fecund,
+              const double& K_,
+              const double& K_p_mult,
+              const double& s_p_,
+              const arma::vec& R_,
+              const double& trans_ma_,
+              const double& trans_pm_,
+              const double& pred_surv_,
+              const double& pseudo_surv_,
+              const double& disaster_p_,
+              const double& disaster_s_,
+              const double& extinct_N_,
+              const bool& demog_error_,
+              const double& sigma_x_,
+              const double& a_,
+              const double& h_,
+              const double& k_,
+              const double& alate_0_,
+              const double& alate_1_,
+              const double& fly_p_,
+              const double& N0,
+              const double& W0)
         : distr(1, 0.5),
           L(4, 4, arma::fill::zeros),
           K(K_),
@@ -183,16 +185,12 @@ public:
           a(a_),
           h(h_),
           k(k_),
-          s_y(s_y_),
           alate_0(alate_0_),
           alate_1(alate_1_),
           fly_p(fly_p_),
-          wasp_disp_m0(wasp_disp_m0_),
-          wasp_disp_m1(wasp_disp_m1_),
           X(4, arma::fill::zeros),
           P(0),
-          M(0),
-          Y(Y0) {
+          M(0) {
 
         // Checks for parameter values that could cause negative numbers:
         if (trans_ma >= pred_surv) stop("trans_ma cannot be >= pred_surv");
@@ -221,37 +219,24 @@ public:
 
     };
 
-    InsectPops(const InsectPops& other)
+    AphidPops(const AphidPops& other)
         : distr(other.distr), L(other.L), K(other.K), K_p(other.K_p),
           s_p(other.s_p), R(other.R), trans_ma(other.trans_ma),
           trans_pm(other.trans_pm), pred_surv(other.pred_surv), pseudo_surv(other.pseudo_surv),
           disaster_p(other.disaster_p), disaster_s(other.disaster_s),
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
-          a(other.a), h(other.h), k(other.k), s_y(other.s_y),
+          a(other.a), h(other.h), k(other.k),
           alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
-          wasp_disp_m0(other.wasp_disp_m0), wasp_disp_m1(other.wasp_disp_m1),
-          X(other.X), P(other.P), M(other.M), Y(other.Y) {};
+          X(other.X), P(other.P), M(other.M) {};
 
 
-    // iterate and set number of alates and add parasitoids moving from this
-    // population to the parasitoid dispersal pool:
-    void iterate(uint32& n_alates, double& wasp_disp_pool, pcg32& eng) {
+    // iterate and set number of alates and add mummies transitioning to adult
+    // parasitoids from this patch to the adult parasitoid population.
+    // Note that `Yi` is the number of parasitoids on this patch only.
+    void iterate(const double& Yi, uint32& n_alates, double& new_Ys, pcg32& eng) {
 
-        no_disp_iterate(eng);
-
-        if (wasp_disp_m0 > 0) {
-            double p_out;
-            if (wasp_disp_m1 != 0) {
-                double lz = std::log(arma::accu(X));
-                p_out = wasp_disp_m0 * std::exp(-wasp_disp_m1 * lz);
-                if (p_out > 1) p_out = 1; // this can happen when accu(X) < 1
-            } else {
-                p_out = wasp_disp_m0;
-            }
-            wasp_disp_pool += Y * p_out;
-            Y *= (1 - p_out);
-        };
+        new_Ys += no_disp_iterate(Yi, eng);
 
         n_alates = 0;
         double& adult_winged(X(3));
@@ -265,13 +250,13 @@ public:
         return;
     }
     // Overloaded for not using output object (used in `test_insect_pops`)
-    void iterate(pcg32& eng) {
-        no_disp_iterate(eng);
+    void iterate(const double& Yi, double& new_Ys, pcg32& eng) {
+        new_Ys += no_disp_iterate(Yi, eng);
         return;
     }
 
     /*
-     Set pseudo_surv, which is useful for using a single InsectPops to populate a vector
+     Set pseudo_surv, which is useful for using a single AphidPops to populate a vector
      of them, then going back and changing some values of `pseudo_surv` based on
      the landscape:
      */
@@ -285,7 +270,7 @@ public:
         return;
     }
     /*
-     Set K, which is useful for using a single InsectPops to populate a vector
+     Set K, which is useful for using a single AphidPops to populate a vector
      of them, then going back and changing some values of `K` if you want
      the landscape to have variation:
      */
@@ -308,6 +293,11 @@ public:
     double& alate_adults() {
         return X.back();
     }
+    // Total alive aphids:
+    double z() const {
+        double out = P + arma::accu(X);
+        return out;
+    }
 
     // Fill non-winged and winged aphids using stable age distributions,
     // for each separately:
@@ -328,11 +318,162 @@ public:
     arma::vec X;    // aphids by stage
     double P;       // parasitized aphid density
     double M;       // mummy density
-    double Y;       // parasitoid population density
+};
+
+
+
+
+
+/*
+ * ============================================================================
+ * Adult wasp class
+ * ============================================================================
+ */
+
+
+class AdultWaspPop {
+
+    double s_y;         // parasitoid adult daily survival
+    double zeta;        // constant between 0 and 1 that affects the extent to
+                        // which parasitoids respond to aphid density
+    double extinct_N;   // extinction threshold
+    arma::mat z_mat;    // Total aphid abundances by patch
+
+public:
+
+    AdultWaspPop(const double& s_y_,
+                 const double& zeta_,
+                 const double& extinct_N_,
+                 const double& Y0)
+    : s_y(s_y_),
+      zeta(zeta_),
+      extinct_N(extinct_N_),
+      z_mat(),
+      Y(Y0),
+      Yi_mat() {};
+
+    AdultWaspPop(const AdultWaspPop& other)
+        : s_y(other.s_y),
+          zeta(other.zeta),
+          extinct_N(other.extinct_N),
+          z_mat(other.z_mat),
+          Y(other.Y),
+          Yi_mat(other.Yi_mat) {};
+
+    /*
+     Fill vector of parasitoid abundances by patch
+     Note: have to define this as template because otherwise it'd need to
+           be after OnePlant definition.
+           This works bc fill_Yi is used inside `PlantScape` class
+           in file `plantscape.hpp` that includes `one-plant.hpp` before
+           the class is defined.
+     */
+    template <typename P>
+    void fill_Yi(const std::vector<std::vector<P>>& plants,
+                 const arma::mat& wasp_attract) {
+        uint32 n_x = plants.size();
+        if (n_x == 0) stop("ERROR: EMPTY PLANT");
+        if (n_x != wasp_attract.n_rows) stop("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
+        uint32 n_y = plants[0].size();
+        if (n_y == 0) stop("ERROR: EMPTY PLANT ROW");
+        if (n_y != wasp_attract.n_cols) stop("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
+
+        if (z_mat.n_rows != n_x || z_mat.n_cols != n_y) z_mat.set_size(n_x, n_y);
+        if (Yi_mat.n_rows != n_x || Yi_mat.n_cols != n_y) Yi_mat.set_size(n_x, n_y);
+
+        double z_tot = 0;
+        for (uint32 x = 0; x < n_x; x++) {
+            if (plants[x].size() != n_y) stop("ERROR: INCONSISTENT `plants` VECTOR");
+            for (uint32 y = 0; y < n_y; y++) {
+                const AphidPops& aphids_xy(plants[x][y].aphids);
+                z_mat(x,y) = aphids_xy.z();
+                z_tot += z_mat(x,y);
+            }
+        }
+
+        // Now go back through and calculate Y for each patch:
+        for (uint32 x = 0; x < n_x; x++) {
+            for (uint32 y = 0; y < n_y; y++) {
+                z_mat(x,y) /= z_tot;
+                // Note: `wasp_attract` sums to 1 (verified inside `PlantScape`
+                // constructor), and by default is the same for all patches
+                Yi_mat(x,y) = Y * ((1-zeta) * wasp_attract(x,y) + zeta * z_mat(x,y));
+            }
+        }
+
+        return;
+    }
+
+    void iterate(const double& new_Y) {
+        Y = s_y * Y + 0.5 * new_Y;
+        if (Y < extinct_N) Y = 0;
+        return;
+    }
+
+    double Y;                   // Total adult, female parasitoid abundance
+    arma::mat Yi_mat;            // Adult, female parasitoid abundance by patch
 
 };
 
 
+
+
+/*
+ * ============================================================================
+ * Wrapper class to include both aphids and wasps
+ * ============================================================================
+ */
+
+struct InsectPops {
+
+    AphidPops aphids;
+    AdultWaspPop wasps;
+
+    InsectPops(const double& surv_j,
+               const double& surv_a,
+               const double& recruit,
+               const double& fecund,
+               const double& K_,
+               const double& K_p_mult,
+               const double& s_p_,
+               const arma::vec& R_,
+               const double& trans_ma_,
+               const double& trans_pm_,
+               const double& pred_surv_,
+               const double& pseudo_surv_,
+               const double& disaster_p_,
+               const double& disaster_s_,
+               const double& extinct_N_,
+               const bool& demog_error_,
+               const double& sigma_x_,
+               const double& a_,
+               const double& h_,
+               const double& k_,
+               const double& alate_0_,
+               const double& alate_1_,
+               const double& fly_p_,
+               const double& N0,
+               const double& W0,
+               const double& s_y_,
+               const double& zeta_,
+               const double& Y0)
+        : aphids(surv_j, surv_a, recruit, fecund, K_, K_p_mult, s_p_, R_,
+                 trans_ma_, trans_pm_, pred_surv_, pseudo_surv_,
+                 disaster_p_, disaster_s_,
+                 extinct_N_, demog_error_, sigma_x_, a_, h_, k_,
+                 alate_0_, alate_1_, fly_p_, N0, W0),
+          wasps(s_y_, zeta_, extinct_N_, Y0) {};
+
+
+    // Iterate aphid and wasp populations. For use in `test_insect_pops`
+    void iterate(pcg32& eng) {
+        double new_Ys = 0;
+        aphids.iterate(wasps.Y, new_Ys, eng);
+        wasps.iterate(new_Ys);
+        return;
+    }
+
+};
 
 
 #endif

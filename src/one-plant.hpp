@@ -13,7 +13,7 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 #include "aeonia_types.hpp"     // integer types
-#include "insect-pops.hpp"      // InsectPops class
+#include "insect-pops.hpp"      // AphidPops class
 #include "pcg.hpp"              // runif_01 fxn
 
 
@@ -35,25 +35,31 @@ struct OnePlant {
     // days since exposure (ignored if not exposed):
     uint32 exp_days;
 
-    // Insect populations:
-    InsectPops insects;
+    // Aphid populations:
+    AphidPops aphids;
 
     OnePlant(const bool& infectious_,
              const bool& pseudo_,
              const uint32& total_exp_days_,
-             const InsectPops& insects_)
+             const AphidPops& aphids_)
         : exposed(false),
           infectious(infectious_),
           pseudo(pseudo_),
           exp_days(0),
-          insects(insects_),
+          aphids(aphids_),
           total_exp_days(total_exp_days_) {
-        if (!pseudo) insects.set_pseudo_surv(1.0);
+        if (!pseudo) aphids.set_pseudo_surv(1.0);
     }
 
-    // iterate and set number of alates moving from this plant:
-    void iterate(uint32& n_alates, double& wasp_disp_pool, pcg32& eng) {
-        insects.iterate(n_alates, wasp_disp_pool, eng);
+    // iterate and (1) set number of alates moving from this plant and
+    // (2) add to the number of new parasitoids (both male and female)
+    void iterate(const double& Yi,
+                 uint32& n_alates,
+                 double& new_Ys,
+                 pcg32& eng) {
+
+        aphids.iterate(Yi, n_alates, new_Ys, eng);
+
         if (exposed) {
             exp_days++;
             if (exp_days >= total_exp_days) {

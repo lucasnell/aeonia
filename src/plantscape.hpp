@@ -17,6 +17,7 @@
 #include "convert-dims.hpp"     // XY and get_bit_bool
 #include "one-plant.hpp"        // OnePlant class
 #include "alate-dispersal.hpp"  // AlateFlightInfo class
+#include "insect-pops.hpp"      // AdultWaspPop class
 #include "pcg.hpp"              // runif_01 fxn
 
 
@@ -31,6 +32,7 @@ using namespace Rcpp;
 
 class PlantScape {
 
+    AdultWaspPop wasps;
     AlateFlightInfo flight;
     std::vector<std::vector<OnePlant>> plants;
     // Attractiveness to parasitoids:
@@ -112,11 +114,11 @@ class PlantScape {
                     output_t(k,0) = static_cast<double>(x+1U);
                     output_t(k,1) = static_cast<double>(y+1U);
                     output_t(k,2) = static_cast<double>(plant.infectious);
-                    output_t(k,3) = plant.insects.aphids();
-                    output_t(k,4) = plant.insects.alates();
-                    output_t(k,5) = plant.insects.P;
-                    output_t(k,6) = plant.insects.M;
-                    output_t(k,7) = plant.insects.Y;
+                    output_t(k,3) = plant.aphids.aphids();
+                    output_t(k,4) = plant.aphids.alates();
+                    output_t(k,5) = plant.aphids.P;
+                    output_t(k,6) = plant.aphids.M;
+                    output_t(k,7) = wasps.Y;  // <<<<<<<<   WRONG!
                     k++;
                 }
             }
@@ -134,11 +136,11 @@ class PlantScape {
                     k = (plant.pseudo) ? 1UL : 0UL;
                     output_t(k,1) += 1.0;
                     output_t(k,2) += static_cast<double>(plant.infectious);
-                    output_t(k,3) += plant.insects.aphids();
-                    output_t(k,4) += plant.insects.alates();
-                    output_t(k,5) += plant.insects.P;
-                    output_t(k,6) += plant.insects.M;
-                    output_t(k,7) += plant.insects.Y;
+                    output_t(k,3) += plant.aphids.aphids();
+                    output_t(k,4) += plant.aphids.alates();
+                    output_t(k,5) += plant.aphids.P;
+                    output_t(k,6) += plant.aphids.M;
+                    output_t(k,7) += wasps.Y;  // <<<<<<<<   WRONG!
                 }
             }
 
@@ -150,11 +152,11 @@ class PlantScape {
                 for (uint32 y = 0; y < n_y; y++) {
                     const OnePlant& plant(plants[x][y]);
                     output_t(0,0) += static_cast<double>(plant.infectious);
-                    output_t(0,1) += plant.insects.aphids();
-                    output_t(0,2) += plant.insects.alates();
-                    output_t(0,3) += plant.insects.P;
-                    output_t(0,4) += plant.insects.M;
-                    output_t(0,5) += plant.insects.Y;
+                    output_t(0,1) += plant.aphids.aphids();
+                    output_t(0,2) += plant.aphids.alates();
+                    output_t(0,3) += plant.aphids.P;
+                    output_t(0,4) += plant.aphids.M;
+                    output_t(0,5) += wasps.Y;  // <<<<<<<<   WRONG!
                 }
             }
 
@@ -180,6 +182,10 @@ class PlantScape {
 
         alate_plants.clear();
 
+        // Fill adult, female parasitoid densities by patch
+        // (stored in `wasps.Yi_mat`):
+        wasps.fill_Yi<OnePlant>(plants, wasp_attract);
+
         /*
          Go through once, calculating and extracting alates, and updating
          population dynamics and infectiousness
@@ -187,12 +193,12 @@ class PlantScape {
           from exposed to infectious.)
          */
         bool infectious0;
-        double wasp_disp_pool = 0;
+        double new_Y = 0;  // new adult parasitoids (male and female)
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
                 OnePlant& plant_xy(plants[x][y]);
                 infectious0 = plant_xy.infectious;
-                plant_xy.iterate(n_alates(x,y), wasp_disp_pool, eng);
+                plant_xy.iterate(wasps.Yi_mat(x,y), n_alates(x,y), new_Y, eng);
                 if (n_alates(x,y) > 0) alate_plants.push_back(XY(x,y));
                 // If newly infectious, update landscape and let `flight` know
                 // that samplers need to be updated:
@@ -201,15 +207,8 @@ class PlantScape {
                 }
             }
         }
-
-        // Go back through and disperse parasitoids:
-        if (wasp_disp_pool > 0) {
-            for (uint32 x = 0; x < n_x; x++) {
-                for (uint32 y = 0; y < n_y; y++) {
-                    plants[x][y].insects.Y += (wasp_disp_pool * wasp_attract(x,y));
-                }
-            }
-        }
+        // now update adult parasitoids:
+        wasps.iterate(new_Y);
 
         // Now go back through and simulate virus spread:
         flight.infest(delta_a, delta_p, alate_plants, plants, n_alates, eng);
@@ -255,12 +254,13 @@ public:
                const double& delta_a_,
                const double& delta_p_,
                const uint32& total_exp_days_,
-               const InsectPops& insects_,
+               const InsectPops& insects,
                const arma::mat& N0,
                const arma::mat& W0,
-               const arma::mat& Y0,
+               const double& Y0,
                const std::vector<uint64>& seeds)
-        : flight(max_fly_t_, landscape_, radius_, alpha_, beta_, epsilon_, w_),
+        : wasps(insects.wasps),
+          flight(max_fly_t_, landscape_, radius_, alpha_, beta_, epsilon_, w_),
           plants(),
           wasp_attract(wasp_attract_),
           delta_a(delta_a_),
@@ -273,6 +273,8 @@ public:
           summ(summ_),
           max_t(max_t_),
           output() {
+
+        wasps.Y = Y0;
 
         alate_plants.reserve(landscape_.n_elem);
 
@@ -293,16 +295,10 @@ public:
                 infectious = get_bit_bool(0U, landscape_(x, y));
                 pseudo = get_bit_bool(1U, landscape_(x, y));
                 plants_x.push_back(OnePlant(infectious, pseudo, total_exp_days_,
-                                            insects_));
-                InsectPops& insects(plants_x.back().insects);
-                if (N0.n_elem == 1) {
-                    insects.set_aphids(N0(0,0), W0(0,0));
-                    insects.Y = Y0(0,0);
-                } else {
-                    insects.set_aphids(N0(x,y), W0(x,y));
-                    insects.Y = Y0(x,y);
-                }
-                if (!pseudo) insects.set_pseudo_surv(1.0);
+                                            insects.aphids));
+                AphidPops& aphids(plants_x.back().aphids);
+                aphids.set_aphids(N0(x,y), W0(x,y));
+                if (!pseudo) aphids.set_pseudo_surv(1.0);
             }
         }
 
@@ -317,7 +313,7 @@ public:
     void adjust_K(const arma::mat& Kmat) {
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
-                plants[x][y].insects.set_K(Kmat(x,y));
+                plants[x][y].aphids.set_K(Kmat(x,y));
             }
         }
         return;

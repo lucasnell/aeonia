@@ -29,9 +29,9 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            const arma::ucube& landscapes,
                                            const uint32& max_t,
                                            SEXP insect_ptr,
-                                           const arma::cube& N0,
-                                           const arma::cube& W0,
-                                           const arma::cube& Y0,
+                                           arma::cube& N0,
+                                           arma::cube& W0,
+                                           arma::vec& Y0,
                                            const double& alpha,
                                            const double& beta,
                                            const double& epsilon,
@@ -60,15 +60,31 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 
     if (max_t == 0 || max_t > 1e6) stop("max_t == 0 || max_t > 1e6");
 
-    if (N0.n_rows != n_x && N0.n_rows != 1) stop("nrow(N0) must be 1 or nrow(landscapes)");
-    if (N0.n_cols != n_y && N0.n_cols != 1) stop("ncol(N0) must be 1 or ncol(landscapes)");
-    if (N0.n_slices != n_reps && N0.n_slices != 1)
-        stop("dim(N0)[3] must be 1 or dim(landscapes)[3]");
-    if (N0.n_cols == 1 && N0.n_rows != 1) stop("if ncol(N0) == 1, then nrow(N0) must be 1");
-    if (N0.n_cols != 1 && N0.n_rows == 1) stop("if nrow(N0) == 1, then ncol(N0) must be 1");
-    if (arma::size(N0) != arma::size(W0)) stop("N0, W0, and Y0 must be same size");
-    if (arma::size(N0) != arma::size(Y0)) stop("N0, W0, and Y0 must be same size");
-    bool full_cube0 = N0.n_slices == n_reps;
+    if (N0.n_rows == 1) {
+        if (N0.n_cols != 1 || N0.n_slices != 1)
+            stop("dim(N0) must be c(1,1,1) or dim(landscapes)");
+        double val = N0(0,0,0);
+        N0.set_size(arma::size(landscapes));
+        N0.fill(val);
+    } else if (arma::size(N0) != arma::size(landscapes)) {
+        stop("dim(N0) must be c(1,1,1) or dim(landscapes)");
+    }
+
+    if (W0.n_rows == 1) {
+        if (W0.n_cols != 1 || W0.n_slices != 1)
+            stop("dim(W0) must be c(1,1,1) or dim(landscapes)");
+        double val = W0(0,0,0);
+        W0.set_size(arma::size(landscapes));
+        W0.fill(val);
+    } else if (arma::size(W0) != arma::size(landscapes)) {
+        stop("dim(W0) must be c(1,1,1) or dim(landscapes)");
+    }
+
+    if (Y0.n_elem == 1) {
+        double val = Y0(0);
+        Y0.set_size(n_reps);
+        Y0.fill(val);
+    } else if (Y0.n_elem != n_reps) stop("length(Y0) must be 1 or dim(landscapes)[3]");
 
     if (epsilon < 0) stop("epsilon < 0");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
@@ -129,16 +145,14 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     std::vector<PlantScape> plantscapes;
     plantscapes.reserve(n_reps);
 
-    uint32 i0 = 0;
     for (uint32 i = 0; i < n_reps; i++) {
         plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
                                          landscapes.slice(i), radius, alpha,
                                          beta, epsilon, w, wasp_attract,
                                          delta_a, delta_p,
                                          total_exp_days, insects0,
-                                         N0.slice(i0), W0.slice(i0), Y0.slice(i0),
+                                         N0.slice(i), W0.slice(i), Y0(i),
                                          seeds[i]));
-        if (full_cube0) i0++;
     }
 
     RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
@@ -245,24 +259,22 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //' @param max_t Single integer giving the maximum time the simulations run.
 //' @param insect_ptr External pointer to a C++ object with insect population
 //'     information, output from function [make_insect_ptr()].
-//' @param N0 Numeric matrix indicating the starting aphid (non-winged) population
-//'     density for each plant.
-//'     To indicate separate densities for each plant, the matrix should
-//'     have the same number of rows and columns as `landscapes`.
-//'     The matrix can also be 1x1, in which case it's assumed that all plants
-//'     start with the same density of aphids.
-//' @param W0 Numeric matrix indicating the starting winged aphid population
-//'     density for each plant.
-//'     To indicate separate densities for each plant, the matrix should
-//'     have the same number of rows and columns as `landscapes`.
-//'     The matrix can also be 1x1, in which case it's assumed that all plants
-//'     start with the same density of winged aphids.
-//' @param Y0 Numeric matrix indicating the starting parasitoid population
-//'     density for each plant.
-//'     To indicate separate densities for each plant, the matrix should
-//'     have the same number of rows and columns as `landscapes`.
-//'     The matrix can also be 1x1, in which case it's assumed that all plants
-//'     start with the same density of parasitoids.
+//' @param N0 Numeric 3D array indicating the starting aphid (non-winged) population
+//'     density for each plant and rep.
+//'     To indicate separate densities for each plant and/or rep,
+//'     the array should have the same dimensions as `landscapes`.
+//'     The array can also be 1x1, in which case it's assumed that all plants
+//'     and reps start with the same density of aphids.
+//' @param W0 Numeric 3D array indicating the starting winged aphid population
+//'     density for each plant and rep.
+//'     To indicate separate densities for each plant and/or rep,
+//'     the array should have the same dimensions as `landscapes`.
+//'     The array can also be 1x1, in which case it's assumed that all plants
+//'     and reps start with the same density of winged aphids.
+//' @param Y0 Numeric vector indicating the starting parasitoid population
+//'     density for each rep.
+//'     The vector can also be of length 1, in which case it's assumed that
+//'     all reps start with the same density of parasitoids.
 //' @param alpha Effect of virus infection on alate alighting.
 //'     Values `> 0` cause alates to be attracted to virus-infected plants,
 //'     while values `< 0` cause them to be repelled by virus-infected plants.
@@ -355,9 +367,9 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const uint32& max_t,
                          SEXP insect_ptr,
-                         const arma::cube& N0,
-                         const arma::cube& W0,
-                         const arma::cube& Y0,
+                         arma::cube N0,
+                         arma::cube W0,
+                         arma::vec Y0,
                          const double& alpha,
                          const double& beta,
                          const double& epsilon,
