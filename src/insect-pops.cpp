@@ -43,7 +43,7 @@ void check_insect_args(const uint32& max_t,
                        const double& k,
                        const double& s_y,
                        const double& fly_p,
-                       const double& wasp_disp_m0) {
+                       const double& zeta) {
 
     if (max_t > (uint32)1e9) stop("max_t > 1e9");
     if (N0 < 0) stop("N0 < 0");
@@ -72,7 +72,7 @@ void check_insect_args(const uint32& max_t,
     if (k < 0) stop("k < 0");
     if (s_y < 0 || s_y > 1) stop("s_y < 0 || s_y > 1");
     if (fly_p < 0 || fly_p > 1) stop("fly_p < 0 || fly_p > 1");
-    if (wasp_disp_m0 < 0 || wasp_disp_m0 > 1) stop("wasp_disp_m0 < 0 || wasp_disp_m0 > 1");
+    if (zeta < 0 || zeta > 1) stop("zeta < 0 || zeta > 1");
 
     return;
 
@@ -140,12 +140,10 @@ void fill_pop_info(double& surv_j,
 //' @param pseudo_surv Single numeric indicating aphid survival from *Pseudomonas*.
 //' @param fly_p Single numeric indicating the proportion of alates that fly
 //'     off plants each day.
-//' @param wasp_disp_m0 Proportion of adult wasps from each field that
-//'     are added to the dispersal pool when there are no aphids present.
-//'     Defaults to `0`.
-//' @param wasp_disp_m1 Effect of aphid density on wasp emigration from a patch.
-//'     Emigration is `wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))`, where `z` is
-//'     the total number of living aphids in the patch.
+//' @param zeta Constant between 0 and 1 that affects the extent to which
+//'     parasitoids respond to aphid density, where 0 results in an even
+//'     distribution of parasitoids, and 1 results in a linear relationship
+//'     between aphid density and parasitoids.
 //'     Defaults to `0`.
 //' @param disaster_p Single numeric indicating the probability of disaster
 //'     each day. Defaults to `0`.
@@ -213,8 +211,7 @@ void fill_pop_info(double& surv_j,
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& pseudo_surv,
                      const double& fly_p,
-                     const double& wasp_disp_m0 = 0,
-                     const double& wasp_disp_m1 = 0,
+                     const double& zeta = 0,
                      const double& disaster_p = 0,
                      const double& disaster_s = 0,
                      const double& extinct_N = 0,
@@ -253,17 +250,17 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
                       a, h, k, s_y,
-                      fly_p, wasp_disp_m0);
+                      fly_p, zeta);
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
                                                 K, K_p_mult, s_p, R_,
-                                                trans_ma, trans_pm, pred_surv, pseudo_surv,
-                                                disaster_p, disaster_s, extinct_N,
-                                                demog_error, sigma_x,
-                                                a, h, k, s_y,
-                                                alate_0, alate_1, fly_p,
-                                                wasp_disp_m0, wasp_disp_m1,
-                                                N0, W0, Y0), true);
+                                                trans_ma, trans_pm,
+                                                pred_surv, pseudo_surv,
+                                                disaster_p, disaster_s,
+                                                extinct_N, demog_error,
+                                                sigma_x, a, h, k, alate_0,
+                                                alate_1, fly_p, N0, W0,
+                                                s_y, zeta, Y0), true);
 
     return insect_xptr;
 }
@@ -317,20 +314,18 @@ DataFrame test_insect_pops(const uint32& max_t,
     arma::vec R_ = Rcpp::as<arma::vec>(R);
 
     double fly_p = 0;
-    double wasp_disp_m0 = 0;
-    double wasp_disp_m1 = 0;
+    double zeta = 0;
 
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv, disaster_p, disaster_s,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
-                      a, h, k, s_y, fly_p, wasp_disp_m0);
+                      a, h, k, s_y, fly_p, zeta);
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
                        trans_ma, trans_pm, pred_surv, pseudo_surv,
-                       disaster_p, disaster_s, extinct_N, demog_error, sigma_x,
-                       a, h, k, s_y,
-                       alate_0, alate_1, fly_p, wasp_disp_m0, wasp_disp_m1,
-                       N0, W0, Y0);
+                       disaster_p, disaster_s,
+                       extinct_N, demog_error, sigma_x, a, h, k, alate_0,
+                       alate_1, fly_p, N0, W0, s_y, zeta, Y0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;
@@ -357,11 +352,11 @@ DataFrame test_insect_pops(const uint32& max_t,
     for (uint32 t = 0; t < max_t; t++) {
         insects.iterate(eng);
         time.push_back(t+1);
-        aphids.push_back(insects.aphids());
-        alates.push_back(insects.alates());
-        parasitized.push_back(insects.P);
-        mummies.push_back(insects.M);
-        wasps.push_back(insects.Y);
+        aphids.push_back(insects.aphids.aphids());
+        alates.push_back(insects.aphids.alates());
+        parasitized.push_back(insects.aphids.P);
+        mummies.push_back(insects.aphids.M);
+        wasps.push_back(insects.wasps.Y);
     }
 
     DataFrame out_df = DataFrame::create(_["time"] = time,

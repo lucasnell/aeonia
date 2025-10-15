@@ -306,7 +306,7 @@ void AlateFlightInfo::infest(const double& delta_a,
                 if (runif_01(eng) < feed_p) {
                     keep_going = false;
                     // Adding alate to winged population of plant settled on:
-                    plants[x_old][y_old].insects.alate_adults() += 1;
+                    plants[x_old][y_old].aphids.alate_adults() += 1;
                     break;
                 }
 
