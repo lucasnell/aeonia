@@ -39,26 +39,24 @@ indicate separate landscapes.}
 \item{insect_ptr}{External pointer to a C++ object with insect population
 information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
 
-\item{N0}{Numeric matrix indicating the starting aphid (non-winged) population
-density for each plant.
-To indicate separate densities for each plant, the matrix should
-have the same number of rows and columns as \code{landscapes}.
-The matrix can also be 1x1, in which case it's assumed that all plants
-start with the same density of aphids.}
+\item{N0}{Numeric 3D array indicating the starting aphid (non-winged) population
+density for each plant and rep.
+To indicate separate densities for each plant and/or rep,
+the array should have the same dimensions as \code{landscapes}.
+The array can also be 1x1, in which case it's assumed that all plants
+and reps start with the same density of aphids.}
 
-\item{W0}{Numeric matrix indicating the starting winged aphid population
-density for each plant.
-To indicate separate densities for each plant, the matrix should
-have the same number of rows and columns as \code{landscapes}.
-The matrix can also be 1x1, in which case it's assumed that all plants
-start with the same density of winged aphids.}
+\item{W0}{Numeric 3D array indicating the starting winged aphid population
+density for each plant and rep.
+To indicate separate densities for each plant and/or rep,
+the array should have the same dimensions as \code{landscapes}.
+The array can also be 1x1, in which case it's assumed that all plants
+and reps start with the same density of winged aphids.}
 
-\item{Y0}{Numeric matrix indicating the starting parasitoid population
-density for each plant.
-To indicate separate densities for each plant, the matrix should
-have the same number of rows and columns as \code{landscapes}.
-The matrix can also be 1x1, in which case it's assumed that all plants
-start with the same density of parasitoids.}
+\item{Y0}{Numeric vector indicating the starting parasitoid population
+density for each rep.
+The vector can also be of length 1, in which case it's assumed that
+all reps start with the same density of parasitoids.}
 
 \item{alpha}{Effect of virus infection on alate alighting.
 Values \verb{> 0} cause alates to be attracted to virus-infected plants,
