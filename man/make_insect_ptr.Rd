@@ -8,8 +8,6 @@ make_insect_ptr(
   pseudo_surv,
   fly_p,
   zeta = 0,
-  disaster_p = 0,
-  disaster_s = 0,
   extinct_N = 0,
   demog_error = FALSE,
   sigma_x = 0,
@@ -42,12 +40,6 @@ off plants each day.}
 parasitoids respond to aphid density, where 0 results in an even
 distribution of parasitoids, and 1 results in a linear relationship
 between aphid density and parasitoids.
-Defaults to \code{0}.}
-
-\item{disaster_p}{Single numeric indicating the probability of disaster
-each day. Defaults to \code{0}.}
-
-\item{disaster_s}{Single numeric indicating disaster survival.
 Defaults to \code{0}.}
 
 \item{extinct_N}{Single numeric indicating the extinction threshold.
