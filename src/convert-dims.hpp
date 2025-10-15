@@ -25,6 +25,11 @@ inline bool get_bit_bool(const uint32& k, const uint32& n) {
     bool b = (n & ( 1 << k )) >> k;
     return b;
 }
+// Same but cast as int
+inline int get_bit_int(const uint32& k, const uint32& n) {
+    int b = (n & ( 1 << k )) >> k;
+    return b;
+}
 
 // Set the `k`th bit of `n` to `1`:
 inline void bit_set1(const uint32& k, uint32& n) {

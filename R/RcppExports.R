@@ -152,7 +152,7 @@ sad_leslie <- function(L) {
 #' 8.  `alates`: alate density
 #' 9.  `parasitized`: parasitized aphid density
 #' 10. `mummies`: mummy density
-#' 11. `wasps`: parasitoid density
+#' 11. `wasps`: total parasitoid density (`x` and `y` for this row will be 0)
 #'
 #' If `summ == "pseudo"`, two rows are output for each rep and time point.
 #' The columns are...
@@ -167,7 +167,7 @@ sad_leslie <- function(L) {
 #' 8. `parasitized`: total parasitized aphid density summed across all plants
 #'    of this type
 #' 9. `mummies`: total mummy density summed across all plants of this type
-#' 10.`wasps`:  total parasitoid density summed across all plants of this type
+#' 10.`wasps`:  total parasitoid density (`type` for this row will be `2`)
 #'
 #' If `summ == "time"`, one row is output per rep and time point.
 #' The columns are...
@@ -178,7 +178,7 @@ sad_leslie <- function(L) {
 #' 5. `alates`: total alate density summed across all plants
 #' 6. `parasitized`: total parasitized aphid density summed across all plants
 #' 7. `mummies`: total mummy density summed across all plants
-#' 8. `wasps` total parasitoid density summed across all plants
+#' 8. `wasps` total parasitoid density
 #'
 #' If `summ == "all"`, one row is output per rep.
 #' The columns are...
