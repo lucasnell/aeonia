@@ -14,15 +14,14 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // make_insect_ptr
-SEXP make_insect_ptr(const double& pseudo_surv, const double& fly_p, const double& wasp_disp_m0, const double& wasp_disp_m1, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p_mult, double s_p, NumericVector R, double trans_ma, double trans_pm, double pred_surv, double alate_0, double alate_1, double a, double h, double k, double s_y);
-RcppExport SEXP _aeonia_make_insect_ptr(SEXP pseudo_survSEXP, SEXP fly_pSEXP, SEXP wasp_disp_m0SEXP, SEXP wasp_disp_m1SEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_p_multSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP trans_maSEXP, SEXP trans_pmSEXP, SEXP pred_survSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
+SEXP make_insect_ptr(const double& pseudo_surv, const double& fly_p, const double& zeta, const double& disaster_p, const double& disaster_s, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p_mult, double s_p, NumericVector R, double trans_ma, double trans_pm, double pred_surv, double alate_0, double alate_1, double a, double h, double k, double s_y);
+RcppExport SEXP _aeonia_make_insect_ptr(SEXP pseudo_survSEXP, SEXP fly_pSEXP, SEXP zetaSEXP, SEXP disaster_pSEXP, SEXP disaster_sSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_p_multSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP trans_maSEXP, SEXP trans_pmSEXP, SEXP pred_survSEXP, SEXP alate_0SEXP, SEXP alate_1SEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const double& >::type pseudo_surv(pseudo_survSEXP);
     Rcpp::traits::input_parameter< const double& >::type fly_p(fly_pSEXP);
-    Rcpp::traits::input_parameter< const double& >::type wasp_disp_m0(wasp_disp_m0SEXP);
-    Rcpp::traits::input_parameter< const double& >::type wasp_disp_m1(wasp_disp_m1SEXP);
+    Rcpp::traits::input_parameter< const double& >::type zeta(zetaSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_p(disaster_pSEXP);
     Rcpp::traits::input_parameter< const double& >::type disaster_s(disaster_sSEXP);
     Rcpp::traits::input_parameter< const double& >::type extinct_N(extinct_NSEXP);
@@ -45,7 +44,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< double >::type k(kSEXP);
     Rcpp::traits::input_parameter< double >::type s_y(s_ySEXP);
-    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(pseudo_surv, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y));
+    rcpp_result_gen = Rcpp::wrap(make_insect_ptr(pseudo_surv, fly_p, zeta, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -120,7 +119,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, const arma::cube& N0, const arma::cube& W0, const arma::cube& Y0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
+DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -128,9 +127,9 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const arma::ucube& >::type landscapes(landscapesSEXP);
     Rcpp::traits::input_parameter< const uint32& >::type max_t(max_tSEXP);
     Rcpp::traits::input_parameter< SEXP >::type insect_ptr(insect_ptrSEXP);
-    Rcpp::traits::input_parameter< const arma::cube& >::type N0(N0SEXP);
-    Rcpp::traits::input_parameter< const arma::cube& >::type W0(W0SEXP);
-    Rcpp::traits::input_parameter< const arma::cube& >::type Y0(Y0SEXP);
+    Rcpp::traits::input_parameter< arma::cube >::type N0(N0SEXP);
+    Rcpp::traits::input_parameter< arma::cube >::type W0(W0SEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type Y0(Y0SEXP);
     Rcpp::traits::input_parameter< const double& >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< const double& >::type epsilon(epsilonSEXP);
@@ -181,7 +180,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_aeonia_make_insect_ptr", (DL_FUNC) &_aeonia_make_insect_ptr, 26},
+    {"_aeonia_make_insect_ptr", (DL_FUNC) &_aeonia_make_insect_ptr, 25},
     {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 27},
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},

@@ -7,8 +7,7 @@
 make_insect_ptr(
   pseudo_surv,
   fly_p,
-  wasp_disp_m0 = 0,
-  wasp_disp_m1 = 0,
+  zeta = 0,
   disaster_p = 0,
   disaster_s = 0,
   extinct_N = 0,
@@ -39,13 +38,10 @@ make_insect_ptr(
 \item{fly_p}{Single numeric indicating the proportion of alates that fly
 off plants each day.}
 
-\item{wasp_disp_m0}{Proportion of adult wasps from each field that
-are added to the dispersal pool when there are no aphids present.
-Defaults to \code{0}.}
-
-\item{wasp_disp_m1}{Effect of aphid density on wasp emigration from a patch.
-Emigration is \code{wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))}, where \code{z} is
-the total number of living aphids in the patch.
+\item{zeta}{Constant between 0 and 1 that affects the extent to which
+parasitoids respond to aphid density, where 0 results in an even
+distribution of parasitoids, and 1 results in a linear relationship
+between aphid density and parasitoids.
 Defaults to \code{0}.}
 
 \item{disaster_p}{Single numeric indicating the probability of disaster

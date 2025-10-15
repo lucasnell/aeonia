@@ -15,12 +15,10 @@
 #' @param pseudo_surv Single numeric indicating aphid survival from *Pseudomonas*.
 #' @param fly_p Single numeric indicating the proportion of alates that fly
 #'     off plants each day.
-#' @param wasp_disp_m0 Proportion of adult wasps from each field that
-#'     are added to the dispersal pool when there are no aphids present.
-#'     Defaults to `0`.
-#' @param wasp_disp_m1 Effect of aphid density on wasp emigration from a patch.
-#'     Emigration is `wasp_disp_m0 * exp(-wasp_disp_m1 * log(z))`, where `z` is
-#'     the total number of living aphids in the patch.
+#' @param zeta Constant between 0 and 1 that affects the extent to which
+#'     parasitoids respond to aphid density, where 0 results in an even
+#'     distribution of parasitoids, and 1 results in a linear relationship
+#'     between aphid density and parasitoids.
 #'     Defaults to `0`.
 #' @param disaster_p Single numeric indicating the probability of disaster
 #'     each day. Defaults to `0`.
@@ -85,8 +83,8 @@
 #' @return An `externalptr` object that points to a C++ object that can
 #' be pass to [sim_plantscape()].
 #'
-make_insect_ptr <- function(pseudo_surv, fly_p, wasp_disp_m0 = 0, wasp_disp_m1 = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, wasp_disp_m0, wasp_disp_m1, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
+make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, disaster_p = 0, disaster_s = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, disaster_p, disaster_s, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -215,24 +213,22 @@ sad_leslie <- function(L) {
 #' @param max_t Single integer giving the maximum time the simulations run.
 #' @param insect_ptr External pointer to a C++ object with insect population
 #'     information, output from function [make_insect_ptr()].
-#' @param N0 Numeric matrix indicating the starting aphid (non-winged) population
-#'     density for each plant.
-#'     To indicate separate densities for each plant, the matrix should
-#'     have the same number of rows and columns as `landscapes`.
-#'     The matrix can also be 1x1, in which case it's assumed that all plants
-#'     start with the same density of aphids.
-#' @param W0 Numeric matrix indicating the starting winged aphid population
-#'     density for each plant.
-#'     To indicate separate densities for each plant, the matrix should
-#'     have the same number of rows and columns as `landscapes`.
-#'     The matrix can also be 1x1, in which case it's assumed that all plants
-#'     start with the same density of winged aphids.
-#' @param Y0 Numeric matrix indicating the starting parasitoid population
-#'     density for each plant.
-#'     To indicate separate densities for each plant, the matrix should
-#'     have the same number of rows and columns as `landscapes`.
-#'     The matrix can also be 1x1, in which case it's assumed that all plants
-#'     start with the same density of parasitoids.
+#' @param N0 Numeric 3D array indicating the starting aphid (non-winged) population
+#'     density for each plant and rep.
+#'     To indicate separate densities for each plant and/or rep,
+#'     the array should have the same dimensions as `landscapes`.
+#'     The array can also be 1x1, in which case it's assumed that all plants
+#'     and reps start with the same density of aphids.
+#' @param W0 Numeric 3D array indicating the starting winged aphid population
+#'     density for each plant and rep.
+#'     To indicate separate densities for each plant and/or rep,
+#'     the array should have the same dimensions as `landscapes`.
+#'     The array can also be 1x1, in which case it's assumed that all plants
+#'     and reps start with the same density of winged aphids.
+#' @param Y0 Numeric vector indicating the starting parasitoid population
+#'     density for each rep.
+#'     The vector can also be of length 1, in which case it's assumed that
+#'     all reps start with the same density of parasitoids.
 #' @param alpha Effect of virus infection on alate alighting.
 #'     Values `> 0` cause alates to be attracted to virus-infected plants,
 #'     while values `< 0` cause them to be repelled by virus-infected plants.
