@@ -11,8 +11,8 @@ sim_plantscape(
   N0,
   W0,
   Y0,
-  alpha,
-  beta,
+  virus_attract,
+  pseudo_repel,
   epsilon,
   delta_a,
   delta_p,
@@ -58,13 +58,24 @@ density for each rep.
 The vector can also be of length 1, in which case it's assumed that
 all reps start with the same density of parasitoids.}
 
-\item{alpha}{Effect of virus infection on alate alighting.
-Values \verb{> 0} cause alates to be attracted to virus-infected plants,
-while values \verb{< 0} cause them to be repelled by virus-infected plants.}
+\item{virus_attract}{Effect of virus infection on alate alighting.
+Sampling weights for virus-infectious plants is \code{virus_attract},
+compared to empty (no virus or \emph{Pseudomonas}) plants whose weight is 1.
+Thus, when \code{virus_attract > 1}, alates are attracted to virus-infectious
+plants, while \code{virus_attract < 1} causes them to be repelled by
+virus-infectious plants.
+Values must be \verb{> 0}.}
 
-\item{beta}{Effect of \emph{Pseudomonas} infection on alate alighting.
-Values \verb{> 0} cause alates to be attracted to \emph{Pseudomonas}-infected plants,
-while values \verb{< 0} cause them to be repelled by \emph{Pseudomonas}-infected plants.}
+\item{pseudo_repel}{Effect of \emph{Pseudomonas} infection on alate alighting.
+Sampling weights for \emph{Pseudomonas}-containing plants is
+\code{1 / pseudo_repel} (note difference from \code{virus_attract}, hence the
+different names!), compared to empty (no virus or \emph{Pseudomonas})
+plants whose weight is 1.
+Thus, when \code{pseudo_repel > 1}, alates are repelled by
+\emph{Pseudomonas}-containing plants,
+while \code{pseudo_repel < 1} causes them to be attracted to
+\emph{Pseudomonas}-containing plants.
+Values must be \verb{> 0}.}
 
 \item{epsilon}{Effect of virus infection on alate acceptance.
 Values \verb{> 1} cause alates to be more likely to stay and feed
