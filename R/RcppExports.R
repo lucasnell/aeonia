@@ -55,13 +55,17 @@
 #' @param pred_surv Single numeric indicating aphid and mummy mortality due
 #'     to generalist predators.
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param alate_0 Single numeric.
+#' @param alate_infl Single numeric for the inflection point for the sigmoid
+#'     relationship between aphid density and alate offspring proportion.
 #'     The proportion of winged offspring from apterous aphids is
-#'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
+#'     `1 / {1 + 10^((alate_infl - z) * alate_slope)}` where `z` is the total number of
 #'     aphids on that plant.
+#'     Must be > 0.
 #'     Defaults to `NA`. See 'Details' for more info.
-#' @param alate_1 Single numeric affecting how strongly aphid density
-#'     influences alate production. See `alate_0` above for the equation.
+#' @param alate_slope Single numeric for the slope for the sigmoid
+#'     relationship between aphid density and alate offspring proportion.
+#'     See `alate_infl` above for the equation.
+#'     Must be > 0.
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param a Single numeric indicating the parasitoid attack rate.
 #'     Defaults to `NA`. See 'Details' for more info.
@@ -77,8 +81,8 @@
 #' @return An `externalptr` object that points to a C++ object that can
 #' be pass to [sim_plantscape()].
 #'
-make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
+make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -91,8 +95,8 @@ make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_e
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, N0, W0, Y0, pseudo_surv = 1, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_0 = NA_real_, alate_1 = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, pseudo_surv, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y)
+test_insect_pops <- function(max_t, N0, W0, Y0, pseudo_surv = 1, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, pseudo_surv, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
 }
 
 #' Logit and inverse logit functions.

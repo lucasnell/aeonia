@@ -8,12 +8,14 @@
 #'   \item{`surv_a`}{Aphid adult survival.}
 #'   \item{`recruit`}{Aphid recruitment.}
 #'   \item{`fecund`}{Aphid fecundity.}
-#'   \item{`alate_0`}{Alate offspring proportion when
-#'                    aphid density is low. The proportion of winged offspring
-#'                    from apterous aphids is `inv_logit(alate_0 + alate_1 * z)`
-#'                    where `z` is the total number of aphids on that plant.}
-#'   \item{`alate_1`}{How strongly aphid density affects alate production.
-#'                    See `alate_0` above for the equation.}
+#'   \item{`alate_infl`}{Inflection point for sigmoid relationship between aphid
+#'                       density and alate offspring proportion.
+#'                       The proportion of winged offspring
+#'                       from apterous aphids is `1 / {1 + 10^((alate_infl - z) * alate_slope)}`
+#'                       where `z` is the total number of aphids on that plant.}
+#'   \item{`alate_slope`}{Slope for sigmoid relationship between aphid
+#'                        density and alate offspring proportion.
+#'                        See `alate_infl` above for the equation.}
 #'   \item{`K`}{Unparasitized aphid density dependence.}
 #'   \item{`pred_surv`}{Aphid and mummy survival from generalist predators.}
 #'   \item{`a`}{Parasitoid attack rate.}
