@@ -14,8 +14,8 @@ sim_plantscape(
   virus_attract,
   pseudo_repel,
   epsilon,
-  delta_a,
-  delta_p,
+  p_load_alate,
+  p_load_plant,
   total_exp_days = 7L,
   w = 0.2,
   radius = 7.336451,
@@ -84,11 +84,11 @@ while values \verb{< 1} cause them to be less likely to stay and feed on
 virus-infected plants.
 Values must be \verb{> 0}, and \code{epsilon * w} must be \verb{< 1}.}
 
-\item{delta_a}{Single numeric indicating the probability that an
+\item{p_load_alate}{Single numeric indicating the probability that an
 uninoculated alate is loaded with a virus if it interacts with an
 inoculated plant.}
 
-\item{delta_p}{Single numeric indicating the probability that an
+\item{p_load_plant}{Single numeric indicating the probability that an
 uninoculated plant is loaded with a virus if it interacts with an
 inoculated alate.}
 
