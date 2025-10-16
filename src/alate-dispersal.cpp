@@ -171,8 +171,8 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
 /*
  Sample for a single potential inoculation.
  */
-inline void AlateFlightInfo::sample_inoculation(const double& delta_a,
-                                                const double& delta_p,
+inline void AlateFlightInfo::sample_inoculation(const double& p_load_alate,
+                                                const double& p_load_plant,
                                                 double& u,
                                                 bool& has_virus,
                                                 bool& infectious,
@@ -187,7 +187,7 @@ inline void AlateFlightInfo::sample_inoculation(const double& delta_a,
      */
     if (!has_virus && infectious) {
         u = runif_01(eng);
-        if (u < delta_a) has_virus = true;
+        if (u < p_load_alate) has_virus = true;
     }
     /*
      If alate is virus-bearing and plant is not infectious
@@ -195,7 +195,7 @@ inline void AlateFlightInfo::sample_inoculation(const double& delta_a,
      */
     if (has_virus && !infectious && !exposed) {
         u = runif_01(eng);
-        if (u < delta_p) {
+        if (u < p_load_plant) {
             exposed = true;
             infectious = false;
             exp_days = 0U;
@@ -217,8 +217,8 @@ inline void AlateFlightInfo::sample_inoculation(const double& delta_a,
  It also samples for whether virus spread happens, and adjusts the
  `OnePlant` objects accordingly.
  */
-void AlateFlightInfo::infest(const double& delta_a,
-                             const double& delta_p,
+void AlateFlightInfo::infest(const double& p_load_alate,
+                             const double& p_load_plant,
                              std::vector<XY>& alate_plants,
                              std::vector<std::vector<OnePlant>>& plants,
                              arma::umat& n_alates,
@@ -276,7 +276,7 @@ void AlateFlightInfo::infest(const double& delta_a,
             // the alate is virus-bearing:
             if (plant0.infectious) {
                 u = runif_01(eng);
-                has_virus = u < delta_a;
+                has_virus = u < p_load_alate;
             } else has_virus = false;
 
             // Sample for new location (alate always leaves first plant)
@@ -284,7 +284,7 @@ void AlateFlightInfo::infest(const double& delta_a,
             dim_conv.to_2d(x_new, y_new, k_new);
 
             // Sample for whether aphid or plant is inoculated:
-            sample_inoculation(delta_a, delta_p, u, has_virus,
+            sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
                                plants[x_new][y_new].infectious,
                                plants[x_new][y_new].exposed,
                                plants[x_new][y_new].exp_days,
@@ -314,7 +314,7 @@ void AlateFlightInfo::infest(const double& delta_a,
                 dim_conv.to_2d(x_new, y_new, k_new);
 
                 // Sample for whether aphid or plant is inoculated:
-                sample_inoculation(delta_a, delta_p, u, has_virus,
+                sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
                                    plants[x_new][y_new].infectious,
                                    plants[x_new][y_new].exposed,
                                    plants[x_new][y_new].exp_days,

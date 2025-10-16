@@ -35,8 +35,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            const double& virus_attract,
                                            const double& pseudo_repel,
                                            const double& epsilon,
-                                           const double& delta_a,
-                                           const double& delta_p,
+                                           const double& p_load_alate,
+                                           const double& p_load_plant,
                                            const uint32& total_exp_days,
                                            const double& w,
                                            const double& radius,
@@ -89,8 +89,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     if (virus_attract < 0) stop("virus_attract < 0");
     if (pseudo_repel < 0) stop("pseudo_repel < 0");
     if (epsilon < 0) stop("epsilon < 0");
-    if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
-    if (delta_p < 0 || delta_p > 1) stop("delta_p < 0 || delta_p > 1");
+    if (p_load_alate < 0 || p_load_alate > 1) stop("p_load_alate < 0 || p_load_alate > 1");
+    if (p_load_plant < 0 || p_load_plant > 1) stop("p_load_plant < 0 || p_load_plant > 1");
     if (total_exp_days < 1) stop("total_exp_days < 1");
     if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
     if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
@@ -151,7 +151,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
         plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
                                          landscapes.slice(i), radius, virus_attract,
                                          pseudo_repel, epsilon, w, wasp_attract,
-                                         delta_a, delta_p,
+                                         p_load_alate, p_load_plant,
                                          total_exp_days, insects0,
                                          N0.slice(i), W0.slice(i), Y0(i),
                                          seeds[i]));
@@ -300,10 +300,10 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     while values `< 1` cause them to be less likely to stay and feed on
 //'     virus-infected plants.
 //'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
-//' @param delta_a Single numeric indicating the probability that an
+//' @param p_load_alate Single numeric indicating the probability that an
 //'     uninoculated alate is loaded with a virus if it interacts with an
 //'     inoculated plant.
-//' @param delta_p Single numeric indicating the probability that an
+//' @param p_load_plant Single numeric indicating the probability that an
 //'     uninoculated plant is loaded with a virus if it interacts with an
 //'     inoculated alate.
 //' @param total_exp_days Single integer indicating the number of days required
@@ -386,8 +386,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const double& virus_attract,
                          const double& pseudo_repel,
                          const double& epsilon,
-                         const double& delta_a,
-                         const double& delta_p,
+                         const double& p_load_alate,
+                         const double& p_load_plant,
                          const uint32& total_exp_days = 7,
                          const double& w = 0.2,
                          const double& radius = 7.336451,
@@ -401,7 +401,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
 
     std::vector<PlantScape> plantscapes =
         sim_plantscape_cpp(true, landscapes, max_t, insect_ptr, N0, W0, Y0,
-                           virus_attract, pseudo_repel, epsilon, delta_a, delta_p,
+                           virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
                            infect_time_n,
                            infect_stop, out_pseudo, show_progress, n_threads);

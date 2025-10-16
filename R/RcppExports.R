@@ -246,10 +246,10 @@ sad_leslie <- function(L) {
 #'     while values `< 1` cause them to be less likely to stay and feed on
 #'     virus-infected plants.
 #'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
-#' @param delta_a Single numeric indicating the probability that an
+#' @param p_load_alate Single numeric indicating the probability that an
 #'     uninoculated alate is loaded with a virus if it interacts with an
 #'     inoculated plant.
-#' @param delta_p Single numeric indicating the probability that an
+#' @param p_load_plant Single numeric indicating the probability that an
 #'     uninoculated plant is loaded with a virus if it interacts with an
 #'     inoculated alate.
 #' @param total_exp_days Single integer indicating the number of days required
@@ -322,8 +322,8 @@ sad_leslie <- function(L) {
 #' "Summarizing" section.
 #'
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

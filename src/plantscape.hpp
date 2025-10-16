@@ -102,10 +102,10 @@ class PlantScape {
 
     // Probability that an uninoculated alate is loaded with a virus if it
     // probes an infectious plant:
-    double delta_a;
+    double p_load_alate;
     // Probability that an uninfected plant is loaded with a virus if it
     // is probed by a virus-bearing aphid:
-    double delta_p;
+    double p_load_plant;
 
     // for storing numbers of alates per plant:
     arma::umat n_alates;
@@ -295,7 +295,7 @@ class PlantScape {
         wasps.iterate(new_Y);
 
         // Now go back through and simulate virus spread:
-        flight.infest(delta_a, delta_p, alate_plants, plants, n_alates, eng);
+        flight.infest(p_load_alate, p_load_plant, alate_plants, plants, n_alates, eng);
 
         // Fill `output` with current conditions:
         fill_output();
@@ -336,8 +336,8 @@ public:
                const double& epsilon_,
                const double& w_,
                const arma::mat& wasp_attract_,
-               const double& delta_a_,
-               const double& delta_p_,
+               const double& p_load_alate_,
+               const double& p_load_plant_,
                const uint32& total_exp_days_,
                const InsectPops& insects,
                const arma::mat& N0,
@@ -348,8 +348,8 @@ public:
           flight(max_fly_t_, landscape_, radius_, virus_attract_, pseudo_repel_, epsilon_, w_),
           plants(),
           wasp_attract(wasp_attract_),
-          delta_a(delta_a_),
-          delta_p(delta_p_),
+          p_load_alate(p_load_alate_),
+          p_load_plant(p_load_plant_),
           n_alates(arma::size(landscape_), arma::fill::none),
           alate_plants(),
           n_x(landscape_.n_rows),

@@ -172,8 +172,8 @@ class AlateFlightInfo {
         new_k = neighbors[k][samplers[k].sample(eng)];
     }
 
-    inline void sample_inoculation(const double& delta_a,
-                                   const double& delta_p,
+    inline void sample_inoculation(const double& p_load_alate,
+                                   const double& p_load_plant,
                                    double& u,
                                    bool& has_virus,
                                    bool& infectious,
@@ -241,8 +241,8 @@ public:
      It also samples for whether virus spread happens, and adjusts the
      `OnePlant` objects accordingly.
      */
-    void infest(const double& delta_a,
-                const double& delta_p,
+    void infest(const double& p_load_alate,
+                const double& p_load_plant,
                 std::vector<XY>& alate_plants,
                 std::vector<std::vector<OnePlant>>& plants,
                 arma::umat& n_alates,
