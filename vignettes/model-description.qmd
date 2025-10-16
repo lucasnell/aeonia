@@ -1,5 +1,5 @@
 ---
-title: "Host-parasitoid model description"
+title: "Model description"
 author: "Lucas A. Nell"
 execute:
   echo: false
@@ -7,9 +7,11 @@ execute:
   warning: false
 format: 
   html:
+    toc: true
+    toc-depth: 4
     html-math-method: katex
 vignette: >
-  %\VignetteIndexEntry{Host-parasitoid model description}
+  %\VignetteIndexEntry{Model description}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 ---
@@ -51,6 +53,8 @@ Vectors and matrices are in bold.
 Unless otherwise noted, indexing occurs first by space, then by time,
 so $x_{it}$ is for patch $i$ at time $t$.
 
+
+# Host--parasitoid model
 
 ## Aphid population dynamics
 
@@ -132,7 +136,7 @@ In this case, the following must be true to avoid negative numbers:
 $$
 \begin{split}
     r_m &< g \\
-    r_p &< g \, \rho \, S_p(z_{t}) \, s_p \\
+    r_p &< g \, \psi \, S_p(z_{t}) \, s_p \\
 \end{split}
 \textrm{,}
 $$
@@ -208,4 +212,69 @@ $$
 \mathbf{A}(x_{it},\tilde{z}_{it},Y_{t}) =  \left[1 + \mathbf{R} \, \frac{a \, \gamma(\tilde{z}_{it}) }{
     k \, (h \, x_{it} + 1)} \right]^{\circ -k}
 $$ {#eq-wasp-attacks}
+
+
+
+
+
+<!---
+================================================================================
+================================================================================
+-->
+# Spatial and disease model
+
+Patches are organized as a two-dimensional, $n_x \times n_y$ landscape.
+Each patch either contains *Pseudomonas* ($\psi < 1$) or not ($\psi = 1$),
+and *Pseudomonas* does not move once the simulations start.
+The patch in the upper-left corner of the landscape ($x = 1$, $y = 1$)
+starts as the only patch with plants infectious with the virus, and 
+the virus is only transmitted between patches through
+the dispersal of alates (winged aphids).
+
+Every day, the number of adult alates that leaves their starting patch
+($n_{\textrm{fly}}$) is sampled as such:
+
+$$
+n_{\textrm{fly}} \sim \textrm{Binomial}(\lfloor X_4 \rfloor, p_{\textrm{fly}})
+$$
+
+\noindent where
+$\lfloor \cdot \rfloor$ is the floor function,
+$X_4$ is the density of adult alates,
+and 
+$p_{\textrm{fly}}$ is the probability that an adult alate leaves their plant
+each day.
+
+Each alate that leaves a patch can travel to any other patch that is
+within alates' dispersal radius ($r_{\textrm{fly}}$).
+The probability that the alate will choose patch $j$ from patch $i$ is given by
+
+$$
+\textrm{Pr}(i \rightarrow j) = \frac{ \omega_j }{ 
+    \sum\limits_{k \in \mathbf{D}_i}{ \omega_k } }
+$$ {#eq-alate-samp-prob}
+
+\noindent where $\omega_j$ is the sampling weight of plant $j$,
+and
+$\mathbf{D}_i$ is a vector of indices for all plants within 
+$r_{\textrm{fly}}$ of plant $i$.
+Sampling weights depend on the state of the plants in the patch:
+
+$$
+\omega_i = \begin{cases}
+    \nu & \textrm{if infectious with virus} \\
+    \rho^{-1} & \textrm{if } \textit{Pseudomonas} \textrm{ present} \\
+    \nu / \rho & \textrm{if both} \\
+    1 & \textrm{if none} \\
+\end{cases}
+$$ {#eq-sampling-weights}
+
+\noindent where 
+$\nu$ is the attractant effect of the virus ($\nu > 1$),
+and
+$\rho$ is the repellent effect of *Pseudomonas* ($\rho > 1$).
+
+
+
+
 
