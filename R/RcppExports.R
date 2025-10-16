@@ -223,12 +223,23 @@ sad_leslie <- function(L) {
 #'     density for each rep.
 #'     The vector can also be of length 1, in which case it's assumed that
 #'     all reps start with the same density of parasitoids.
-#' @param alpha Effect of virus infection on alate alighting.
-#'     Values `> 0` cause alates to be attracted to virus-infected plants,
-#'     while values `< 0` cause them to be repelled by virus-infected plants.
-#' @param beta Effect of *Pseudomonas* infection on alate alighting.
-#'     Values `> 0` cause alates to be attracted to *Pseudomonas*-infected plants,
-#'     while values `< 0` cause them to be repelled by *Pseudomonas*-infected plants.
+#' @param virus_attract Effect of virus infection on alate alighting.
+#'     Sampling weights for virus-infectious plants is `virus_attract`,
+#'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
+#'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
+#'     plants, while `virus_attract < 1` causes them to be repelled by
+#'     virus-infectious plants.
+#'     Values must be `> 0`.
+#' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
+#'     Sampling weights for *Pseudomonas*-containing plants is
+#'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
+#'     different names!), compared to empty (no virus or *Pseudomonas*)
+#'     plants whose weight is 1.
+#'     Thus, when `pseudo_repel > 1`, alates are repelled by
+#'     *Pseudomonas*-containing plants,
+#'     while `pseudo_repel < 1` causes them to be attracted to
+#'     *Pseudomonas*-containing plants.
+#'     Values must be `> 0`.
 #' @param epsilon Effect of virus infection on alate acceptance.
 #'     Values `> 1` cause alates to be more likely to stay and feed
 #'     (indefinitely) on virus-infected plants,
@@ -311,8 +322,8 @@ sad_leslie <- function(L) {
 #' "Summarizing" section.
 #'
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, delta_a, delta_p, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

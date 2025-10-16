@@ -115,8 +115,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& alpha, const double& beta, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
-RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP alphaSEXP, SEXP betaSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
+DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& virus_attract, const double& pseudo_repel, const double& epsilon, const double& delta_a, const double& delta_p, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const bool& infect_stop, const bool& out_pseudo, const bool& show_progress, uint32 n_threads);
+RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP virus_attractSEXP, SEXP pseudo_repelSEXP, SEXP epsilonSEXP, SEXP delta_aSEXP, SEXP delta_pSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -126,8 +126,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::cube >::type N0(N0SEXP);
     Rcpp::traits::input_parameter< arma::cube >::type W0(W0SEXP);
     Rcpp::traits::input_parameter< arma::vec >::type Y0(Y0SEXP);
-    Rcpp::traits::input_parameter< const double& >::type alpha(alphaSEXP);
-    Rcpp::traits::input_parameter< const double& >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< const double& >::type virus_attract(virus_attractSEXP);
+    Rcpp::traits::input_parameter< const double& >::type pseudo_repel(pseudo_repelSEXP);
     Rcpp::traits::input_parameter< const double& >::type epsilon(epsilonSEXP);
     Rcpp::traits::input_parameter< const double& >::type delta_a(delta_aSEXP);
     Rcpp::traits::input_parameter< const double& >::type delta_p(delta_pSEXP);
@@ -141,7 +141,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, N0, W0, Y0, alpha, beta, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, delta_a, delta_p, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }

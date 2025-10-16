@@ -99,19 +99,18 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
     land_wts.reserve(n_plants);
     neighbors.reserve(n_plants);
     uint32 ki, xi, yi;
-    double wt_tmp;
     std::vector<uint32> neighbors_k;
     neighbors_k.reserve(n_neigh);
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
             // --------------------------
             // Set this plant's weight:
-            wt_tmp = 0.0;
-            if (virus[x][y]) wt_tmp += alpha;
-            if (pseudo[x][y]) wt_tmp += beta;
-            land_wts.push_back(std::exp(wt_tmp));
+            land_wts.push_back(1.0);
+            if (virus[x][y]) land_wts.back() *= virus_attract;
+            if (pseudo[x][y]) land_wts.back() /= pseudo_repel;
             if (land_wts.back() == 0) {
-                std::string err_msg = "\nERROR: alpha or beta are very low, ";
+                std::string err_msg = "\nERROR: virus_attract is very low or ";
+                err_msg += "pseudo_repel is very high, ";
                 err_msg += "resulting in sampling weights equal to zero. ";
                 err_msg += "This results in computational problems.";
                 stop(err_msg.c_str());

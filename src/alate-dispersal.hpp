@@ -145,8 +145,8 @@ class AlateFlightInfo {
     // Alias sampler for each plant:
     std::vector<AliasSampler> samplers;
 
-    double alpha;
-    double beta;
+    double virus_attract;
+    double pseudo_repel;
     double epsilon;
     double w;
 
@@ -195,8 +195,8 @@ public:
     AlateFlightInfo(const uint32& max_fly_t_,
                     const arma::umat& landscape_,
                     const double& radius,
-                    const double& alpha_,
-                    const double& beta_,
+                    const double& virus_attract_,
+                    const double& pseudo_repel_,
                     const double& epsilon_,
                     const double& w_)
         : dim_conv(landscape_.n_rows, landscape_.n_cols),
@@ -205,8 +205,8 @@ public:
           neighbors(),
           land_wts(),
           samplers(),
-          alpha(alpha_),
-          beta(beta_),
+          virus_attract(virus_attract_),
+          pseudo_repel(pseudo_repel_),
           epsilon(epsilon_),
           w(w_),
           max_fly_t(max_fly_t_),
@@ -227,7 +227,7 @@ public:
     void newly_infected(const uint32& x, const uint32& y) {
         virus[x][y] = true;
         uint32 k = dim_conv.to_1d(x, y);
-        land_wts[k] = std::exp(std::log(land_wts[k]) + alpha);
+        land_wts[k] *= virus_attract;
         any_changed = true;
         for (const uint32& l : neighbors[k]) update_sampler[l] = true;
         return;

@@ -32,8 +32,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            arma::cube& N0,
                                            arma::cube& W0,
                                            arma::vec& Y0,
-                                           const double& alpha,
-                                           const double& beta,
+                                           const double& virus_attract,
+                                           const double& pseudo_repel,
                                            const double& epsilon,
                                            const double& delta_a,
                                            const double& delta_p,
@@ -86,6 +86,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
         Y0.fill(val);
     } else if (Y0.n_elem != n_reps) stop("length(Y0) must be 1 or dim(landscapes)[3]");
 
+    if (virus_attract < 0) stop("virus_attract < 0");
+    if (pseudo_repel < 0) stop("pseudo_repel < 0");
     if (epsilon < 0) stop("epsilon < 0");
     if (delta_a < 0 || delta_a > 1) stop("delta_a < 0 || delta_a > 1");
     if (delta_p < 0 || delta_p > 1) stop("delta_p < 0 || delta_p > 1");
@@ -147,8 +149,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 
     for (uint32 i = 0; i < n_reps; i++) {
         plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
-                                         landscapes.slice(i), radius, alpha,
-                                         beta, epsilon, w, wasp_attract,
+                                         landscapes.slice(i), radius, virus_attract,
+                                         pseudo_repel, epsilon, w, wasp_attract,
                                          delta_a, delta_p,
                                          total_exp_days, insects0,
                                          N0.slice(i), W0.slice(i), Y0(i),
@@ -275,12 +277,23 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     density for each rep.
 //'     The vector can also be of length 1, in which case it's assumed that
 //'     all reps start with the same density of parasitoids.
-//' @param alpha Effect of virus infection on alate alighting.
-//'     Values `> 0` cause alates to be attracted to virus-infected plants,
-//'     while values `< 0` cause them to be repelled by virus-infected plants.
-//' @param beta Effect of *Pseudomonas* infection on alate alighting.
-//'     Values `> 0` cause alates to be attracted to *Pseudomonas*-infected plants,
-//'     while values `< 0` cause them to be repelled by *Pseudomonas*-infected plants.
+//' @param virus_attract Effect of virus infection on alate alighting.
+//'     Sampling weights for virus-infectious plants is `virus_attract`,
+//'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
+//'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
+//'     plants, while `virus_attract < 1` causes them to be repelled by
+//'     virus-infectious plants.
+//'     Values must be `> 0`.
+//' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
+//'     Sampling weights for *Pseudomonas*-containing plants is
+//'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
+//'     different names!), compared to empty (no virus or *Pseudomonas*)
+//'     plants whose weight is 1.
+//'     Thus, when `pseudo_repel > 1`, alates are repelled by
+//'     *Pseudomonas*-containing plants,
+//'     while `pseudo_repel < 1` causes them to be attracted to
+//'     *Pseudomonas*-containing plants.
+//'     Values must be `> 0`.
 //' @param epsilon Effect of virus infection on alate acceptance.
 //'     Values `> 1` cause alates to be more likely to stay and feed
 //'     (indefinitely) on virus-infected plants,
@@ -370,8 +383,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          arma::cube N0,
                          arma::cube W0,
                          arma::vec Y0,
-                         const double& alpha,
-                         const double& beta,
+                         const double& virus_attract,
+                         const double& pseudo_repel,
                          const double& epsilon,
                          const double& delta_a,
                          const double& delta_p,
@@ -388,7 +401,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
 
     std::vector<PlantScape> plantscapes =
         sim_plantscape_cpp(true, landscapes, max_t, insect_ptr, N0, W0, Y0,
-                           alpha, beta, epsilon, delta_a, delta_p,
+                           virus_attract, pseudo_repel, epsilon, delta_a, delta_p,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
                            infect_time_n,
                            infect_stop, out_pseudo, show_progress, n_threads);
