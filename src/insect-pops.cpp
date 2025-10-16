@@ -65,6 +65,11 @@ void check_insect_args(const uint32& max_t,
     if (pred_surv < 0 || pred_surv >= 1) stop("pred_surv < 0 || pred_surv >= 1");
     if (alate_infl < 0) stop("alate_infl < 0");
     if (alate_slope < 0) stop("alate_slope < 0");
+    // One of these can be true, but not both
+    // (because it results in Inf * 0 which is NaN):
+    if (alate_infl == arma::datum::inf && alate_slope == 0) {
+        stop("alate_infl == Inf && alate_slope == 0");
+    }
     if (a < 0) stop("a < 0");
     if (h < 0) stop("h < 0");
     if (k < 0) stop("k < 0");
@@ -183,6 +188,10 @@ void fill_pop_info(double& surv_j,
 //'     The proportion of winged offspring from apterous aphids is
 //'     `1 / {1 + 10^((alate_infl - z) * alate_slope)}` where `z` is the total number of
 //'     aphids on that plant.
+//'     To turn off alate production, set this parameter to `Inf`.
+//'     Note: Do NOT set both `alate_infl = Inf` and `alate_slope = 0`
+//'     because that'll trigger an error that's put in place because
+//'     setting these parameters in this way would result in `NaN` values.
 //'     Must be > 0.
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param alate_slope Single numeric for the slope for the sigmoid
