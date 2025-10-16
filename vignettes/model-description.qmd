@@ -230,6 +230,16 @@ The patch in the upper-left corner of the landscape ($x = 1$, $y = 1$)
 starts as the only patch with plants infectious with the virus, and 
 the virus is only transmitted between patches through
 the dispersal of alates (winged aphids).
+We assume that all virus transmission is via nonpersistent transmission (NPT)
+where the virus does not infect the aphid, but rather loosely clings
+to aphid mouthparts.
+We simulate NPT since this is how most aphid-transmitted viruses are spread
+([Gray \& Banerjee 1999](https://doi.org/10.1128/mmbr.63.1.128-148.1999),
+[Nault 1997](https://doi.org/10.1093/aesa/90.5.521)).
+
+
+
+## Alate dispersal
 
 Every day, the number of adult alates that leaves their starting patch
 ($n_{\textrm{fly}}$) is sampled as such:
@@ -245,6 +255,7 @@ and
 $p_{\textrm{fly}}$ is the probability that an adult alate leaves their plant
 each day.
 
+Alate flight paths are simulated individually.
 Each alate that leaves a patch can travel to any other patch that is
 within alates' dispersal radius ($r_{\textrm{fly}}$).
 The probability that the alate will choose patch $j$ from patch $i$ is given by
@@ -274,7 +285,24 @@ $\nu$ is the attractant effect of the virus ($\nu > 1$),
 and
 $\rho$ is the repellent effect of *Pseudomonas* ($\rho > 1$).
 
+Once an alate flies to a new patch, it will stay at the new patch with
+probability $w$. It will continue to fly to new patches until it chooses
+to stay indefinitely.
 
 
+## Virus spread
 
+We assume that alates probe plants on each visit, and if alates
+visit a patch containing plants infectious with the virus (including the patch 
+they start on), the virus loads onto the alates with probability $\delta_a$.
+If an alate loaded with the virus probes a patch of uninfected plants,
+the probability that the patch is exposed to the virus is $\delta_p$.
+We assume that once an alate is loaded with the virus, it can deliver the
+virus to all subsequent patches it probes on that day.
+A patch that is exposed to the virus is not immediately able to pass the virus
+onto other alates.
+Patches transition from exposed to infectious after 7 days, which is about
+how long it takes in the cucumber mosaic virus
+([Davis & Hampton, 1986](https://www.apsnet.org/publications/phytopathology/backissues/Documents/1986Articles/Phyto76n10_999.PDF)),
+which spreads via NPT by aphids.
 
