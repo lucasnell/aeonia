@@ -22,8 +22,8 @@ make_insect_ptr(
   trans_ma = NA_real_,
   trans_pm = NA_real_,
   pred_surv = NA_real_,
-  alate_0 = NA_real_,
-  alate_1 = NA_real_,
+  alate_infl = NA_real_,
+  alate_slope = NA_real_,
   a = NA_real_,
   h = NA_real_,
   k = NA_real_,
@@ -91,14 +91,18 @@ Defaults to \code{NA}. See 'Details' for more info.}
 to generalist predators.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{alate_0}{Single numeric.
+\item{alate_infl}{Single numeric for the inflection point for the sigmoid
+relationship between aphid density and alate offspring proportion.
 The proportion of winged offspring from apterous aphids is
-\code{inv_logit(alate_0 + alate_1 * z)} where \code{z} is the total number of
+\code{1 / {1 + 10^((alate_infl - z) * alate_slope)}} where \code{z} is the total number of
 aphids on that plant.
+Must be > 0.
 Defaults to \code{NA}. See 'Details' for more info.}
 
-\item{alate_1}{Single numeric affecting how strongly aphid density
-influences alate production. See \code{alate_0} above for the equation.
+\item{alate_slope}{Single numeric for the slope for the sigmoid
+relationship between aphid density and alate offspring proportion.
+See \code{alate_infl} above for the equation.
+Must be > 0.
 Defaults to \code{NA}. See 'Details' for more info.}
 
 \item{a}{Single numeric indicating the parasitoid attack rate.

@@ -13,12 +13,14 @@ A named list with the following items:
 \item{\code{surv_a}}{Aphid adult survival.}
 \item{\code{recruit}}{Aphid recruitment.}
 \item{\code{fecund}}{Aphid fecundity.}
-\item{\code{alate_0}}{Alate offspring proportion when
-aphid density is low. The proportion of winged offspring
-from apterous aphids is \code{inv_logit(alate_0 + alate_1 * z)}
+\item{\code{alate_infl}}{Inflection point for sigmoid relationship between aphid
+density and alate offspring proportion.
+The proportion of winged offspring
+from apterous aphids is \code{1 / {1 + 10^((alate_infl - z) * alate_slope)}}
 where \code{z} is the total number of aphids on that plant.}
-\item{\code{alate_1}}{How strongly aphid density affects alate production.
-See \code{alate_0} above for the equation.}
+\item{\code{alate_slope}}{Slope for sigmoid relationship between aphid
+density and alate offspring proportion.
+See \code{alate_infl} above for the equation.}
 \item{\code{K}}{Unparasitized aphid density dependence.}
 \item{\code{pred_surv}}{Aphid and mummy survival from generalist predators.}
 \item{\code{a}}{Parasitoid attack rate.}

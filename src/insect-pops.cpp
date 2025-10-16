@@ -35,7 +35,8 @@ void check_insect_args(const uint32& max_t,
                        const double& trans_ma,
                        const double& trans_pm,
                        const double& pred_surv,
-                       const double& alate_1,
+                       const double& alate_infl,
+                       const double& alate_slope,
                        const double& a,
                        const double& h,
                        const double& k,
@@ -62,7 +63,8 @@ void check_insect_args(const uint32& max_t,
     if (trans_ma < 0 || trans_ma > 1) stop("trans_ma < 0 || trans_ma > 1");
     if (trans_pm < 0 || trans_pm > 1) stop("trans_pm < 0 || trans_pm > 1");
     if (pred_surv < 0 || pred_surv >= 1) stop("pred_surv < 0 || pred_surv >= 1");
-    if (alate_1 < 0) stop("alate_1 < 0");
+    if (alate_infl < 0) stop("alate_infl < 0");
+    if (alate_slope < 0) stop("alate_slope < 0");
     if (a < 0) stop("a < 0");
     if (h < 0) stop("h < 0");
     if (k < 0) stop("k < 0");
@@ -89,8 +91,8 @@ void fill_pop_info(double& surv_j,
                    double& trans_ma,
                    double& trans_pm,
                    double& pred_surv,
-                   double& alate_0,
-                   double& alate_1,
+                   double& alate_infl,
+                   double& alate_slope,
                    double& a,
                    double& h,
                    double& k,
@@ -109,8 +111,8 @@ void fill_pop_info(double& surv_j,
     if (NumericVector::is_na(trans_ma)) trans_ma = pop_info["trans_ma"];
     if (NumericVector::is_na(trans_pm)) trans_pm = pop_info["trans_pm"];
     if (NumericVector::is_na(pred_surv)) pred_surv = pop_info["pred_surv"];
-    if (NumericVector::is_na(alate_0)) alate_0 = pop_info["alate_0"];
-    if (NumericVector::is_na(alate_1)) alate_1 = pop_info["alate_1"];
+    if (NumericVector::is_na(alate_infl)) alate_infl = pop_info["alate_infl"];
+    if (NumericVector::is_na(alate_slope)) alate_slope = pop_info["alate_slope"];
     if (NumericVector::is_na(a)) a = pop_info["a"];
     if (NumericVector::is_na(h)) h = pop_info["h"];
     if (NumericVector::is_na(k)) k = pop_info["k"];
@@ -176,13 +178,17 @@ void fill_pop_info(double& surv_j,
 //' @param pred_surv Single numeric indicating aphid and mummy mortality due
 //'     to generalist predators.
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param alate_0 Single numeric.
+//' @param alate_infl Single numeric for the inflection point for the sigmoid
+//'     relationship between aphid density and alate offspring proportion.
 //'     The proportion of winged offspring from apterous aphids is
-//'     `inv_logit(alate_0 + alate_1 * z)` where `z` is the total number of
+//'     `1 / {1 + 10^((alate_infl - z) * alate_slope)}` where `z` is the total number of
 //'     aphids on that plant.
+//'     Must be > 0.
 //'     Defaults to `NA`. See 'Details' for more info.
-//' @param alate_1 Single numeric affecting how strongly aphid density
-//'     influences alate production. See `alate_0` above for the equation.
+//' @param alate_slope Single numeric for the slope for the sigmoid
+//'     relationship between aphid density and alate offspring proportion.
+//'     See `alate_infl` above for the equation.
+//'     Must be > 0.
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param a Single numeric indicating the parasitoid attack rate.
 //'     Defaults to `NA`. See 'Details' for more info.
@@ -216,15 +222,15 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                      double trans_ma = NA_REAL,
                      double trans_pm = NA_REAL,
                      double pred_surv = NA_REAL,
-                     double alate_0 = NA_REAL,
-                     double alate_1 = NA_REAL,
+                     double alate_infl = NA_REAL,
+                     double alate_slope = NA_REAL,
                      double a = NA_REAL,
                      double h = NA_REAL,
                      double k = NA_REAL,
                      double s_y = NA_REAL) {
 
     fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R,
-                  trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y);
+                  trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y);
 
     arma::vec R_ = Rcpp::as<arma::vec>(R);
 
@@ -236,7 +242,8 @@ SEXP make_insect_ptr(const double& pseudo_surv,
 
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
-                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
+                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
+                      alate_infl, alate_slope,
                       a, h, k, s_y,
                       fly_p, zeta);
 
@@ -245,8 +252,8 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                                                 trans_ma, trans_pm,
                                                 pred_surv, pseudo_surv,
                                                 extinct_N, demog_error,
-                                                sigma_x, a, h, k, alate_0,
-                                                alate_1, fly_p, N0, W0,
+                                                sigma_x, a, h, k, alate_infl,
+                                                alate_slope, fly_p, N0, W0,
                                                 s_y, zeta, Y0), true);
 
     return insect_xptr;
@@ -286,15 +293,15 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double trans_ma = NA_REAL,
                            double trans_pm = NA_REAL,
                            double pred_surv = NA_REAL,
-                           double alate_0 = NA_REAL,
-                           double alate_1 = NA_REAL,
+                           double alate_infl = NA_REAL,
+                           double alate_slope = NA_REAL,
                            double a = NA_REAL,
                            double h = NA_REAL,
                            double k = NA_REAL,
                            double s_y = NA_REAL) {
 
     fill_pop_info(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R,
-                  trans_ma, trans_pm, pred_surv, alate_0, alate_1, a, h, k, s_y);
+                  trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y);
 
     arma::vec R_ = Rcpp::as<arma::vec>(R);
 
@@ -303,13 +310,14 @@ DataFrame test_insect_pops(const uint32& max_t,
 
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
-                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv, alate_1,
+                      K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
+                      alate_infl, alate_slope,
                       a, h, k, s_y, fly_p, zeta);
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
                        trans_ma, trans_pm, pred_surv, pseudo_surv,
-                       extinct_N, demog_error, sigma_x, a, h, k, alate_0,
-                       alate_1, fly_p, N0, W0, s_y, zeta, Y0);
+                       extinct_N, demog_error, sigma_x, a, h, k, alate_infl,
+                       alate_slope, fly_p, N0, W0, s_y, zeta, Y0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;

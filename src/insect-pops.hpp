@@ -58,8 +58,8 @@ class AphidPops {
     double a;       // parasitoid attack rate
     double h;       // parasitoid handling time
     double k;       // parasitoid aggregation parameter
-    double alate_0; // intercept for Pr(alates) ~ log(aphid density)
-    double alate_1; // slope for Pr(alates) ~ log(aphid density)
+    double alate_infl; // inflection point for Pr(alates) ~ aphid density
+    double alate_slope; // slope for Pr(alates) ~ aphid density
     double fly_p;   // probability of an alate leaving patch each day
 
 
@@ -86,7 +86,8 @@ class AphidPops {
         } else A = arma::ones(R.n_elem);
 
         // Proportion of new aphids (from apterous females) that are alates
-        double alate_p = inv_logit__(alate_0 + alate_1 * z);
+        double alate_p = 1 / (1 + std::pow(10, ((alate_infl - z) * alate_slope)));
+
         // Now adjust Leslie matrix for alate proportion:
         L(0,1) = L(0,3) * (1 - alate_p); // non-winged offspring from winged adults
         L(2,1) = L(0,3) * alate_p; // winged offspring from non-winged adults
@@ -153,8 +154,8 @@ public:
               const double& a_,
               const double& h_,
               const double& k_,
-              const double& alate_0_,
-              const double& alate_1_,
+              const double& alate_infl_,
+              const double& alate_slope_,
               const double& fly_p_,
               const double& N0,
               const double& W0)
@@ -174,8 +175,8 @@ public:
           a(a_),
           h(h_),
           k(k_),
-          alate_0(alate_0_),
-          alate_1(alate_1_),
+          alate_infl(alate_infl_),
+          alate_slope(alate_slope_),
           fly_p(fly_p_),
           X(4, arma::fill::zeros),
           P(0),
@@ -215,7 +216,7 @@ public:
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
           a(other.a), h(other.h), k(other.k),
-          alate_0(other.alate_0), alate_1(other.alate_1), fly_p(other.fly_p),
+          alate_infl(other.alate_infl), alate_slope(other.alate_slope), fly_p(other.fly_p),
           X(other.X), P(other.P), M(other.M) {};
 
 
@@ -435,8 +436,8 @@ struct InsectPops {
                const double& a_,
                const double& h_,
                const double& k_,
-               const double& alate_0_,
-               const double& alate_1_,
+               const double& alate_infl_,
+               const double& alate_slope_,
                const double& fly_p_,
                const double& N0,
                const double& W0,
@@ -446,7 +447,7 @@ struct InsectPops {
         : aphids(surv_j, surv_a, recruit, fecund, K_, K_p_mult, s_p_, R_,
                  trans_ma_, trans_pm_, pred_surv_, pseudo_surv_,
                  extinct_N_, demog_error_, sigma_x_, a_, h_, k_,
-                 alate_0_, alate_1_, fly_p_, N0, W0),
+                 alate_infl_, alate_slope_, fly_p_, N0, W0),
           wasps(s_y_, zeta_, extinct_N_, Y0) {};
 
 
