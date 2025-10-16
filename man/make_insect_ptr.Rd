@@ -96,6 +96,10 @@ relationship between aphid density and alate offspring proportion.
 The proportion of winged offspring from apterous aphids is
 \code{1 / {1 + 10^((alate_infl - z) * alate_slope)}} where \code{z} is the total number of
 aphids on that plant.
+To turn off alate production, set this parameter to \code{Inf}.
+Note: Do NOT set both \code{alate_infl = Inf} and \code{alate_slope = 0}
+because that'll trigger an error that's put in place because
+setting these parameters in this way would result in \code{NaN} values.
 Must be > 0.
 Defaults to \code{NA}. See 'Details' for more info.}
 

@@ -60,6 +60,10 @@
 #'     The proportion of winged offspring from apterous aphids is
 #'     `1 / {1 + 10^((alate_infl - z) * alate_slope)}` where `z` is the total number of
 #'     aphids on that plant.
+#'     To turn off alate production, set this parameter to `Inf`.
+#'     Note: Do NOT set both `alate_infl = Inf` and `alate_slope = 0`
+#'     because that'll trigger an error that's put in place because
+#'     setting these parameters in this way would result in `NaN` values.
 #'     Must be > 0.
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param alate_slope Single numeric for the slope for the sigmoid
