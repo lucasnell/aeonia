@@ -23,12 +23,12 @@ using namespace Rcpp;
 
 
 inline void fill_dens_tots(const OutDensities& out_dens,
-                           std::vector<double> virus,
-                           std::vector<double> aphids,
-                           std::vector<double> alates,
-                           std::vector<double> parasitized,
-                           std::vector<double> mummies,
-                           std::vector<double> wasps) {
+                           std::vector<double>& virus,
+                           std::vector<double>& aphids,
+                           std::vector<double>& alates,
+                           std::vector<double>& parasitized,
+                           std::vector<double>& mummies,
+                           std::vector<double>& wasps) {
 
 
     if (out_dens.size() > 1) {
