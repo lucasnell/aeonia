@@ -74,7 +74,7 @@ $$
         0       & f \, W(z_{it}) & u   & 0   \\
         0       & 0         & r     & s \\
         \end{bmatrix} \\
-    W(z_{it}) &= \textrm{logit}^{-1}(b_0 + b_z \, z_{it}) \\
+    W(z_{it}) &= \left(1 + 10^{ (b_{\textrm{infl.}} - z_{it}) \, b_{\textrm{slope}} } \right)^{-1} \\
 \end{split}
 $$ {#eq-aphids}
 
@@ -103,8 +103,8 @@ tribble(
     "$r$",  dbl4ltx(pop_info$recruit),  "proportion of aphid juveniles that transition to adults each day",
     "$f$",  dbl4ltx(pop_info$fecund),  "aphid fecundity",
     "$W(\\cdot)$",  "$-$",  "proportion of winged offspring from non-winged mothers",
-    "$b_0$",  dbl4ltx(pop_info$alate_0, 0),  "affects the proportion of winged offspring at low aphid densities",
-    "$b_z$",  dbl4ltx(pop_info$alate_1),  "effect of aphid density on winged-aphid production",
+    "$b_{\\textrm{infl.}}$",  dbl4ltx(pop_info$alate_infl, 0),  "inflection point for the sigmoid relationship between aphid density and alate offspring proportion",
+    "$b_{\\textrm{slope}}$",  dbl4ltx(pop_info$alate_slope, 5),  "slope for the sigmoid relationship between aphid density and alate offspring proportion",
 ) |> 
     kable(escape = FALSE)
 ```
