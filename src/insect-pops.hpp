@@ -325,6 +325,7 @@ class AdultWaspPop {
     double s_y;         // parasitoid adult daily survival
     double zeta;        // constant between 0 and 1 that affects the extent to
                         // which parasitoids respond to aphid density
+    double xi;          // power for parasitoid ~ aphid density
     double extinct_N;   // extinction threshold
     arma::mat z_mat;    // Total aphid abundances by patch
 
@@ -332,10 +333,12 @@ public:
 
     AdultWaspPop(const double& s_y_,
                  const double& zeta_,
+                 const double& xi_,
                  const double& extinct_N_,
                  const double& Y0)
     : s_y(s_y_),
       zeta(zeta_),
+      xi(xi_),
       extinct_N(extinct_N_),
       z_mat(),
       Y(Y0),
@@ -344,6 +347,7 @@ public:
     AdultWaspPop(const AdultWaspPop& other)
         : s_y(other.s_y),
           zeta(other.zeta),
+          xi(other.xi),
           extinct_N(other.extinct_N),
           z_mat(other.z_mat),
           Y(other.Y),
@@ -375,18 +379,21 @@ public:
             if (plants[x].size() != n_y) stop("ERROR: INCONSISTENT `plants` VECTOR");
             for (uint32 y = 0; y < n_y; y++) {
                 const AphidPops& aphids_xy(plants[x][y].aphids);
-                z_mat(x,y) = aphids_xy.z();
+                // z_mat(x,y) = aphids_xy.z();
+                z_mat(x,y) = std::pow(aphids_xy.z(), xi);
                 z_tot += z_mat(x,y);
             }
         }
 
         // Now go back through and calculate Y for each patch:
+        double p_xy;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
                 z_mat(x,y) /= z_tot;
                 // Note: `wasp_attract` sums to 1 (verified inside `PlantScape`
                 // constructor), and by default is the same for all patches
-                Yi_mat(x,y) = Y * ((1-zeta) * wasp_attract(x,y) + zeta * z_mat(x,y));
+                p_xy = (1-zeta) * wasp_attract(x,y) + zeta * z_mat(x,y);
+                Yi_mat(x,y) = Y * p_xy;
             }
         }
 
@@ -443,12 +450,13 @@ struct InsectPops {
                const double& W0,
                const double& s_y_,
                const double& zeta_,
+               const double& xi_,
                const double& Y0)
         : aphids(surv_j, surv_a, recruit, fecund, K_, K_p_mult, s_p_, R_,
                  trans_ma_, trans_pm_, pred_surv_, pseudo_surv_,
                  extinct_N_, demog_error_, sigma_x_, a_, h_, k_,
                  alate_infl_, alate_slope_, fly_p_, N0, W0),
-          wasps(s_y_, zeta_, extinct_N_, Y0) {};
+          wasps(s_y_, zeta_, xi_, extinct_N_, Y0) {};
 
 
     // Iterate aphid and wasp populations. For use in `test_insect_pops`
