@@ -42,8 +42,7 @@ void check_insect_args(const uint32& max_t,
                        const double& k,
                        const double& s_y,
                        const double& fly_p,
-                       const double& zeta,
-                       const double& xi) {
+                       const double& zeta) {
 
     if (max_t > (uint32)1e9) stop("max_t > 1e9");
     if (N0 < 0) stop("N0 < 0");
@@ -77,7 +76,6 @@ void check_insect_args(const uint32& max_t,
     if (s_y < 0 || s_y > 1) stop("s_y < 0 || s_y > 1");
     if (fly_p < 0 || fly_p > 1) stop("fly_p < 0 || fly_p > 1");
     if (zeta < 0 || zeta > 1) stop("zeta < 0 || zeta > 1");
-    if (xi < 0) stop("xi < 0");
 
     return;
 
@@ -219,7 +217,6 @@ void fill_pop_info(double& surv_j,
 SEXP make_insect_ptr(const double& pseudo_surv,
                      const double& fly_p,
                      const double& zeta = 0,
-                     const double& xi = 1,
                      const double& extinct_N = 0,
                      const bool& demog_error = false,
                      const double& sigma_x = 0,
@@ -257,7 +254,7 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
                       alate_infl, alate_slope,
                       a, h, k, s_y,
-                      fly_p, zeta, xi);
+                      fly_p, zeta);
 
     XPtr<InsectPops> insect_xptr(new InsectPops(surv_j, surv_a, recruit, fecund,
                                                 K, K_p_mult, s_p, R_,
@@ -266,7 +263,7 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                                                 extinct_N, demog_error,
                                                 sigma_x, a, h, k, alate_infl,
                                                 alate_slope, fly_p, N0, W0,
-                                                s_y, zeta, xi, Y0), true);
+                                                s_y, zeta, Y0), true);
 
     return insect_xptr;
 }
@@ -319,18 +316,17 @@ DataFrame test_insect_pops(const uint32& max_t,
 
     double fly_p = 0;
     double zeta = 0;
-    double xi = 1;
 
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
                       alate_infl, alate_slope,
-                      a, h, k, s_y, fly_p, zeta, xi);
+                      a, h, k, s_y, fly_p, zeta);
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
                        trans_ma, trans_pm, pred_surv, pseudo_surv,
                        extinct_N, demog_error, sigma_x, a, h, k, alate_infl,
-                       alate_slope, fly_p, N0, W0, s_y, zeta, xi, Y0);
+                       alate_slope, fly_p, N0, W0, s_y, zeta, Y0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;

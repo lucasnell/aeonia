@@ -85,8 +85,8 @@
 #' @return An `externalptr` object that points to a C++ object that can
 #' be pass to [sim_plantscape()].
 #'
-make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, xi = 1, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, xi, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
+make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
