@@ -71,6 +71,12 @@
 #'     See `alate_infl` above for the equation.
 #'     Must be > 0.
 #'     Defaults to `NA`. See 'Details' for more info.
+#' @param alate_max Maximum proportion of offspring that are alates.
+#'     This is provided so that you can simulate constant alate proportion
+#'     and adjust what that alate proportion is.
+#'     If `alate_slope = 0`, then alate proportion is a constant
+#'     `alate_max / 2`.
+#'     Defaults to `1`.
 #' @param a Single numeric indicating the parasitoid attack rate.
 #'     Defaults to `NA`. See 'Details' for more info.
 #' @param h Single numeric indicating the parasitoid handling time.
@@ -85,8 +91,8 @@
 #' @return An `externalptr` object that points to a C++ object that can
 #' be pass to [sim_plantscape()].
 #'
-make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
+make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, alate_max = 1, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, alate_max, a, h, k, s_y)
 }
 
 #' Test population dynamics for insects for a set of parameters.
@@ -99,8 +105,8 @@ make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_e
 #'
 #' @export
 #'
-test_insect_pops <- function(max_t, N0, W0, Y0, pseudo_surv = 1, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
-    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, pseudo_surv, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, a, h, k, s_y)
+test_insect_pops <- function(max_t, N0, W0, Y0, pseudo_surv = 1, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, alate_max = 1, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
+    .Call(`_aeonia_test_insect_pops`, max_t, N0, W0, Y0, pseudo_surv, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, alate_max, a, h, k, s_y)
 }
 
 #' Logit and inverse logit functions.
@@ -212,6 +218,15 @@ sad_leslie <- function(L) {
 #'     landscape. It's assumed that rows are x the dimension,
 #'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)
 #'     indicate separate landscapes.
+#'     Values in each cell give the state of the plant:
+#'     `0` indicates nothing on plant,
+#'     `1` indicates just virus on plant (infectious),
+#'     `2` indicates just *Pseudomonas* on plant,
+#'     `3` indicates both virus and *Pseudomonas* on plant.
+#'     Values < 0 or > 3 are not allowed.
+#'     Note that this array is coerced to an array of unsigned integers, so
+#'     negative values will become very large integers.
+#'     Hence, do not expect an error for negative numbers if you pass them here.
 #' @param max_t Single integer giving the maximum time the simulations run.
 #' @param insect_ptr External pointer to a C++ object with insect population
 #'     information, output from function [make_insect_ptr()].

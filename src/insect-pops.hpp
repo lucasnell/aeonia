@@ -60,6 +60,7 @@ class AphidPops {
     double k;       // parasitoid aggregation parameter
     double alate_infl; // inflection point for Pr(alates) ~ aphid density
     double alate_slope; // slope for Pr(alates) ~ aphid density
+    double alate_max;   // max Pr(alates), should be 1 unless for testing
     double fly_p;   // probability of an alate leaving patch each day
 
 
@@ -86,7 +87,7 @@ class AphidPops {
         } else A = arma::ones(R.n_elem);
 
         // Proportion of new aphids (from apterous females) that are alates
-        double alate_p = 1 / (1 + std::pow(10, ((alate_infl - z) * alate_slope)));
+        double alate_p = alate_max / (1 + std::pow(10, ((alate_infl - z) * alate_slope)));
 
         // Now adjust Leslie matrix for alate proportion:
         L(0,1) = L(0,3) * (1 - alate_p); // non-winged offspring from winged adults
@@ -156,6 +157,7 @@ public:
               const double& k_,
               const double& alate_infl_,
               const double& alate_slope_,
+              const double& alate_max_,
               const double& fly_p_,
               const double& N0,
               const double& W0)
@@ -177,6 +179,7 @@ public:
           k(k_),
           alate_infl(alate_infl_),
           alate_slope(alate_slope_),
+          alate_max(alate_max_),
           fly_p(fly_p_),
           X(4, arma::fill::zeros),
           P(0),
@@ -216,7 +219,8 @@ public:
           extinct_N(other.extinct_N),
           demog_error(other.demog_error), sigma_x(other.sigma_x),
           a(other.a), h(other.h), k(other.k),
-          alate_infl(other.alate_infl), alate_slope(other.alate_slope), fly_p(other.fly_p),
+          alate_infl(other.alate_infl), alate_slope(other.alate_slope),
+          alate_max(other.alate_max), fly_p(other.fly_p),
           X(other.X), P(other.P), M(other.M) {};
 
 
@@ -438,6 +442,7 @@ struct InsectPops {
                const double& k_,
                const double& alate_infl_,
                const double& alate_slope_,
+               const double& alate_max_,
                const double& fly_p_,
                const double& N0,
                const double& W0,
@@ -447,7 +452,7 @@ struct InsectPops {
         : aphids(surv_j, surv_a, recruit, fecund, K_, K_p_mult, s_p_, R_,
                  trans_ma_, trans_pm_, pred_surv_, pseudo_surv_,
                  extinct_N_, demog_error_, sigma_x_, a_, h_, k_,
-                 alate_infl_, alate_slope_, fly_p_, N0, W0),
+                 alate_infl_, alate_slope_, alate_max_, fly_p_, N0, W0),
           wasps(s_y_, zeta_, extinct_N_, Y0) {};
 
 

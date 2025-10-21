@@ -37,6 +37,7 @@ void check_insect_args(const uint32& max_t,
                        const double& pred_surv,
                        const double& alate_infl,
                        const double& alate_slope,
+                       const double& alate_max,
                        const double& a,
                        const double& h,
                        const double& k,
@@ -65,6 +66,7 @@ void check_insect_args(const uint32& max_t,
     if (pred_surv < 0 || pred_surv >= 1) stop("pred_surv < 0 || pred_surv >= 1");
     if (alate_infl < 0) stop("alate_infl < 0");
     if (alate_slope < 0) stop("alate_slope < 0");
+    if (alate_max < 0 || alate_max > 1) stop("alate_max < 0 || alate_max > 1");
     // One of these can be true, but not both
     // (because it results in Inf * 0 which is NaN):
     if (alate_infl == arma::datum::inf && alate_slope == 0) {
@@ -199,6 +201,12 @@ void fill_pop_info(double& surv_j,
 //'     See `alate_infl` above for the equation.
 //'     Must be > 0.
 //'     Defaults to `NA`. See 'Details' for more info.
+//' @param alate_max Maximum proportion of offspring that are alates.
+//'     This is provided so that you can simulate constant alate proportion
+//'     and adjust what that alate proportion is.
+//'     If `alate_slope = 0`, then alate proportion is a constant
+//'     `alate_max / 2`.
+//'     Defaults to `1`.
 //' @param a Single numeric indicating the parasitoid attack rate.
 //'     Defaults to `NA`. See 'Details' for more info.
 //' @param h Single numeric indicating the parasitoid handling time.
@@ -233,6 +241,7 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                      double pred_surv = NA_REAL,
                      double alate_infl = NA_REAL,
                      double alate_slope = NA_REAL,
+                     double alate_max = 1,
                      double a = NA_REAL,
                      double h = NA_REAL,
                      double k = NA_REAL,
@@ -252,7 +261,7 @@ SEXP make_insect_ptr(const double& pseudo_surv,
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
-                      alate_infl, alate_slope,
+                      alate_infl, alate_slope, alate_max,
                       a, h, k, s_y,
                       fly_p, zeta);
 
@@ -262,7 +271,8 @@ SEXP make_insect_ptr(const double& pseudo_surv,
                                                 pred_surv, pseudo_surv,
                                                 extinct_N, demog_error,
                                                 sigma_x, a, h, k, alate_infl,
-                                                alate_slope, fly_p, N0, W0,
+                                                alate_slope, alate_max,
+                                                fly_p, N0, W0,
                                                 s_y, zeta, Y0), true);
 
     return insect_xptr;
@@ -304,6 +314,7 @@ DataFrame test_insect_pops(const uint32& max_t,
                            double pred_surv = NA_REAL,
                            double alate_infl = NA_REAL,
                            double alate_slope = NA_REAL,
+                           double alate_max = 1,
                            double a = NA_REAL,
                            double h = NA_REAL,
                            double k = NA_REAL,
@@ -320,13 +331,13 @@ DataFrame test_insect_pops(const uint32& max_t,
     check_insect_args(max_t, N0, W0, Y0, pseudo_surv,
                       extinct_N, sigma_x, surv_j, surv_a, recruit, fecund,
                       K, K_p_mult, s_p, R_, trans_ma, trans_pm, pred_surv,
-                      alate_infl, alate_slope,
+                      alate_infl, alate_slope, alate_max,
                       a, h, k, s_y, fly_p, zeta);
 
     InsectPops insects(surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R_,
                        trans_ma, trans_pm, pred_surv, pseudo_surv,
                        extinct_N, demog_error, sigma_x, a, h, k, alate_infl,
-                       alate_slope, fly_p, N0, W0, s_y, zeta, Y0);
+                       alate_slope, alate_max, fly_p, N0, W0, s_y, zeta, Y0);
 
     std::vector<uint32> time;
     std::vector<double> aphids;

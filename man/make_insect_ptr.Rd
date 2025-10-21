@@ -24,6 +24,7 @@ make_insect_ptr(
   pred_surv = NA_real_,
   alate_infl = NA_real_,
   alate_slope = NA_real_,
+  alate_max = 1,
   a = NA_real_,
   h = NA_real_,
   k = NA_real_,
@@ -108,6 +109,13 @@ relationship between aphid density and alate offspring proportion.
 See \code{alate_infl} above for the equation.
 Must be > 0.
 Defaults to \code{NA}. See 'Details' for more info.}
+
+\item{alate_max}{Maximum proportion of offspring that are alates.
+This is provided so that you can simulate constant alate proportion
+and adjust what that alate proportion is.
+If \code{alate_slope = 0}, then alate proportion is a constant
+\code{alate_max / 2}.
+Defaults to \code{1}.}
 
 \item{a}{Single numeric indicating the parasitoid attack rate.
 Defaults to \code{NA}. See 'Details' for more info.}
