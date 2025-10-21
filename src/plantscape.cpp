@@ -258,6 +258,15 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     landscape. It's assumed that rows are x the dimension,
 //'     columns are the y dimension, and "slices" (i.e., `dim(landscapes)[3]`)
 //'     indicate separate landscapes.
+//'     Values in each cell give the state of the plant:
+//'     `0` indicates nothing on plant,
+//'     `1` indicates just virus on plant (infectious),
+//'     `2` indicates just *Pseudomonas* on plant,
+//'     `3` indicates both virus and *Pseudomonas* on plant.
+//'     Values < 0 or > 3 are not allowed.
+//'     Note that this array is coerced to an array of unsigned integers, so
+//'     negative values will become very large integers.
+//'     Hence, do not expect an error for negative numbers if you pass them here.
 //' @param max_t Single integer giving the maximum time the simulations run.
 //' @param insect_ptr External pointer to a C++ object with insect population
 //'     information, output from function [make_insect_ptr()].
