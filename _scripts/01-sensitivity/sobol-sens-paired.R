@@ -4,15 +4,25 @@
 #'
 #'
 
-#' This was run in an interactive job started with the following:
+#' I first moved the sensitivity preamble over to bioHPC using the following:
 #'
-#' cd /home2/lan68/sobol-paired \
-#'   && srun -n 1 -c 50 -N 1 --mem=80G --time=1-20:00:00 \
+#' scp ~/GitHub/Cornell/aeonia/_scripts/01-sensitivity/sobol-preamble.R \
+#'     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/sobol-paired/
+#'
+#' This was then run on BioHPC in an interactive job started with the following:
+#'
+#' cd /home2/lan68/sobol-paired
+#' srun -n 1 -c 50 -N 1 --mem=80G --time=1-20:00:00 \
 #'   --job-name="sobol-paired" --pty bash -l
 #'
+#'
+#' Then I started R using:
+#' R --vanilla
+#'
+#' Then I ran the following R code interactively:
+#'
 
 
-#!/usr/bin/env -S Rscript --vanilla
 
 
 slurm_nt <- Sys.getenv("SLURM_CPUS_PER_TASK")
@@ -27,180 +37,28 @@ if (is.na(n_threads)) stop("Argument must be an integer")
                                   "ETA: {cli::pb_eta}"))
 
 
-
-
-suppressPackageStartupMessages({
-    library(sensobol)
-    library(tidyverse)
-    library(aeonia)
-})
-
 # Set threads for simulations:
 options("mc.cores" = n_threads)
 
 
 
-struct_pars <- crossing(mu_Y = log(c(0.1, 1)),
-                        mu_N = log(c(2, 4)),
-                        n_pseudo = 2L)
-
-vary_pars <- list(B = c(0, 0.15), # >= 0.1655339 results in carrying capacity of ~0
-                  K = 12500 * c(0.1, 2),
-                  alpha = c(0, 5),
-                  beta = c(-5, 0),
-                  wasp_disp_m0 = 0.3 * c(0, 2),
-                  wasp_disp_m1 = 0.349 * c(0, 2))
-
-N <- 2^8
-
-# Takes just a second or two
-set.seed(641272456)
-sobol_mats <- map(1:nrow(struct_pars), \(i) {
-    mat <- sobol_matrices(N = N, params = names(vary_pars))
-    for (n in names(vary_pars)) {
-        p1 <- min(vary_pars[[n]])
-        p2 <- max(vary_pars[[n]])
-        mat[,n] <- p1 + mat[,n] * (p2 - p1)
-    }
-    return(mat)
+suppressPackageStartupMessages({
+    library(tidyverse)
+    library(aeonia)
 })
 
 
-#' Should be TRUE
-sobol_mats |>
-    map_lgl(\(x) identical(sort(names(vary_pars)), sort(colnames(x)))) |>
-    all()
-
-
-
-
-one_combo <- function(mu_Y, mu_N, n_pseudo,
-                      B, K, alpha, beta, wasp_disp_m0, wasp_disp_m1,
-                      n_sims, ...) {
-
-    fly_p <- 0.05
-    sigma_Y <- 1
-    sigma_N <- 1
-    epsilon <- 1
-
-    n_x <- 3L
-    n_y <- 3L
-    n_plants <- n_x * n_y
-
-    land <- array(0L, c(n_x, n_y, n_sims))
-    N0 <- array(0.0, c(n_x, n_y, n_sims))
-    Y0 <- array(0.0, c(n_x, n_y, n_sims))
-    for (i in 1:n_sims) {
-        land[1,1,i] <- 1L
-        if (n_pseudo > 0) {
-            k <- sample.int(n_plants - 1L, n_pseudo)
-            x <- k - n_x * (k %/% n_x) + 1L
-            y <- k %/% n_x + 1L
-            land[cbind(x,y,i)] <- 2L
-        }
-        N0[,,i] <- rlnorm(n_plants, mu_N, sigma_N)
-        Y0[,,i] <- rlnorm(n_plants, mu_Y, sigma_Y)
-    }
-
-    insect_args <- list(K = K, B = B, fly_p = fly_p,
-                        wasp_disp_m0 = wasp_disp_m0,
-                        wasp_disp_m1 = wasp_disp_m1)
-    plant_args <- list(landscapes = land,
-                       max_t = 100,
-                       N0 = N0,
-                       W0 = array(0.0, c(n_x, n_y, n_sims)),
-                       Y0 = Y0,
-                       alpha = alpha,
-                       beta = beta,
-                       epsilon = epsilon,
-                       infect_time_n = 5,
-                       delta_a = 0.5,
-                       delta_p = 0.5,
-                       radius = 1,
-                       infect_stop = FALSE,
-                       summ = "all")
-    other_args <- list(...)
-    if (length(other_args) > 0) {
-        stopifnot(!is.null(names(other_args)) && !any(names(other_args) == ""))
-        stopifnot(all(names(other_args) %in% c(names(formals(sim_plantscape)),
-                                               names(formals(make_insect_ptr)))))
-        not_allowed <- c("landscapes", "N0", "W0", "Y0")
-        if (any(names(other_args) %in% not_allowed)) {
-            not_allowed <- names(other_args)[names(other_args) %in% not_allowed]
-            stop("The following are not allowed in `make_arg_list`: ",
-                 paste(not_allowed, collapse = ", "))
-        }
-
-        nm_insect_args <- names(other_args)[names(other_args) %in%
-                                                names(formals(make_insect_ptr))]
-        for (n in nm_insect_args) insect_args[[n]] <- other_args[[n]]
-
-        nm_plant_args <- names(other_args)[names(other_args) %in%
-                                               names(formals(sim_plantscape))]
-        for (n in nm_plant_args) {
-            if (n %in% c("N0", "W0", "Y0", "landscapes")) {
-                plant_args[[n]] <- array(other_args[[n]], c(n_x, n_y, n_sims))
-            } else plant_args[[n]] <- other_args[[n]]
-        }
-    }
-
-    plant_args[["insect_ptr"]] <- do.call(make_insect_ptr, insect_args)
-
-    out <- do.call(sim_plantscape, plant_args) |>
-        mutate(mu_N = mu_N, mu_Y = mu_Y, n_pseudo = n_pseudo,
-               B = B, K = K, alpha = alpha, beta = beta,
-               wasp_disp_m0 = wasp_disp_m0, wasp_disp_m1 = wasp_disp_m1)
-
-    return(out)
-
-}
-
-
-
-
-one_struct_sobol_sims <- function(i) {
-
-    mat <- sobol_mats[[i]]
-    mu_Y <- struct_pars[["mu_Y"]][[i]]
-    mu_N <- struct_pars[["mu_N"]][[i]]
-    n_pseudo <- struct_pars[["n_pseudo"]][[i]]
-
-    sim_outs <- map(1:nrow(mat), \(j) {
-        B <- mat[j,"B"]
-        K <- mat[j,"K"]
-        alpha <- mat[j,"alpha"]
-        beta <- mat[j,"beta"]
-        wasp_disp_m0 <- mat[j,"wasp_disp_m0"]
-        wasp_disp_m1 <- mat[j,"wasp_disp_m1"]
-        sim0 <- one_combo(mu_Y = mu_Y, mu_N = mu_N, n_pseudo = 0L, K = K,
-                          B, alpha, beta, wasp_disp_m0, wasp_disp_m1,
-                          n_sims = 100)
-        sim <- one_combo(mu_Y = mu_Y, mu_N = mu_N, n_pseudo = n_pseudo, K = K,
-                         B, alpha, beta, wasp_disp_m0, wasp_disp_m1,
-                         n_sims = 100)
-        out <- sim[1,names(vary_pars)]
-        yvars <- c("p_alates", "log_aphids", "aphids", "log_alates", "alates",
-                   "log_parasitized", "parasitized", "log_mummies", "mummies",
-                   "log_wasps", "wasps", "infect_time", "outbreak_size")
-        for (y in yvars) {
-            out[[y]] <- mean(sim[[y]], na.rm = TRUE) - mean(sim0[[y]], na.rm = TRUE)
-        }
-        out[["infect_time_Inf"]] <- mean(is.na(sim[["infect_time"]])) -
-            mean(is.na(sim0[["infect_time"]]))
-        return(out)
-    }) |>
-        list_rbind()
-
-    return(sim_outs)
-}
-
-
+source("sobol-preamble.R")
 
 
 # Takes ~29 min with 8 combos with N=2^10 and 50 threads:
-# Takes ~4 min with 4 combos with N=2^8 and 50 threads:
+# Takes ~15 min with 16 combos with N=2^8 and 50 threads:
+# Takes ~12 min with 2 combos of 9 parameters with N=2^10 and 50 threads:
 t0 <- Sys.time()
-sobol_sims <- map(1:nrow(struct_pars), one_struct_sobol_sims, .progress = .prog_args)
+sobol_sims <- map(1:nrow(struct_pars), \(i) {
+    cat(sprintf("--- %i of %i ---\n", i, nrow(struct_pars)))
+    one_struct_sobol_sims(i, .prog_args)
+    })
 write_rds(sobol_sims, "sobol-sims-paired.rds", compress = "gz")
 t1 <- Sys.time()
 t1 - t0
