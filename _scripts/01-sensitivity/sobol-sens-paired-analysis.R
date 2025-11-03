@@ -13,74 +13,63 @@ source("_scripts/01-sensitivity/sobol-preamble.R")
 sobol_dir <- "~/_globus"
 
 
-#' Output from `sobol-sens-paired.R`:
-sobol_sims <- paste0(sobol_dir, "/sobol-sims-paired.rds") |>
-    read_rds()
 
+if (!file.exists("_scripts/interm-data/sobol-sims-summs.rds")) {
 
-
-
-# Summarize each set of simulations:
-# Takes ~13 sec  (multithreading doesn't help)
-sobol_summs <- map(sobol_sims, \(ss) {
-    ss |>
-        imap(\(sim_set, i) {
-            # Number of pseudo patches in sim with them:
-            np <- sim_set$pseudo[["n_pseudo"]][[1]]
-            out_df <- sim_set[[1]][1:2, c(names(struct_pars), names(vary_pars))]
-            out_df[["combo"]] <- factor(i, levels = 1:length(ss))
-            out_df[["n_pseudo"]] <- c(0L, np)
-            for (y in yvars) {
-                y_p <- sim_set$pseudo[[y]]
-                y_np <- sim_set$no_pseudo[[y]]
-                if (y != "infect_time" && any(is.na(c(y_p, y_np)))) {
-                    stop(y, " has NA values")
-                }
-                out_df[[y]] <- c(mean(y_np, na.rm = TRUE),
-                                 mean(y_p, na.rm = TRUE))
+    #' Output from `sobol-sens-paired.R`:
+    sobol_sims <- paste0(sobol_dir, "/sobol-sims-paired.rds") |>
+        read_rds()
+    # Summarize each set of simulations:
+    # Takes ~1 min  (multithreading doesn't help)
+    sobol_summs <- imap(sobol_sims, \(sim_set, i) {
+        out_df <- sim_set |>
+            mutate(combo = factor(i, levels = 1:length(sobol_sims)),
+                   sims = map(sims, \(s) s[1, names(vary_pars)])) |>
+            unnest(sims) |>
+            select(combo, everything())
+        for (yv in c(yvars, "p_outbreak", "outbreak_size2", "sd_outbreak_size")) {
+            out_df[[yv]] <- 0.0
+        }
+        for (j in 1:nrow(sim_set)) {
+            for (yv in yvars) {
+                y <- sim_set$sims[[j]][[yv]]
+                if (yv != "infect_time" && any(is.na(y))) stop(y, " has NA values")
+                out_df[[yv]][[j]] <- mean(y, na.rm = TRUE)
             }
-            y_p <- sim_set$pseudo[["outbreak_size"]]
-            y_np <- sim_set$no_pseudo[["outbreak_size"]]
+            y <- sim_set$sims[[j]][["outbreak_size"]]
             # now do prob. outbreak happened:
-            out_df[["p_outbreak"]] <-c(mean(y_np > 1), mean(y_p > 1))
+            out_df[["p_outbreak"]][[j]] <- mean(y > 1)
             # and outbreak size when there was one:
-            out_df[["outbreak_size2"]] <-c(mean(y_np[y_np > 1]), mean(y_p[y_p > 1]))
+            out_df[["outbreak_size2"]][[j]] <- mean(y[y > 1])
             # Lastly, SD(outbreak size):
-            out_df[["sd_outbreak_size"]] <-c(sd(y_np), sd(y_p))
-            return(out_df)
+            out_df[["sd_outbreak_size"]][[j]] <- sd(y)
+        }
+        return(out_df)
 
-        }) |>
+    }, .progress = .prog_args) |>
         list_rbind()
-})
+
+    write_rds(sobol_summs, "_scripts/interm-data/sobol-sims-summs.rds",
+              compress = "gz")
+    rm(sobol_sims); gc()
+
+} else {
+
+    sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-summs.rds")
+
+}
+
+
+
 
 # Same thing but looking at differences between with and without Pseudo:
-diff_sobol_summs <- map(sobol_sims, \(ss) {
-    ss |>
-        map(\(sim_set) {
-            out_df <- sim_set[[1]][1, c(names(struct_pars), names(vary_pars))]
-            out_df[["n_pseudo"]] <- NULL
-            for (y in yvars) {
-                y_p <- sim_set$pseudo[[y]]
-                y_np <- sim_set$no_pseudo[[y]]
-                if (y != "infect_time" && any(is.na(c(y_p, y_np)))) {
-                    stop(y, " has NA values")
-                }
-                # using rounding bc weird, very small values show up here (~1e-16)
-                # if I don't. Plus, I know that the difference can't have more than
-                # 2 decimal digits bc n_sims = 100.
-                out_df[[y]] <- round(mean(y_p, na.rm = TRUE) -
-                                         mean(y_np, na.rm = TRUE), 2)
-            }
-            # now do prob. outbreak happened:
-            out_df[["p_outbreak"]] <- mean(y_p > 1) - mean(y_np > 1)
-            # and outbreak size when there was one:
-            out_df[["outbreak_size2"]] <- mean(y_p[y_p > 1]) - mean(y_np[y_np > 1])
-
-            return(out_df)
-
-        }) |>
-        list_rbind()
-})
+diff_sobol_summs <- sobol_summs |>
+    group_by(combo, alate_dens, across(all_of(names(vary_pars)))) |>
+    summarize(across(all_of(c(yvars, "p_outbreak", "outbreak_size2",
+                              "sd_outbreak_size")),
+                     \(x) x[n_pseudo > 0] - x[n_pseudo == 0]),
+              .groups = "drop") |>
+    mutate(across(starts_with("outbreak_size"), \(x) round(x, 2)))
 
 
 
@@ -88,22 +77,28 @@ diff_sobol_summs <- map(sobol_sims, \(ss) {
 
 
 
-scatter <- function(sim_outs, yvar = "outbreak_size", .facet_nrow = NULL, .title = NULL) {
 
-    # sim_outs = sobol_summs[[2]]; yvar = "sd_outbreak_size"; .facet_nrow = NULL; .title = NULL
-    # rm(sim_outs, yvar, .facet_nrow, .title, .vary_pars, .df, has_n_pseudo, np_name, .ylab, .y_range, .y_breaks, plot_list)
+
+scatter <- function(sim_outs,
+                    .filter_vars = NULL,
+                    .filter_conds = NULL,
+                    yvar = "outbreak_size",
+                    .facet_nrow = NULL,
+                    .title = NULL) {
+
+    # sim_outs = sobol_summs; yvar = "outbreak_size"; .facet_nrow = NULL; .title = NULL
+    # .filter_vars = "alate_dens"; .filter_conds = 1
+    # rm(sim_outs, .filter_vars, .filter_conds, yvar, .facet_nrow, .title, .vary_pars, .df, has_n_pseudo, np_name, .ylab, .y_range, .y_breaks, plot_list)
 
     # if (yvar == "infect_time") sim_outs <- sim_outs |>
     #     mutate(infect_time = ifelse(is.na(infect_time), 101, infect_time))
 
-
-    if (is.null(.title)) {
-        .title <- colnames(sim_outs) |>
-            keep(\(x) x %in% names(struct_pars) & x != "n_pseudo") |>
-            map(\(x) sprintf("%s = %.3g", pretty_params(x, TRUE),
-                             sim_outs[[x]][[1]])) |>
-            c(list(collapse = ";")) |>
-            do.call(what = paste)
+    if (!is.null(.filter_vars)) {
+        stopifnot(length(.filter_vars) == length(.filter_conds))
+        for (i in 1:length(.filter_vars)) {
+            sim_outs <- sim_outs |>
+                filter(.data[[.filter_vars[i]]] == .filter_conds[i])
+        }; rm(i)
     }
 
     if ("K" %in% colnames(sim_outs)) sim_outs[["K"]] <- sim_outs[["K"]] / 1000
@@ -189,17 +184,18 @@ scatter <- function(sim_outs, yvar = "outbreak_size", .facet_nrow = NULL, .title
 
 
 scatter2 <- function(sim_outs,
+                     .filter_vars = NULL,
+                     .filter_conds = NULL,
                      xvars = c("log_aphids", "log_alates"),
                      yvar = "outbreak_size",
                      .title = NULL) {
 
-    if (is.null(.title)) {
-        .title <- colnames(sim_outs) |>
-            keep(\(x) x %in% names(struct_pars) & x != "n_pseudo") |>
-            map(\(x) sprintf("%s = %.3g", pretty_params(x, TRUE),
-                             sim_outs[[x]][[1]])) |>
-            c(list(collapse = ";")) |>
-            do.call(what = paste)
+    if (!is.null(.filter_vars)) {
+        stopifnot(length(.filter_vars) == length(.filter_conds))
+        for (i in 1:length(.filter_vars)) {
+            sim_outs <- sim_outs |>
+                filter(.data[[.filter_vars[i]]] == .filter_conds[i])
+        }; rm(i)
     }
 
     if ("K" %in% colnames(sim_outs)) sim_outs[["K"]] <- sim_outs[["K"]] / 1000
@@ -240,17 +236,17 @@ scatter2 <- function(sim_outs,
 # # scatter(diff_sobol_summs[[1L]], "p_outbreak")
 
 
-sum(diff_sobol_summs[[2L]][["outbreak_size"]] > 0)
-sum(diff_sobol_summs[[2L]][["outbreak_size"]] == 0)
-sum(diff_sobol_summs[[2L]][["outbreak_size"]] < 0)
+sum(diff_sobol_summs[["outbreak_size"]] > 0)
+sum(diff_sobol_summs[["outbreak_size"]] == 0)
+sum(diff_sobol_summs[["outbreak_size"]] < 0)
 
 
 
 
-scatter(sobol_summs[[2L]], "outbreak_size")
-scatter(sobol_summs[[2L]], "sd_outbreak_size")
+scatter(sobol_summs, .filter_vars = "alate_dens", .filter_conds = 1, "outbreak_size")
+scatter(sobol_summs, .filter_vars = "alate_dens", .filter_conds = 1, "sd_outbreak_size")
 
-sobol_summs[[2L]] |>
+sobol_summs |>
     mutate(n_pseudo = factor(n_pseudo)) |>
     ggplot(aes(outbreak_size, sd_outbreak_size, color = n_pseudo, fill = n_pseudo)) +
     geom_point(alpha = 0.1) +
@@ -262,6 +258,7 @@ sobol_summs[[2L]] |>
                        aesthetics = c("color", "fill")) +
     labs(x = yvar_desc[["outbreak_size"]] |> first_cap(),
          y = yvar_desc[["sd_outbreak_size"]] |> first_cap()) +
+    facet_wrap(~ alate_dens) +
     theme(axis.title = element_markdown(),
           legend.title = element_markdown())
 
@@ -270,164 +267,238 @@ sobol_summs[[2L]] |>
 
 # LEFT OFF #1 ----
 #' For parameter combos that seemed to result in a negative
-#' effect of Pseudomonas, do they continue to show this pattern with greater
-#' numbers of simulations?
+#' effect of Pseudomonas, does alate ~ density affect outcomes?
 # Test the top 100 parameter combinations:
-diff_test_df <- diff_sobol_summs[[2L]] |>
+diff_test_combos <- diff_sobol_summs |>
+    filter(alate_dens == 1) |>
     arrange(desc(outbreak_size)) |>
-    select(all_of(names(vary_pars)), outbreak_size) |>
-    slice_head(n = 100)
-
-#' Output from `sobol-sens-paired-test.R`:
-sobol_test_sims <- paste0(sobol_dir, "/sobol-test-sims-paired.rds") |>
-    read_rds()
+    getElement("combo") |>
+    head(n = 100)
 
 
-sobol_test_df <- imap(sobol_test_sims,
-                     \(sim_set,  i) {
-                         out_df <- sim_set[[1]][1:2, names(vary_pars)]
-                         out_df[["n_pseudo"]] <- c(3L, 0L)
-                         y_p <- sim_set$pseudo[["outbreak_size"]]
-                         y_np <- sim_set$no_pseudo[["outbreak_size"]]
-                         if (any(is.na(c(y_p, y_np)))) {
-                             stop("outbreak_size has NA values")
-                         }
-                         out_df[["outbreak_size"]] <- round(c(mean(y_p),
-                                                              mean(y_np)), 3)
-                         out_df[["sd_outbreak_size"]] <- round(c(sd(y_p),
-                                                                 sd(y_np)), 3)
-                         # now do prob. outbreak happened:
-                         out_df[["p_outbreak"]] <- round(c(mean(y_p > 1),
-                                                           mean(y_np > 1)), 3)
-                         out_df[["combo"]] <- factor(i, levels = 1:nrow(diff_test_df))
-                         return(out_df)
-                     }) |>
-    list_rbind() |>
-    select(combo, everything())
 
-# How do these compare to previous simulations?
-sobol_test_df |>
+
+alate_dens_p <- diff_sobol_summs |>
     group_by(combo) |>
-    summarize(outbreak_size = outbreak_size[n_pseudo > 0L] -
-                  outbreak_size[n_pseudo == 0L]) |>
-    mutate(outbreak_size0 = diff_test_df$outbreak_size) |>
-    ggplot(aes(outbreak_size, outbreak_size0)) +
+    summarize(without = outbreak_size[alate_dens == 0],
+              with = outbreak_size[alate_dens == 1]) |>
+    ggplot(aes(with, without)) +
+    geom_point(alpha = 0.1) +
     geom_abline(slope = 1, intercept = 0, color = "red", linetype = "22") +
-    geom_point() +
-    coord_equal(xlim = c(0, 3), ylim = c(0, 3))
-# Pretty good!
-
-
-
-sobol_test_df |>
-    mutate(n_pseudo = factor(n_pseudo)) |>
-    ggplot(aes(outbreak_size, sd_outbreak_size, color = n_pseudo)) +
-    geom_point() +
-    scale_color_manual(pretty_params("n_pseudo", TRUE),
-                       values = c("goldenrod", "dodgerblue"))
-
-sobol_test_df |>
-    group_by(combo) |>
-    summarize(outbreak_size = outbreak_size[n_pseudo > 0L] -
-                  outbreak_size[n_pseudo == 0L],
-              sd_outbreak_size = sd_outbreak_size[n_pseudo > 0L] -
-                  sd_outbreak_size[n_pseudo == 0L]) |>
-    ggplot(aes(outbreak_size, sd_outbreak_size)) +
-    geom_point()
-
-
-# For these top 100 combos that result in Pseudomonas being bad for plants,
-# is the aphid density ~ alate production feedback necessary?
-
-# Takes ~20 sec
-set.seed(743235938)
-sobol_test0_sims <- diff_test_df |>
-    select(names(vary_pars)) |>
-    pmap(\(Y0, mean_N, sd_N, K, virus_attract, pseudo_repel, pseudo_surv,
-           zeta, spat_config) {
-
-        args <- list(Y0 = Y0, mean_N = mean_N, sd_N = sd_N, K = K,
-                     virus_attract = virus_attract, pseudo_repel = pseudo_repel,
-                     pseudo_surv = pseudo_surv, zeta = zeta,
-                     spat_config = spat_config,
-                     n_sims = 1000L,
-                     alate_slope = 0, alate_max = 0.05, n_pseudo = 3L)
-
-        sim <- do.call(one_combo, args)
-
-        args[["n_pseudo"]] <- 0L
-        sim0 <- do.call(one_combo, args)
-
-        out <- list(pseudo = sim, no_pseudo = sim0)
-    }, .progress = .prog_args)
-
-
-sobol_test0_df <- imap(sobol_test0_sims,
-     \(sim_set, i) {
-         out_df <- sim_set[[1]][1:2, names(vary_pars)]
-         out_df[["n_pseudo"]] <- c(sim_set$pseudo[["n_pseudo"]][[1]], 0L)
-         y_p <- sim_set$pseudo[["outbreak_size"]]
-         y_np <- sim_set$no_pseudo[["outbreak_size"]]
-         if (any(is.na(c(y_p, y_np)))) {
-             stop("outbreak_size has NA values")
-         }
-         out_df[["outbreak_size"]] <- round(c(mean(y_p),
-                                              mean(y_np)), 3)
-         out_df[["sd_outbreak_size"]] <- round(c(sd(y_p),
-                                                 sd(y_np)), 3)
-         # now do prob. outbreak happened:
-         out_df[["p_outbreak"]] <- round(c(mean(y_p > 1),
-                                           mean(y_np > 1)), 3)
-         out_df[["combo"]] <- factor(i, levels = 1:nrow(diff_test_df))
-         return(out_df)
-     }) |>
-    list_rbind() |>
-    select(combo, everything())
-
-
-
-
-bind_cols(sobol_test_df |>
-              select(combo, n_pseudo, outbreak_size),
-          sobol_test0_df |>
-              select(outbreak_size) |>
-              rename(outbreak_size0 = outbreak_size)) |>
-    ggplot(aes(outbreak_size, outbreak_size0)) +
-    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "22") +
-    geom_point() +
-    coord_equal() +
-    labs(x = "Outbreak size with alates ~ density",
-         y = "Outbreak size constant alates")
-
-
-bind_cols(sobol_test_df |>
-              select(combo, n_pseudo, outbreak_size),
-          sobol_test0_df |>
-              select(outbreak_size) |>
-              rename(outbreak_size0 = outbreak_size)) |>
-    group_by(combo) |>
-    summarize(outbreak_size = outbreak_size[n_pseudo > 0L] -
-                  outbreak_size[n_pseudo == 0L],
-              outbreak_size0 = outbreak_size0[n_pseudo > 0L] -
-                  outbreak_size0[n_pseudo == 0L]) |>
-    ggplot(aes(outbreak_size, outbreak_size0)) +
-    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "22") +
-    geom_point() +
-    coord_equal() +
-    labs(x = "Effect of *Pseudomonas* on outbreak size with alates ~ density",
-         y = "Effect of *Pseudomonas* on outbreak size constant alates") +
+    geom_hline(yintercept = 0, color = "gray70") +
+    geom_vline(xintercept = 0, color = "gray70") +
+    coord_equal(xlim = range(diff_sobol_summs$outbreak_size),
+                ylim = range(diff_sobol_summs$outbreak_size)) +
+    labs(x = "Effect of *Pseudomonas* on outbreak size - alates ~ density",
+         y = "Effect of *Pseudomonas* on outbreak size - constant alates") +
     theme(axis.title.x = element_markdown(),
           axis.title.y = element_markdown())
 
-
-
-
+# save_plot("_plots/alate-dens.pdf", alate_dens_p, width = 6, height = 6)
 
 
 
 
 
 # LEFT OFF #2 ----
+#' What parameter values are associated with Pseudomonas being bad for plants?
+
+# Paired time series for with and without Pseudomonas
+# Note: only takes output summarized by plant, will summarize in the function
+#       if `by_plant  = FALSE`
+timeseries <- function(sim_df_p,
+                       sim_df_np,
+                       by_plant = FALSE,
+                       .rep = NULL,
+                       .title = waiver()) {
+
+    # sim_df_p = sim_df; sim_df_np = sim0_df; .rep = NULL; by_plant = TRUE; .title = waiver()
+    # rm(sim_df_p, sim_df_np, by_plant, .rep, .title, all_sims, aphids, wasps, virus, max_virus, max_aphids, max_wasps, itrans, trans, itrans2, trans2, aphid_breaks, aphid_labels, aphid_ylab, col_pal, p)
+
+    stopifnot(identical(colnames(sim_df_p), colnames(sim_df_np)))
+    stopifnot("n_pseudo" %in% colnames(sim_df_p))
+    stopifnot("x" %in% colnames(sim_df_p) && "y" %in% colnames(sim_df_p))
+    if (is.null(.rep) && !by_plant) .rep <- unique(sim_df_p$rep)
+    if (is.null(.rep) && by_plant) .rep <- sample(unique(sim_df_p$rep), 1)
+    stopifnot(all(.rep %in% sim_df_p$rep) && all(.rep %in% sim_df_np$rep))
+    stopifnot(!by_plant || length(.rep) == 1)
+
+    all_sims <- bind_rows(sim_df_p, sim_df_np) |>
+        filter(rep %in% .rep) |>
+        mutate(x = ifelse(x == 0, NA, x),
+               y = ifelse(y == 0, NA, y),
+               plant = interaction(x, y),
+               rep = factor(rep),
+               n_pseudo = factor(n_pseudo),
+               id = interaction(n_pseudo, rep)) |>
+        mutate(aphids = aphids + parasitized) |>
+        select(id, n_pseudo, rep, plant, time, virus, aphids, alates, wasps)
+    wasps <- all_sims |>
+        filter(!is.na(wasps)) |>
+        mutate(id = interaction(n_pseudo, rep)) |>
+        select(id, n_pseudo, rep, time, wasps)
+    aphids <- all_sims |>
+        filter(!is.na(plant)) |>
+        select(id, n_pseudo:time, aphids)
+    if (by_plant) {
+        virus <- all_sims |>
+            filter(!is.na(plant)) |>
+            group_by(n_pseudo, rep, plant) |>
+            filter(virus == 1) |>
+            filter(time == min(time)) |>
+            ungroup() |>
+            select(id:time, virus)
+        max_virus <- 1
+        alates <- all_sims |>
+            filter(!is.na(plant)) |>
+            select(id, n_pseudo:time, alates)
+    } else {
+        virus <- all_sims |>
+            filter(is.na(plant)) |>
+            select(id, n_pseudo, rep, time, virus)
+        # Max virus is the total number of plants:
+        max_virus <- bind_rows(sim_df_p, sim_df_np) |>
+            filter(x > 0) |>
+            distinct(x, y) |>
+            nrow()
+        aphids <- aphids |>
+            group_by(id, n_pseudo, rep, time) |>
+            summarize(aphids = sum(aphids), .groups = "drop")
+        alates <- all_sims |>
+            filter(is.na(plant)) |>
+            select(id, n_pseudo, rep, time, alates)
+    }
+
+    max_aphids <- max(aphids$aphids, na.rm = TRUE)
+    max_wasps <- max(wasps$wasps, na.rm = TRUE)
+    max_alates <- max(alates$alates, na.rm = TRUE)
+    # convert from wasps --> aphids:
+    trans <- \(x) x * max_aphids / max_wasps
+    # convert from aphids --> wasps:
+    itrans <- \(x) x * max_wasps / max_aphids
+    # convert from alates --> aphids:
+    trans2 <- \(x) x * max_aphids / max_alates
+    # convert from aphids --> alates:
+    itrans2 <- \(x) x * max_alates / max_aphids
+
+    col_pal <- viridisLite::plasma(4) |>
+        set_names(c("aphids", "alates", "wasps", "virus")) |>
+        as.list()
+
+    aphid_breaks <- scales::breaks_extended(n = 4)(aphids$aphids)
+    aphid_labels <- sprintf(paste0("%s (<span style=\"color: ", col_pal$alates,
+                                   ";\">%.1f</span>)"), aphid_breaks,
+                            itrans2(aphid_breaks))
+    aphid_ylab <- paste0("Aphid density (<span style=\"color: ", col_pal$alates,
+                        ";\">alate density</span>)")
+
+
+    p <- aphids |>
+        ggplot(aes(time, alpha = n_pseudo, linewidth = n_pseudo)) +
+        geom_line(aes(y = aphids, group = id),
+                  color = col_pal$aphids) +
+        geom_line(data = alates, aes(y = alates * max_aphids / max_alates, group = id),
+                  color = col_pal$alates) +
+        geom_line(data = wasps, aes(y = trans(wasps), group = id),
+                  color = col_pal$wasps) +
+        scale_y_continuous(aphid_ylab,
+                           breaks = aphid_breaks,
+                           labels = aphid_labels,
+                           sec.axis = sec_axis(itrans, "Wasp density")) +
+        # scale_linetype_manual(pretty_params("n_pseudo", TRUE),
+        #                       values = c("22", "solid")) +
+        scale_alpha_manual(pretty_params("n_pseudo", TRUE), values = c(0.3, 1)) +
+        scale_linewidth_manual(pretty_params("n_pseudo", TRUE), values = c(1.25, 0.75)) +
+        guides(alpha = guide_legend(override.aes =
+                                        list(color = alpha("gray", c(0.3, 1))))) +
+        labs(title = .title, x = "Time (days)") +
+        theme(plot.title = element_markdown(hjust = 0.5),
+              legend.title = element_markdown(),
+              axis.title.y.left = element_markdown(color = col_pal$aphids,
+                                                   face = "bold"),
+              axis.title.y.right = element_markdown(color = col_pal$wasps,
+                                                    face = "bold"),
+              axis.text.y.left = element_markdown(color = col_pal$aphids),
+              axis.text.y.right = element_markdown(color = col_pal$wasps))
+
+    if (by_plant) {
+        p <- p +
+            # geom_vline(data = virus, aes(xintercept = time), color = "#EC008C") +
+            facet_wrap( ~ plant, nrow = 3) +
+            scale_color_viridis_d(begin = 0.1, end = 0.9, guide = "none")
+    } else {
+        p <- p +
+            geom_line(data = virus, aes(y = virus * max_aphids / max_virus),
+                      color = col_pal$virus) +
+            facet_wrap(~ rep, labeller = label_both)
+    }
+
+    return(p)
+
+}
+
+calc_metrics <- function(sims) {
+    sims |>
+        filter(!is.na(wasps)) |>
+        group_by(rep) |>
+        summarize(outbreak_size = max(virus),
+                  log_aphids = mean(log10(1 + aphids + parasitized)),
+                  log_alates = mean(log10(1 + alates)),
+                  log_wasps = mean(log10(1 + wasps)))
+}
+
+
+diff_sobol_summs |>
+    filter(alate_dens == 1) |>
+    arrange(desc(outbreak_size)) |>
+    select(combo, all_of(names(vary_pars)), outbreak_size)
+
+i = 7112L
+
+set.seed(1032439295)
+sim_df <- sobol_summs |>
+    filter(combo == i) |>
+    filter(n_pseudo > 0, alate_dens == 1) |>
+    select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
+    as.list() |>
+    c(list(n_sims = 4, summ = "none")) |>
+    do.call(what = one_combo) |>
+    select(n_pseudo, rep:wasps)
+sim0_df <- sobol_summs |>
+    filter(combo == i) |>
+    filter(n_pseudo == 0, alate_dens == 1) |>
+    select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
+    as.list() |>
+    c(list(n_sims = 4, summ = "none")) |>
+    do.call(what = one_combo) |>
+    select(n_pseudo, rep:wasps)
+
+sim_df |> calc_metrics()
+sim0_df |> calc_metrics()
+
+timeseries(sim_df, sim0_df, .title = sprintf("combo %i", i))
+timeseries(sim_df, sim0_df, TRUE, 4, .title = sprintf("combo %i", i))
+
+
+
+diff_sobol_summs |>
+    filter(alate_dens == 1, spat_config == 1) |>
+    ggplot(aes(zeta, K)) +
+    geom_point(aes(color = outbreak_size)) +
+    scale_color_viridis_c()
+
+diff_sobol_summs |>
+    filter(alate_dens == 1, spat_config == 1) |>
+    ggplot(aes(zeta, outbreak_size)) +
+    geom_point(alpha = 0.1) +
+    stat_smooth(method = "gam",
+                formula = y ~ s(x, bs = "cs"),
+                se = TRUE, linewidth = 1)
+
+
+
+
+# LEFT OFF #3 ----
 # Why does the effect of Pseudomonas on P(outbreak) not coincide closely with
 # its effect on outbreak size?
 
@@ -640,393 +711,6 @@ sobol_inds_p <- (sobol_inds_p1 | sobol_inds_p2) +
 
 save_plot("_plots/sobol-inds.pdf", sobol_inds_p, width = 8, height = 6)
 
-
-
-
-
-
-
-# =============================================================================*
-# =============================================================================*
-# Random Forest approach ----
-# =============================================================================*
-# =============================================================================*
-
-
-library(randomForest)
-library(iml)
-
-# Dataset for outbreak size:
-set.seed(99240974) # used for shuffling dataset
-ob_sim_df <- sobol_summs[[2]] |>
-    filter(n_pseudo > 0) |>
-    select(outbreak_size, all_of(c(names(vary_pars)))) |>
-    slice_sample(prop = 1)
-
-# Dataset for effect of pseudo on outbreak size:
-set.seed(1976042860) # used for shuffling dataset
-dob_sim_df <- sobol_sims[[2]] |>
-    map(\(sim_set) {
-        out_df <- sim_set[[1]][1, names(vary_pars)]
-        y_p <- sim_set$pseudo[["outbreak_size"]]
-        y_np <- sim_set$no_pseudo[["outbreak_size"]]
-        out_df[["outbreak_size"]] <- mean(y_p, na.rm = TRUE) - mean(y_np, na.rm = TRUE)
-        return(out_df)
-    }) |>
-    list_rbind() |>
-    select(outbreak_size, everything()) |>
-    slice_sample(prop = 1)
-
-n_train <- as.integer(round(nrow(ob_sim_df) * 0.75))
-n_test <- nrow(ob_sim_df) - n_train
-
-ob_train_df <- ob_sim_df[1:n_train,]
-dob_train_df <- dob_sim_df[1:n_train,]
-ob_test_df <- ob_sim_df[(n_train+1):nrow(ob_sim_df),]
-dob_test_df <- dob_sim_df[(n_train+1):nrow(dob_sim_df),]
-
-
-
-
-
-# # Which value of `mtry` results in most explained variance?
-# # Each step takes ~3 min
-# set.seed(45181283)
-# ob_m_df <- tibble(m = 2:length(vary_pars)) |>
-#     mutate(v = map_dbl(m, \(.m) {
-#         rf <- randomForest(ob_sim_df[1:n_train,names(vary_pars)],
-#                            ob_sim_df[["outbreak_size"]][1:n_train],
-#                            corr.bias = TRUE, mtry = .m)
-#         return(tail(rf$rsq, 1))
-#     }))
-# set.seed(1547476225)
-# dob_m_df <- tibble(m = 2:length(vary_pars)) |>
-#     mutate(v = map_dbl(m, \(.m) {
-#         rf <- randomForest(dob_sim_df[1:n_train,names(vary_pars)],
-#                            dob_sim_df[["outbreak_size"]][1:n_train],
-#                            corr.bias = TRUE, mtry = .m)
-#         return(tail(rf$rsq, 1))
-#     }))
-# ob_m_df |>
-#     ggplot(aes(m, v)) +
-#     geom_line() +
-#     geom_point() +
-#     scale_x_continuous(breaks = 2:10) +
-#     theme(panel.grid.major = element_line(color = "gray80"))
-# dob_m_df |>
-#     ggplot(aes(m, v)) +
-#     geom_line() +
-#     geom_point() +
-#     scale_x_continuous(breaks = 2:10) +
-#     theme(panel.grid.major = element_line(color = "gray80"))
-# # The best for both was mtry = 5
-
-
-
-if (!file.exists("_scripts/interm-data/randomforest-outbreak_size.rds") |
-    !file.exists("_scripts/interm-data/randomforest-diff_outbreak_size.rds")) {
-    set.seed(359013909)
-    ob_rf <- randomForest(ob_train_df[,names(vary_pars)],
-                          ob_train_df[["outbreak_size"]],
-                          importance = TRUE, corr.bias = TRUE, mtry = 5)
-    set.seed(84490683)
-    dob_rf <- randomForest(dob_train_df[,names(vary_pars)],
-                           dob_train_df[["outbreak_size"]],
-                           importance = TRUE, corr.bias = TRUE, mtry = 5)
-    write_rds(ob_rf, "_scripts/interm-data/randomforest-outbreak_size.rds", compress = "gz")
-    write_rds(dob_rf, "_scripts/interm-data/randomforest-diff_outbreak_size.rds", compress = "gz")
-} else {
-    ob_rf <- read_rds("_scripts/interm-data/randomforest-outbreak_size.rds")
-    dob_rf <- read_rds("_scripts/interm-data/randomforest-diff_outbreak_size.rds")
-}
-
-
-
-# variance explained:
-(ob_rf_rsq <- tail(ob_rf$rsq, 1))
-# [1] 0.9556963
-
-# variance explained:
-(dob_rf_rsq <- tail(dob_rf$rsq, 1))
-# [1] 0.8015296
-
-
-
-# randomForest:::partialPlot.randomForest
-
-
-
-# Calculate data for partial dependence plots (takes a while to run, so this
-# should be done separately from plots)
-partial_calc <- function(x, pred_data, .prog_args = FALSE) {
-
-    # x = ob_rf; pred_data = ob_train_df
-    # rm(x, pred_data, x_names, n)
-
-    n <- nrow(pred_data)
-    x$forest$xlevels |>
-        names() |>
-        map(\(x_name) {
-            # x_name = x_names[[1]]
-            # rm(x_name, xv, n_pt, x_pt, y_pt, x_data, i)
-            xv <- pred_data[[x_name]]
-            n_pt <- min(length(unique(xv)), 51)
-            x_pt <- seq(min(xv), max(xv), length = n_pt)
-            y_pt <- numeric(n_pt)
-            x_data <- pred_data
-            for (i in 1:n_pt) {
-                x_data[, x_name] <- rep(x_pt[i], n)
-                y_pt[i] <- mean(predict(x, x_data), na.rm = TRUE)
-            }
-            return(tibble(param = x_name, x = x_pt, y = y_pt))
-        }, .progress = .prog_args) |>
-        list_rbind()
-
-}
-
-
-if (!file.exists("_scripts/interm-data/randomforestParts-outbreak_size.rds") |
-    !file.exists("_scripts/interm-data/randomforestParts-diff_outbreak_size.rds")) {
-    # Each step takes ~ 5 min
-    ob_rf_parts <- partial_calc(ob_rf, ob_train_df, .prog_args)
-    dob_rf_parts <- partial_calc(dob_rf, dob_train_df, .prog_args)
-    write_rds(ob_rf_parts, "_scripts/interm-data/randomforestParts-outbreak_size.rds", compress = "gz")
-    write_rds(dob_rf_parts, "_scripts/interm-data/randomforestParts-diff_outbreak_size.rds", compress = "gz")
-} else {
-    ob_rf_parts <- read_rds("_scripts/interm-data/randomforestParts-outbreak_size.rds")
-    dob_rf_parts <- read_rds("_scripts/interm-data/randomforestParts-diff_outbreak_size.rds")
-}
-
-
-
-
-
-partial_plot <- function(x, .ylab) {
-    # x = ob_rf_parts; .ylab = "Outbreak size"
-    # rm(x, .ylab)
-    x |>
-        mutate(param = pretty_params(param) |>
-                   factor(levels = pretty_params(names(vary_pars)))) |>
-        ggplot(aes(x, y)) +
-        geom_line() +
-        geom_point() +
-        facet_wrap(~ param, scales = "free_x", strip.position = "bottom") +
-        labs(y = .ylab) +
-        theme(plot.title = element_markdown(),
-              axis.title.y = element_markdown(),
-              strip.text = element_markdown(),
-              strip.placement = "outside",
-              axis.title.x = element_blank())
-}
-
-
-
-
-# Plot predicted vs observed:
-pred_plot <- function(x, test_x, test_y, .title = "") {
-    # x = ob_rf
-    # test_x = ob_test_df[,names(vary_pars)]
-    # test_y = ob_test_df[["outbreak_size"]]
-    # .title = ""
-    # rm(x, test_x, test_y, .title, pred_rf, rf_r2)
-    stopifnot(inherits(x, "randomForest"))
-    stopifnot(inherits(test_x, "data.frame"))
-    stopifnot(inherits(test_y, "numeric") || inherits(test_y, "factor"))
-    stopifnot(length(test_y) == nrow(test_y))
-    stopifnot(inherits(.title, "character") && length(.title) == 1L)
-    pred_rf <- predict(x, test_x)
-    rf_r2 <- sprintf("r^2 == %.3f", cor(pred_rf, test_y)^2)
-    tibble(Predicted = pred_rf, Observed = test_y) |>
-        ggplot(aes(Observed, Predicted)) +
-        geom_point(shape = 1) +
-        ggtitle(.title) +
-        geom_text(data = tibble(lab = rf_r2, x = min(pred_rf), y = max(pred_rf)),
-                  aes(x, y, label = lab), hjust = 0, vjust = 1, parse = TRUE) +
-        geom_abline(slope = 1, intercept = 0, linetype = 2, color = "red") +
-        coord_equal() +
-        theme(plot.title = element_markdown())
-}
-
-# Plot variable importance:
-imp_plot <- function(x, .title = "") {
-    # x = ob_rf; .title = ""
-    # rm(x, .title)
-    stopifnot(inherits(x, "randomForest"))
-    stopifnot(inherits(.title, "character") && length(.title) == 1L)
-    stopifnot("%IncMSE" %in% colnames(x$importance))
-    importance(x) |>
-        as.data.frame() |>
-        rownames_to_column("par") |>
-        select(par, `%IncMSE`) |>
-        rename(inc_mse = `%IncMSE`) |>
-        mutate(par = pretty_params(par),
-               par = fct_reorder(par, inc_mse, .na_rm = TRUE)) |>
-        ggplot(aes(inc_mse, par)) +
-        geom_vline(xintercept = 0, linewidth = 1, color = "gray70") +
-        geom_point(size = 3) +
-        geom_segment(aes(xend = 0, yend = par), linewidth = 1) +
-        ggtitle(.title) +
-        xlab("Mean increase in MSE") +
-        theme(axis.title.y = element_blank(),
-              axis.text.y = element_markdown(size = 11, color = "black"),
-              plot.title = element_markdown())
-}
-
-
-# Plot variable interaction strength:
-inter_plot <- function(x, .title = "") {
-    # x = ob_rf_int; .title = ""
-    # rm(x, .title, x_df)
-    stopifnot(inherits(x, "Interaction"))
-    stopifnot(inherits(.title, "character") && length(.title) == 1L)
-
-    x_df <- x[["results"]] |> as_tibble()
-
-    p <- x_df |>
-        filter(!is.na(.interaction)) |>
-        mutate(.feature = pretty_params(.feature)) |>
-        mutate(.feature = fct_reorder(.feature, .interaction)) |>
-        ggplot(aes(.interaction, .feature)) +
-        geom_vline(xintercept = 0, linewidth = 1, color = "gray70") +
-        geom_point(size = 3) +
-        geom_segment(aes(xend = 0, yend = .feature), linewidth = 1) +
-        ggtitle(.title) +
-        labs(x = "Overall interaction strength") +
-        theme(axis.title.y = element_blank(),
-              axis.text.y = element_markdown(size = 11, color = "black"),
-              plot.title = element_markdown())
-    if (".class" %in% colnames(x_df)) {
-        p <- p + facet_wrap(~ .class)
-    }
-    return(p)
-}
-
-
-imp_inter_plot <- function(rf, rf_int, .title = "") {
-
-    # rf = ob_rf; rf_int = ob_rf_int; .title = ""
-    # rm(rf, rf_int, .title, .df, mse_max, int_max, trans, itrans, .mse_col, .int_col)
-    stopifnot(inherits(rf, "randomForest"))
-    stopifnot("%IncMSE" %in% colnames(rf$importance))
-    stopifnot(inherits(rf_int, "Interaction"))
-    stopifnot(inherits(.title, "character") && length(.title) == 1L)
-
-    .df <- importance(rf) |>
-        as.data.frame() |>
-        rownames_to_column("par") |>
-        select(par, `%IncMSE`) |>
-        rename(inc_mse = `%IncMSE`) |>
-        left_join(rf_int[["results"]] |> as_tibble() |> rename(par = .feature, inter = .interaction),
-                  by = "par") |>
-        pivot_longer(-par, names_to = "measure")
-
-    mse_max <- max(.df$value[.df$measure == "inc_mse"])
-    int_max <- max(.df$value[.df$measure == "inter"])
-    trans <- \(x) x * mse_max / int_max
-    itrans <- \(x) x * int_max / mse_max
-
-    .mse_col <- "dodgerblue"
-    .int_col <- "goldenrod"
-
-    .df |>
-        mutate(par = pretty_params(par) |>
-                   factor(levels = rev(pretty_params(names(vary_pars)))),
-               value = ifelse(measure == "inter", trans(value), value)) |>
-        ggplot(aes(value, par, fill = measure)) +
-        geom_vline(xintercept = 0, linewidth = 1, color = "gray70") +
-        geom_col(position = position_dodge(0.5), color = NA, width = 0.4) +
-        ggtitle(.title) +
-        scale_x_continuous("Mean increase in MSE",
-                           sec.axis = sec_axis(itrans, "Overall interaction strength")) +
-        scale_fill_manual(values = c(inc_mse = .mse_col, inter = .int_col), guide = "none") +
-        theme(axis.title.y = element_blank(),
-              axis.text.y = element_markdown(size = 11, color = "black"),
-              axis.title.x.top = element_markdown(color = .int_col, face = "bold"),
-              axis.text.x.top = element_markdown(color = .int_col),
-              axis.ticks.x.top = element_line(color = .int_col),
-              axis.title.x.bottom = element_markdown(color = .mse_col, face = "bold"),
-              axis.text.x.bottom = element_markdown(color = .mse_col),
-              axis.ticks.x.bottom = element_line(color = .mse_col),
-              plot.title = element_markdown())
-
-}
-
-
-
-
-#' Create `iml` Predictor objects.
-ob_rf_pred <- Predictor$new(ob_rf, data = ob_train_df[,names(vary_pars)],
-                            y = ob_train_df[["outbreak_size"]])
-dob_rf_pred <- Predictor$new(dob_rf, data = dob_train_df[,names(vary_pars)],
-                             y = dob_train_df[["outbreak_size"]])
-#' Create `iml` Interaction objects.
-#' This function creates an Interaction option and temporarily allows
-#' the future package to access large objects:
-make_inter <- \(rf_obj) {
-    oopts <- options(future.globals.maxSize = 1.5e9)  ## 1.5 GB
-    on.exit(options(oopts))
-    Interaction$new(rf_obj)
-}
-if (!file.exists("_scripts/interm-data/randomforestInt-outbreak_size.rds") |
-    !file.exists("_scripts/interm-data/randomforestInt-diff_outbreak_size.rds")) {
-    # Make futures garbage collect to save memory:
-    plan(multisession, workers = options()[["mc.cores"]], gc = TRUE)
-    # Takes ~1.5 min each
-    ob_rf_int <- make_inter(ob_rf_pred)
-    dob_rf_int <- make_inter(dob_rf_pred)
-    write_rds(ob_rf_int, "_scripts/interm-data/randomforestInt-outbreak_size.rds", compress = "gz")
-    write_rds(dob_rf_int, "_scripts/interm-data/randomforestInt-diff_outbreak_size.rds", compress = "gz")
-    # Go back to default configuration:
-    plan(multisession, workers = options()[["mc.cores"]])
-} else {
-    ob_rf_int <- read_rds("_scripts/interm-data/randomforestInt-outbreak_size.rds")
-    dob_rf_int <- read_rds("_scripts/interm-data/randomforestInt-diff_outbreak_size.rds")
-}
-
-
-
-
-
-(partial_plot(ob_rf_parts, "Outbreak size") |
-        partial_plot(dob_rf_parts, "Effect of *Pseudomonas* on outbreak size"))
-
-
-
-
-
-
-rf_pred_p <- (pred_plot(ob_rf, ob_test_df[,names(vary_pars)],
-           ob_test_df[["outbreak_size"]],
-           "Outbreak size") |
-        pred_plot(dob_rf, dob_test_df[,names(vary_pars)],
-                  dob_test_df[["outbreak_size"]],
-                  "Effect of *Pseudomonas* on outbreak size")) +
-    plot_layout(nrow = 1) +
-    plot_annotation(title = "Observed vs predicted",
-                    theme = theme(plot.title = element_markdown(size = 18)))
-
-save_plot("_plots/rf-pred.pdf", rf_pred_p, width = 8, height = 5)
-
-
-
-# (imp_plot(ob_rf, "Outbreak size") | imp_plot(dob_rf, "Effect of *Pseudomonas* on outbreak size")) +
-#     plot_layout(nrow = 1) +
-#     plot_annotation(title = "Variable importance",
-#                     theme = theme(plot.title = element_markdown(size = 18)))
-#
-# (inter_plot(ob_rf_int, "Outbreak size") | inter_plot(dob_rf_int, "Effect of *Pseudomonas* on outbreak size")) +
-#     plot_layout(nrow = 1) +
-#     plot_annotation(title = "Variable interaction strength",
-#                     theme = theme(plot.title = element_markdown(size = 18)))
-
-
-rf_imp_inter_p <- (imp_inter_plot(ob_rf, ob_rf_int, .title = "Outbreak size") |
-        imp_inter_plot(dob_rf, dob_rf_int, .title = "Effect of *Pseudomonas* on<br>outbreak size")) +
-    plot_layout(nrow = 1) +
-    plot_annotation(title = "Variable importance and interaction strength",
-                    theme = theme(plot.title = element_markdown(size = 18)))
-
-save_plot("_plots/rf-imp_inter.pdf", rf_imp_inter_p, width = 10, height = 5)
 
 
 
