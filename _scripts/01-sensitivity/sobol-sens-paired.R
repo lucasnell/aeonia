@@ -51,14 +51,9 @@ suppressPackageStartupMessages({
 source("sobol-preamble.R")
 
 
-# Takes ~29 min with 8 combos with N=2^10 and 50 threads:
-# Takes ~15 min with 16 combos with N=2^8 and 50 threads:
-# Takes ~12 min with 2 combos of 9 parameters with N=2^10 and 50 threads:
+# Takes ~12 min with 10 parameters, N=2^10, and 50 threads:
 t0 <- Sys.time()
-sobol_sims <- map(1:nrow(struct_pars), \(i) {
-    cat(sprintf("--- %i of %i ---\n", i, nrow(struct_pars)))
-    one_struct_sobol_sims(i, .prog_args)
-    })
+sobol_sims <- all_sobol_sims(.prog_args)
 write_rds(sobol_sims, "sobol-sims-paired.rds", compress = "gz")
 t1 <- Sys.time()
 t1 - t0

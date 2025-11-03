@@ -41,18 +41,13 @@ suppressPackageStartupMessages({
 #'
 #'
 
-struct_pars <- crossing(alate_slope = c(0, pop_info$alate_slope),
-                        alate_max = 1 / c(10, 1),
-                        n_pseudo = 3L) |>
-    # I only want alate_max < 1 when alate_slope = 0:
-    filter((alate_slope == 0 & alate_max < 1) | (alate_slope > 0 & alate_max == 1))
 
 vary_pars <- list(Y0 = c(1, 9),
                   mean_N = c(10, 100),
                   sd_N = c(0, 50),
                   K = 12500 * c(0.1, 2),
-                  virus_attract = c(0, 5),
-                  pseudo_repel = c(0, 5),
+                  virus_attract = c(1, 5),
+                  pseudo_repel = c(1, 5),
                   pseudo_surv = c(0.85, 1), # <= 0.8344661 results in carrying capacity of ~0
                   zeta = c(0, 1),
                   spat_config = c(0L, 4L))
@@ -71,7 +66,7 @@ sobol_mat <- (\(i) {
     for (n in names(vary_pars)) {
         p1 <- min(vary_pars[[n]])
         p2 <- max(vary_pars[[n]])
-        if (n != "spat_config") {
+        if (! n %in% c("spat_config", "alate_dens")) {
             mat[,n] <- p1 + mat[,n] * (p2 - p1)
         } else {
             mat[,n] <- qinteger(mat[,n], p1, p2)
@@ -87,10 +82,12 @@ identical(sort(names(vary_pars)), sort(colnames(sobol_mat)))
 
 
 
-one_combo <- function(alate_slope, alate_max, n_pseudo,
+one_combo <- function(n_pseudo, alate_dens,
                       Y0, mean_N, sd_N, K, virus_attract, pseudo_repel, pseudo_surv,
                       zeta, spat_config,
                       n_sims, ...) {
+
+    stopifnot(alate_dens %in% 0:1)
 
     fly_p <- 0.05
     epsilon <- 1
@@ -105,6 +102,14 @@ one_combo <- function(alate_slope, alate_max, n_pseudo,
     # to use for lognormal:
     mu_N <- log(mean_N^2 / sqrt(mean_N^2 + sd_N^2))
     sigma_N <- sqrt(log(1 + sd_N^2 / mean_N^2))
+
+    if (alate_dens == 0L) {
+        alate_slope <- 0
+        alate_max  <- 0.075
+    } else {
+        alate_slope <- pop_info$alate_slope
+        alate_max <- 1
+    }
 
 
     land <- array(0L, c(n_x, n_y, n_sims))
@@ -199,42 +204,28 @@ one_combo <- function(alate_slope, alate_max, n_pseudo,
 
 
 
-one_struct_sobol_sims <- function(i, .prog_args = FALSE) {
-
-    args0 <- struct_pars |>
-        slice(i) |>
-        as.list()
+all_sobol_sims <- function(.prog_args = FALSE) {
 
     sim_outs <- map(1:nrow(sobol_mat), \(j) {
 
-        args_j <- args0
+        args <- rep(list(NA), ncol(sobol_mat)) |>
+            set_names(colnames(sobol_mat))
         for (n in colnames(sobol_mat)) {
-            args_j[[n]] <- unname(sobol_mat[j, n])
+            args[[n]] <- unname(sobol_mat[j, n])
         }
-        args_j[["n_sims"]] <- 100
+        args[["n_sims"]] <- 100
 
-        sim <- do.call(one_combo, args_j)
+        out_df <- crossing(n_pseudo = c(0L, 3L), alate_dens = 0:1)
 
-        args_j[["n_pseudo"]] <- 0L
-        sim0 <- do.call(one_combo, args_j)
+        out_df[["sims"]] <- pmap(out_df, \(n_pseudo, alate_dens) {
+            args[["n_pseudo"]] <- n_pseudo
+            args[["alate_dens"]] <- alate_dens
+            sim <- do.call(one_combo, args)
+            return(sim)
+        })
 
-        # out0 <- sim0[1,names(vary_pars)]
-        # out <- sim[1,names(vary_pars)]
-        # out0[["n_pseudo"]] <- 0L
-        # out[["n_pseudo"]] <- args_j[["n_pseudo"]]
-        # for (y in yvars) {
-        #     out0[[y]] <- mean(sim0[[y]], na.rm = TRUE)
-        #     out[[y]] <- mean(sim[[y]], na.rm = TRUE)
-        # }
-        # out0[["infect_time_Inf"]] <- mean(is.na(sim0[["infect_time"]]))
-        # out[["infect_time_Inf"]] <- mean(is.na(sim0[["infect_time"]]))
-        # return(bind_rows(out0, out))
-
-        out <- list(pseudo = sim, no_pseudo = sim0)
-        return(out)
-    }, .progress = .prog_args) |>
-        # list_rbind()
-        identity()
+        return(out_df)
+    }, .progress = .prog_args)
 
     return(sim_outs)
 }
