@@ -167,7 +167,8 @@ if (!all(file.exists(out_fn$rf))) {
 #'
 #' # Takes ~
 #' t0 <- Sys.time()
-#' ob_mse <- future_lapply(1:100, \(i) {
+#' set.seed(2106841574)
+#' ob_mse <- lapply(1:100, \(i) {
 #'     xm0 <- dob_train_df[,names(vary_pars)]
 #'     y <- dob_train_df[["outbreak_size"]]
 #'     mse0 <- Metrics::mse(y, predict(ob_rf, xm0) - predict(ob_rf0, xm0))
@@ -182,14 +183,13 @@ if (!all(file.exists(out_fn$rf))) {
 #'         out[[n]] <- mse2 / mse0
 #'     }
 #'     return(out)
-#' }, future.seed = 2106841574, future.packages = "randomForest") |>
+#' }) |>
 #'     list_rbind()
 #' t1 <- Sys.time()
 #' t1 - t0
 #'
 #' apply(as.matrix(ob_mse), 2, median)
 #' dob_rf_imp$results
-
 
 
 
@@ -203,6 +203,9 @@ partial_calc <- function(x, pred_data) {
 
     # x = ob_rf; pred_data = ob_train_df
     # rm(x, pred_data, n)
+
+    suppressPackageStartupMessages(library(future.apply))
+    with(plan(multisession, workers = options()[["mc.cores"]], gc = TRUE), local = TRUE)
 
     n <- nrow(pred_data)
 
@@ -270,19 +273,18 @@ if (!all(file.exists(out_fn$inter))) {
     #' This function creates an Interaction option and temporarily allows
     #' the future package to access large objects:
     make_inter <- \(rf_obj) {
+        suppressPackageStartupMessages(library(future.apply))
+        with(plan(multisession, workers = options()[["mc.cores"]], gc = TRUE),
+             local = TRUE)
         oopts <- options(future.globals.maxSize = 1.5e9)  ## 1.5 GB
         on.exit(options(oopts))
         Interaction$new(rf_obj)
     }
-    # Make futures garbage collect to save memory:
-    plan(multisession, workers = options()[["mc.cores"]], gc = TRUE)
     # Takes ~1.5 min each
     ob_rf_int <- make_inter(ob_rf_pred)
     dob_rf_int <- make_inter(dob_rf_pred)
     write_rds(ob_rf_int, out_fn$inter[["ob"]], compress = "gz")
     write_rds(dob_rf_int, out_fn$inter[["dob"]], compress = "gz")
-    # Go back to default configuration:
-    plan(multisession, workers = options()[["mc.cores"]])
 } else {
     ob_rf_int <- read_rds(out_fn$inter[["ob"]])
     dob_rf_int <- read_rds(out_fn$inter[["dob"]])
@@ -300,19 +302,18 @@ if (!all(file.exists(out_fn$imp))) {
     #' This function creates an FeatureImp option and temporarily allows
     #' the future package to access large objects:
     make_imp <- \(rf_obj) {
+        suppressPackageStartupMessages(library(future.apply))
+        with(plan(multisession, workers = options()[["mc.cores"]], gc = TRUE),
+             local = TRUE)
         oopts <- options(future.globals.maxSize = 1.5e9)  ## 1.5 GB
         on.exit(options(oopts))
         FeatureImp$new(rf_obj, loss = "mse", n.repetitions = 100)
     }
-    # Make futures garbage collect to save memory:
-    plan(multisession, workers = options()[["mc.cores"]], gc = TRUE)
     # Take ~4 min each
     ob_rf_imp <- make_imp(ob_rf_pred)
     dob_rf_imp <- make_imp(dob_rf_pred)
     write_rds(ob_rf_imp, out_fn$imp[["ob"]], compress = "gz")
     write_rds(dob_rf_imp, out_fn$imp[["dob"]], compress = "gz")
-    # Go back to default configuration:
-    plan(multisession, workers = options()[["mc.cores"]])
 } else {
     ob_rf_imp <- read_rds(out_fn$imp[["ob"]])
     dob_rf_imp <- read_rds(out_fn$imp[["dob"]])
