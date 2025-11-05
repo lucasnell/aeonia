@@ -2,18 +2,12 @@
 suppressPackageStartupMessages({
     library(tidyverse)
     library(aeonia)
-    library(future.apply)
-    library(progressr)
     library(patchwork)
     library(ggtext)
 })
 
 # Set threads for simulations:
 options("mc.cores" = max(1L, parallel::detectCores()-2))
-
-plan(multisession, workers = options()[["mc.cores"]])
-handlers(global = TRUE)
-handlers("progress")
 
 # For purrr progress bar:
 .prog_args <- list(clear = FALSE,
@@ -40,8 +34,14 @@ CC <- function(K, pseudo_surv, pred_surv){
 }
 
 
-spp_pal <- viridisLite::plasma(101)[c(10, 50, 80)] |>
+spp_pal <- viridisLite::plasma(101)[c(75, 55, 10)] |>
     set_names(c("aphids", "alates", "wasps"))
+# Uncomment below to see (in RStudio):
+# "#F79143FF" "#D5536FFF" "#3E049CFF"
+
+
+
+
 # pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 serify <- function(prefix, x, suffix) {
