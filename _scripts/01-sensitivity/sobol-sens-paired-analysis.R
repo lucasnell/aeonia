@@ -161,11 +161,13 @@ scatter <- function(sim_outs,
                       axis.title.x = element_markdown())
             if (p == "spat_config") {
                 plt <- plt +
-                    stat_summary(fun = "mean", size = 4, geom = "point") +
+                    stat_summary(fun = "mean", size = 4, geom = "point",
+                                 color = "dodgerblue") +
                     theme(legend.position = "none")
             } else {
                 plt <- plt +
                     stat_smooth(method = "gam",
+                                color = "dodgerblue",
                                 formula = y ~ s(x, bs = "cs"),
                                 se = TRUE, linewidth = 1)
             }
@@ -265,18 +267,9 @@ sobol_summs |>
 
 
 
-# LEFT OFF #1 ----
+# QUESTION #1 ----
 #' For parameter combos that seemed to result in a negative
 #' effect of Pseudomonas, does alate ~ density affect outcomes?
-# Test the top 100 parameter combinations:
-diff_test_combos <- diff_sobol_summs |>
-    filter(alate_dens == 1) |>
-    arrange(desc(outbreak_size)) |>
-    getElement("combo") |>
-    head(n = 100)
-
-
-
 
 alate_dens_p <- diff_sobol_summs |>
     group_by(combo) |>
@@ -293,8 +286,12 @@ alate_dens_p <- diff_sobol_summs |>
          y = "Effect of *Pseudomonas* on outbreak size - constant alates") +
     theme(axis.title.x = element_markdown(),
           axis.title.y = element_markdown())
-
+# alate_dens_p
 # save_plot("_plots/alate-dens.pdf", alate_dens_p, width = 6, height = 6)
+
+# Answer: Yes, having the alate ~ density effect makes typically makes
+# *Pseudomonas* less beneficial to plants
+
 
 
 
@@ -303,159 +300,687 @@ alate_dens_p <- diff_sobol_summs |>
 # LEFT OFF #2 ----
 #' What parameter values are associated with Pseudomonas being bad for plants?
 
-# Paired time series for with and without Pseudomonas
-# Note: only takes output summarized by plant, will summarize in the function
-#       if `by_plant  = FALSE`
-timeseries <- function(sim_df_p,
-                       sim_df_np,
-                       by_plant = FALSE,
-                       .rep = NULL,
-                       .title = waiver()) {
 
-    # sim_df_p = sim_df; sim_df_np = sim0_df; .rep = NULL; by_plant = TRUE; .title = waiver()
-    # rm(sim_df_p, sim_df_np, by_plant, .rep, .title, all_sims, aphids, wasps, virus, max_virus, max_aphids, max_wasps, itrans, trans, itrans2, trans2, aphid_breaks, aphid_labels, aphid_ylab, col_pal, p)
+# Paired plot functions ----
+
+# Paired time series for with and without Pseudomonas
+# Note: only takes output summarized by plant
+paired_timeseries <- function(sim_df_p,
+                              sim_df_np,
+                              .rep = NULL,
+                              .alate_max = NULL,
+                              .aphid_max = NULL,
+                              .wasp_max = NULL,
+                              .title = waiver(),
+                              .tag = waiver()) {
+
+    # sim_df_p = max_diff_sims2; sim_df_np = max_diff_sims02; .rep = NULL; .title = waiver()
+    # rm(sim_df_p, sim_df_np, .rep, .title, all_sims, itrans_w, trans_w, itrans_a, trans_a, aphid_breaks, aphid_labels, aphid_ylab, plot_list)
 
     stopifnot(identical(colnames(sim_df_p), colnames(sim_df_np)))
     stopifnot("n_pseudo" %in% colnames(sim_df_p))
     stopifnot("x" %in% colnames(sim_df_p) && "y" %in% colnames(sim_df_p))
-    if (is.null(.rep) && !by_plant) .rep <- unique(sim_df_p$rep)
-    if (is.null(.rep) && by_plant) .rep <- sample(unique(sim_df_p$rep), 1)
+    if (is.null(.rep)) .rep <- 1L
+    stopifnot(length(.rep) == 1 && is.numeric(.rep))
     stopifnot(all(.rep %in% sim_df_p$rep) && all(.rep %in% sim_df_np$rep))
-    stopifnot(!by_plant || length(.rep) == 1)
 
-    all_sims <- bind_rows(sim_df_p, sim_df_np) |>
-        filter(rep %in% .rep) |>
-        mutate(x = ifelse(x == 0, NA, x),
-               y = ifelse(y == 0, NA, y),
-               plant = interaction(x, y),
-               rep = factor(rep),
-               n_pseudo = factor(n_pseudo),
-               id = interaction(n_pseudo, rep)) |>
-        mutate(aphids = aphids + parasitized) |>
-        select(id, n_pseudo, rep, plant, time, virus, aphids, alates, wasps)
-    wasps <- all_sims |>
-        filter(!is.na(wasps)) |>
-        mutate(id = interaction(n_pseudo, rep)) |>
-        select(id, n_pseudo, rep, time, wasps)
-    aphids <- all_sims |>
-        filter(!is.na(plant)) |>
-        select(id, n_pseudo:time, aphids)
-    if (by_plant) {
-        virus <- all_sims |>
-            filter(!is.na(plant)) |>
-            group_by(n_pseudo, rep, plant) |>
-            filter(virus == 1) |>
-            filter(time == min(time)) |>
-            ungroup() |>
-            select(id:time, virus)
-        max_virus <- 1
-        alates <- all_sims |>
-            filter(!is.na(plant)) |>
-            select(id, n_pseudo:time, alates)
-    } else {
-        virus <- all_sims |>
-            filter(is.na(plant)) |>
-            select(id, n_pseudo, rep, time, virus)
-        # Max virus is the total number of plants:
-        max_virus <- bind_rows(sim_df_p, sim_df_np) |>
-            filter(x > 0) |>
-            distinct(x, y) |>
-            nrow()
-        aphids <- aphids |>
-            group_by(id, n_pseudo, rep, time) |>
-            summarize(aphids = sum(aphids), .groups = "drop")
-        alates <- all_sims |>
-            filter(is.na(plant)) |>
-            select(id, n_pseudo, rep, time, alates)
+    stopifnot(!is.null(sim_df_p[["zeta"]]) && !is.null(sim_df_np[["zeta"]]))
+
+    all_sims <- list(sim_df_p, sim_df_np) |>
+        map(\(x) {
+            zeta <- x$zeta[[1]]
+            x |>
+                filter(rep %in% .rep) |>
+                mutate(x = ifelse(x == 0, NA, x),
+                       y = ifelse(y == 0, NA, y),
+                       plant = interaction(x, y),
+                       n_pseudo = factor(n_pseudo)) |>
+                mutate(aphids = aphids + parasitized) |>
+                select(n_pseudo, plant, time, aphids, alates, wasps) |>
+                split(~ time, drop = TRUE) |>
+                map(\(df_t) {
+                    Y <- df_t$wasps[!is.na(df_t$wasps)]
+                    stopifnot(length(Y) == 1)
+                    z_i <- df_t$aphids[!is.na(df_t$plant)] + df_t$alates[!is.na(df_t$plant)]
+                    hat_z_i <- z_i / sum(z_i)
+                    q <- length(z_i)
+                    gamma_i <- Y * {(1 - zeta) / q + zeta * hat_z_i}
+                    df_t_out <- df_t[is.na(df_t$wasps),]
+                    df_t_out$wasps <- gamma_i
+                    return(df_t_out)
+                }) |>
+                list_rbind() |>
+                pivot_longer(aphids:wasps, names_to = "species",
+                             values_to = "density")
+        })
+
+    dens_maxes <- c("aphids", "alates", "wasps") |>
+        set_names() |>
+        map(\(spp) {
+            map(all_sims, \(x) x$density[x$species == spp]) |>
+                do.call(what = c) |>
+                max(na.rm = TRUE)
+        })
+    if (!is.null(.alate_max)) {
+        if (.alate_max < dens_maxes$alates) {
+            stop("\nIncrease .alate_max to at least ", dens_maxes$alates)
+        }
+        dens_maxes$alates <- .alate_max
+    }
+    if (!is.null(.aphid_max)) {
+        if (.aphid_max < dens_maxes$aphids) {
+            stop("\nIncrease .aphid_max to at least ", dens_maxes$aphids)
+        }
+        dens_maxes$aphids <- .aphid_max
+    }
+    if (!is.null(.wasp_max)) {
+        if (.wasp_max < dens_maxes$wasps) {
+            stop("\nIncrease .wasp_max to at least ", dens_maxes$wasps)
+        }
+        dens_maxes$wasps <- .wasp_max
     }
 
-    max_aphids <- max(aphids$aphids, na.rm = TRUE)
-    max_wasps <- max(wasps$wasps, na.rm = TRUE)
-    max_alates <- max(alates$alates, na.rm = TRUE)
     # convert from wasps --> aphids:
-    trans <- \(x) x * max_aphids / max_wasps
+    trans_w <- \(x) x * dens_maxes$aphids / dens_maxes$wasps
     # convert from aphids --> wasps:
-    itrans <- \(x) x * max_wasps / max_aphids
+    itrans_w <- \(x) x * dens_maxes$wasps / dens_maxes$aphids
     # convert from alates --> aphids:
-    trans2 <- \(x) x * max_aphids / max_alates
+    trans_a <- \(x) x * dens_maxes$aphids / dens_maxes$alates
     # convert from aphids --> alates:
-    itrans2 <- \(x) x * max_alates / max_aphids
+    itrans_a <- \(x) x * dens_maxes$alates / dens_maxes$aphids
 
-    col_pal <- viridisLite::plasma(4) |>
-        set_names(c("aphids", "alates", "wasps", "virus")) |>
-        as.list()
-
-    aphid_breaks <- scales::breaks_extended(n = 4)(aphids$aphids)
-    aphid_labels <- sprintf(paste0("%s (<span style=\"color: ", col_pal$alates,
+    aphid_breaks <- scales::breaks_extended(n = 4)(c(0, dens_maxes$aphids))
+    aphid_labels <- sprintf(paste0("%s (<span style=\"color: ", spp_pal[["alates"]],
                                    ";\">%.1f</span>)"), aphid_breaks,
-                            itrans2(aphid_breaks))
-    aphid_ylab <- paste0("Aphid density (<span style=\"color: ", col_pal$alates,
+                            itrans_a(aphid_breaks))
+    aphid_ylab <- paste0("Aphid density (<span style=\"color: ", spp_pal[["alates"]],
                         ";\">alate density</span>)")
 
 
-    p <- aphids |>
-        ggplot(aes(time, alpha = n_pseudo, linewidth = n_pseudo)) +
-        geom_line(aes(y = aphids, group = id),
-                  color = col_pal$aphids) +
-        geom_line(data = alates, aes(y = alates * max_aphids / max_alates, group = id),
-                  color = col_pal$alates) +
-        geom_line(data = wasps, aes(y = trans(wasps), group = id),
-                  color = col_pal$wasps) +
-        scale_y_continuous(aphid_ylab,
-                           breaks = aphid_breaks,
-                           labels = aphid_labels,
-                           sec.axis = sec_axis(itrans, "Wasp density")) +
-        # scale_linetype_manual(pretty_params("n_pseudo", TRUE),
-        #                       values = c("22", "solid")) +
-        scale_alpha_manual(pretty_params("n_pseudo", TRUE), values = c(0.3, 1)) +
-        scale_linewidth_manual(pretty_params("n_pseudo", TRUE), values = c(1.25, 0.75)) +
-        guides(alpha = guide_legend(override.aes =
-                                        list(color = alpha("gray", c(0.3, 1))))) +
-        labs(title = .title, x = "Time (days)") +
+    plot_list <- map(1:length(all_sims), \(i) {
+        sims <- all_sims[[i]]
+        tag__ <- .tag
+        if (i > 1) tag__ <- waiver()
+        sims |>
+            mutate(density = case_when(species == "aphids" ~ density,
+                                       species == "alates" ~ trans_a(density),
+                                       species == "wasps" ~ trans_w(density),
+                                       .default = NA)) |>
+            ggplot(aes(time, density)) +
+            geom_line(aes(color = species), linewidth = 1) +
+            facet_wrap( ~ plant, nrow = 3) +
+            scale_y_continuous(aphid_ylab,
+                               breaks = aphid_breaks,
+                               labels = aphid_labels,
+                               sec.axis = sec_axis(itrans_w, "Wasp density")) +
+            scale_color_manual(values = spp_pal, guide = "none") +
+            labs(title = sprintf("%s *Pseudomonas* patches", sims$n_pseudo[[1]]),
+                 x = "Time (days)",
+                 tag = tag__) +
+            coord_cartesian(ylim = c(0, dens_maxes$aphids)) +
+            theme(plot.title = element_markdown(hjust = 0.5),
+                  legend.title = element_markdown(),
+                  plot.tag = element_markdown(size = 16),
+                  plot.tag.location = "plot",
+                  axis.title.y.left = element_markdown(color = spp_pal[["aphids"]],
+                                                       face = "bold"),
+                  axis.title.y.right = element_markdown(color = spp_pal[["wasps"]],
+                                                        face = "bold"),
+                  axis.text.y.left = element_markdown(color = spp_pal[["aphids"]]),
+                  axis.text.y.right = element_markdown(color = spp_pal[["wasps"]]))
+    })
+
+
+    do.call(wrap_plots, plot_list) +
+        plot_layout(design = "A#B", widths = c(1, 0.05, 1), axes = "collect") +
+        plot_annotation(title = .title,
+                        theme = theme(plot.title = element_markdown()))
+}
+
+# Paired histogram of P(alates) for with and without Pseudomonas
+# Note: only takes output summarized by plant
+paired_p_alate_hist <- function(sim_df_p,
+                                sim_df_np,
+                                .rep = NULL,
+                                alate_infl = NULL,
+                                alate_slope = NULL,
+                                .title = waiver(),
+                                .tag = waiver()) {
+
+    # sim_df_p = max_diff_sims; sim_df_np = max_diff_sims0; .rep = NULL; alate_infl = NULL; alate_slope = NULL; .title = waiver(); .tag = NULL
+    # rm(sim_df_p, sim_df_np, .rep, alate_infl, alate_slope, .title, .tag, all_sims)
+
+    stopifnot(identical(colnames(sim_df_p), colnames(sim_df_np)))
+    stopifnot("n_pseudo" %in% colnames(sim_df_p))
+    stopifnot("x" %in% colnames(sim_df_p) && "y" %in% colnames(sim_df_p))
+    if (is.null(.rep)) .rep <- unique(c(sim_df_p$rep, sim_df_np$rep))
+    stopifnot(length(.rep) == 1 && is.numeric(.rep))
+    stopifnot(all(.rep %in% sim_df_p$rep) && all(.rep %in% sim_df_np$rep))
+
+    if (is.null(alate_infl)) alate_infl <- pop_info$alate_infl
+    if (is.null(alate_slope)) alate_slope <- pop_info$alate_slope
+
+    all_sims <- list(sim_df_p, sim_df_np) |>
+        map(\(x) {
+            x |>
+                filter(rep %in% .rep) |>
+                filter(x > 0) |>
+                mutate(plant = interaction(x, y),
+                       n_pseudo = factor(n_pseudo)) |>
+                mutate(z = aphids + parasitized + alates) |>
+                select(n_pseudo, rep, plant, time, z) |>
+                mutate(p_alate = 1 / (1 + 10^((alate_infl - z) * alate_slope)))
+        }) |>
+        list_rbind() |>
+        mutate(n_pseudo = factor(paste(n_pseudo),
+                                 levels = paste(sort(unique(n_pseudo))),
+                                 labels = sprintf("%s *Pseudomonas* patches",
+                                                  paste(sort(unique(n_pseudo))))))
+
+
+    all_sims |>
+        # filter(p_alate > 1e-2) |>
+        mutate(id = interaction(rep, plant, n_pseudo, drop = TRUE)) |>
+        # ggplot(aes(time, p_alate)) +
+        # geom_line(aes(group = id), linewidth = 1) +
+        ggplot(aes((p_alate), after_stat(density))) +
+        geom_histogram(aes(fill = n_pseudo), bins = 50) +
+        scale_fill_manual(values = c("#1E90FF", "gray60"), guide = "none") +
+        facet_wrap( ~ n_pseudo)+
+        scale_y_sqrt() +
+        labs(x = "Proportion alate offspring", y = "Density") +
+        # geom_freqpoly(aes(color = n_pseudo), bins = 20, linewidth = 1) +
+        # scale_color_manual(pretty_params("n_pseudo", TRUE),
+        #                    values = c("#1E90FF", "gray60")) +
         theme(plot.title = element_markdown(hjust = 0.5),
               legend.title = element_markdown(),
-              axis.title.y.left = element_markdown(color = col_pal$aphids,
-                                                   face = "bold"),
-              axis.title.y.right = element_markdown(color = col_pal$wasps,
-                                                    face = "bold"),
-              axis.text.y.left = element_markdown(color = col_pal$aphids),
-              axis.text.y.right = element_markdown(color = col_pal$wasps))
+              plot.tag = element_markdown(size = 16),
+              plot.tag.location = "plot",
+              strip.text = element_markdown(size = 14),
+              axis.title.y = element_markdown(),
+              axis.text.x = element_markdown())
+}
 
-    if (by_plant) {
-        p <- p +
-            # geom_vline(data = virus, aes(xintercept = time), color = "#EC008C") +
-            facet_wrap( ~ plant, nrow = 3) +
-            scale_color_viridis_d(begin = 0.1, end = 0.9, guide = "none")
-    } else {
-        p <- p +
-            geom_line(data = virus, aes(y = virus * max_aphids / max_virus),
-                      color = col_pal$virus) +
-            facet_wrap(~ rep, labeller = label_both)
+
+
+# Paired plots of wasp attack survivals for with and without Pseudomonas
+# Note: only takes output summarized by plant
+paired_attack_plots <- function(sim_df_p,
+                                sim_df_np,
+                                .rep = NULL,
+                                .title = waiver(),
+                                .tag = waiver()) {
+
+    # sim_df_p = max_diff_sims2; sim_df_np = max_diff_sims02; .rep = NULL; .title = waiver(); .tag = waiver()
+    # rm(sim_df_p, sim_df_np, .rep, .title, .tag, all_sims, plot_list)
+
+    stopifnot(identical(colnames(sim_df_p), colnames(sim_df_np)))
+    stopifnot("n_pseudo" %in% colnames(sim_df_p))
+    stopifnot("x" %in% colnames(sim_df_p) && "y" %in% colnames(sim_df_p))
+    if (is.null(.rep)) .rep <- 1L
+    stopifnot(length(.rep) == 1 && is.numeric(.rep))
+    stopifnot(all(.rep %in% sim_df_p$rep) && all(.rep %in% sim_df_np$rep))
+
+    stopifnot(!is.null(sim_df_p[["zeta"]]) && !is.null(sim_df_np[["zeta"]]))
+
+    all_sims <- list(sim_df_p, sim_df_np) |>
+        map(\(x) {
+            zeta <- x$zeta[[1]]
+            x |>
+                filter(rep %in% .rep) |>
+                mutate(x = ifelse(x == 0, NA, x),
+                       y = ifelse(y == 0, NA, y),
+                       plant = interaction(x, y),
+                       n_pseudo = factor(n_pseudo)) |>
+                mutate(aphids = aphids + parasitized) |>
+                select(n_pseudo, plant, time, aphids, alates, wasps) |>
+                split(~ time, drop = TRUE) |>
+                map(\(df_t) {
+                    Y <- df_t$wasps[!is.na(df_t$wasps)]
+                    stopifnot(length(Y) == 1)
+                    z_i <- df_t$aphids[!is.na(df_t$plant)] + df_t$alates[!is.na(df_t$plant)]
+                    hat_z_i <- z_i / sum(z_i)
+                    q <- length(z_i)
+                    gamma_i <- Y * {(1 - zeta) / q + zeta * hat_z_i}
+                    df_t_out <- df_t[is.na(df_t$wasps),]
+                    df_t_out$wasps <- gamma_i
+                    return(df_t_out)
+                }) |>
+                list_rbind() |>
+                pivot_longer(aphids:wasps, names_to = "species",
+                             values_to = "density")
+        })
+
+    dens_maxes <- c("aphids", "alates", "wasps") |>
+        set_names() |>
+        map(\(spp) {
+            map(all_sims, \(x) x$density[x$species == spp]) |>
+                do.call(what = c) |>
+                max(na.rm = TRUE)
+        })
+    if (!is.null(.alate_max)) {
+        if (.alate_max < dens_maxes$alates) {
+            stop("\nIncrease .alate_max to at least ", dens_maxes$alates)
+        }
+        dens_maxes$alates <- .alate_max
+    }
+    if (!is.null(.aphid_max)) {
+        if (.aphid_max < dens_maxes$aphids) {
+            stop("\nIncrease .aphid_max to at least ", dens_maxes$aphids)
+        }
+        dens_maxes$aphids <- .aphid_max
+    }
+    if (!is.null(.wasp_max)) {
+        if (.wasp_max < dens_maxes$wasps) {
+            stop("\nIncrease .wasp_max to at least ", dens_maxes$wasps)
+        }
+        dens_maxes$wasps <- .wasp_max
     }
 
-    return(p)
+    # convert from wasps --> aphids:
+    trans_w <- \(x) x * dens_maxes$aphids / dens_maxes$wasps
+    # convert from aphids --> wasps:
+    itrans_w <- \(x) x * dens_maxes$wasps / dens_maxes$aphids
+    # convert from alates --> aphids:
+    trans_a <- \(x) x * dens_maxes$aphids / dens_maxes$alates
+    # convert from aphids --> alates:
+    itrans_a <- \(x) x * dens_maxes$alates / dens_maxes$aphids
+
+    aphid_breaks <- scales::breaks_extended(n = 4)(c(0, dens_maxes$aphids))
+    aphid_labels <- sprintf(paste0("%s (<span style=\"color: ", spp_pal[["alates"]],
+                                   ";\">%.1f</span>)"), aphid_breaks,
+                            itrans_a(aphid_breaks))
+    aphid_ylab <- paste0("Aphid density (<span style=\"color: ", spp_pal[["alates"]],
+                         ";\">alate density</span>)")
+
+
+    plot_list <- map(1:length(all_sims), \(i) {
+        sims <- all_sims[[i]]
+        tag__ <- .tag
+        if (i > 1) tag__ <- waiver()
+        sims |>
+            mutate(density = case_when(species == "aphids" ~ density,
+                                       species == "alates" ~ trans_a(density),
+                                       species == "wasps" ~ trans_w(density),
+                                       .default = NA)) |>
+            ggplot(aes(time, density)) +
+            geom_line(aes(color = species), linewidth = 1) +
+            facet_wrap( ~ plant, nrow = 3) +
+            scale_y_continuous(aphid_ylab,
+                               breaks = aphid_breaks,
+                               labels = aphid_labels,
+                               sec.axis = sec_axis(itrans_w, "Wasp density")) +
+            scale_color_manual(values = spp_pal, guide = "none") +
+            labs(title = sprintf("%s *Pseudomonas* patches", sims$n_pseudo[[1]]),
+                 x = "Time (days)",
+                 tag = tag__) +
+            coord_cartesian(ylim = c(0, dens_maxes$aphids)) +
+            theme(plot.title = element_markdown(hjust = 0.5),
+                  legend.title = element_markdown(),
+                  plot.tag = element_markdown(size = 16),
+                  plot.tag.location = "plot",
+                  axis.title.y.left = element_markdown(color = spp_pal[["aphids"]],
+                                                       face = "bold"),
+                  axis.title.y.right = element_markdown(color = spp_pal[["wasps"]],
+                                                        face = "bold"),
+                  axis.text.y.left = element_markdown(color = spp_pal[["aphids"]]),
+                  axis.text.y.right = element_markdown(color = spp_pal[["wasps"]]))
+    })
+
+
+    do.call(wrap_plots, plot_list) +
+        plot_layout(design = "A#B", widths = c(1, 0.05, 1), axes = "collect") +
+        plot_annotation(title = .title,
+                        theme = theme(plot.title = element_markdown()))
+}
+
+
+# For this function, it's assumed that you want to summarize by rep if it's
+# not summarized by anything (and `.all = FALSE`) and that you want to
+# summarize across all reps if it's already summarized by rep (or if `.all = TRUE`)
+calc_metrics <- function(sims, .all = TRUE) {
+    if ("x" %in% colnames(sims)) {
+        out <- sims |>
+            filter(!is.na(wasps)) |>
+            group_by(rep) |>
+            summarize(outbreak_size = max(virus),
+                      log_aphids = mean(log10(1 + aphids + parasitized)),
+                      log_alates = mean(log10(1 + alates)),
+                      log_wasps = mean(log10(1 + wasps)))
+        if (!.all) return(out)
+    } else {
+        out <- sims
+    }
+
+    out <- out |>
+        summarize(across(all_of(c("outbreak_size", "log_aphids",
+                                  "log_alates", "log_wasps")),
+                         mean))
+
+    return(out)
+}
+
+
+paired_target_sims <- function(.combo, .n_sims = 4L, .summ = "none",
+                               ...) {
+    # .combo = 7112L
+    # rm(.combo, arg_list, other_args, out)
+    arg_list <- sobol_summs |>
+        filter(combo == .combo) |>
+        filter(alate_dens == 1, n_pseudo > 0) |>
+        select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
+        as.list()
+    other_args <- list(...)
+    stopifnot(length(other_args) >= 1L)
+    stopifnot(!is.null(names(other_args)) && !any(names(other_args) == ""))
+    stopifnot(all(names(other_args) %in% c(names(formals(one_combo)),
+                                           names(formals(sim_plantscape)),
+                                           names(formals(make_insect_ptr)))))
+    out <- crossing(others = c(FALSE, TRUE),
+             n_pseudo = c(0L, arg_list$n_pseudo)) |>
+        pmap(\(others, n_pseudo) {
+            args <- c(arg_list, list(n_sims = .n_sims, summ = .summ))
+            if (others) {
+                for (n in names(other_args)) args[[n]] <- other_args[[n]]
+            }
+            if (n_pseudo == 0L) args$n_pseudo <- 0L
+            .sims <- do.call(one_combo, args)
+            .out <- select(.sims, n_pseudo, rep:last_col())
+            for (n in names(other_args)) {
+                if (n %in% colnames(.sims)) {
+                    .out[[n]] <- .sims[[n]]
+                } else if (n %in% names(formals(sim_plantscape))) {
+                    .out[[n]] <- formals(sim_plantscape)[[n]]
+                } else if (n %in% names(formals(make_insect_ptr))) {
+                    .out[[n]] <- formals(make_insect_ptr)[[n]]
+                } else stop("\nCannot find ", n)
+            }
+            return(.out)
+        }) |>
+        list_rbind() |>
+        select(all_of(names(other_args)), n_pseudo, everything())
+
+    return(out)
 
 }
 
-calc_metrics <- function(sims) {
-    sims |>
-        filter(!is.na(wasps)) |>
-        group_by(rep) |>
-        summarize(outbreak_size = max(virus),
-                  log_aphids = mean(log10(1 + aphids + parasitized)),
-                  log_alates = mean(log10(1 + alates)),
-                  log_wasps = mean(log10(1 + wasps)))
+
+
+one_combo_par_manip_simmer <- function(.combo) {
+
+    # .combo = 5624
+    # rm(.combo, paras, sim_list)
+
+    pars <- list(Y0 = 1:20,
+                 mean_N = 1:20 * 10,
+                 sd_N = 0:20 * 5,
+                 K = 1:25 * 1000,
+                 virus_attract = seq(1, 5, 0.25),
+                 pseudo_repel = seq(1, 5, 0.25),
+                 pseudo_surv = seq(0.85, 1, 0.01),
+                 zeta = seq(0, 1, 0.05),
+                 spat_config = 0:4) |>
+        map(\(x) round(x, 2))
+
+    sim_list <- names(pars) |>
+        map(\(x_name) {
+            # x_name = "K"
+            # rm(x_name, df_og, df_x, df_max_diff)
+            df_og <- sobol_summs |>
+                filter(combo == .combo) |>
+                filter(alate_dens == 1) |>
+                select(n_pseudo, all_of(x_name), outbreak_size) |>
+                mutate(n_pseudo = factor(n_pseudo))
+            df_x <- pars[[x_name]] |>
+                map(\(x) {
+                    args <- sobol_summs |>
+                        filter(combo == .combo) |>
+                        filter(alate_dens == 1, n_pseudo > 0) |>
+                        select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
+                        as.list()
+                    args[[x_name]] <- x
+                    args <- c(args, list(n_sims = 1000, summ = "all"))
+                    np <- args[["n_pseudo"]]
+                    .sims <- do.call(one_combo, args) |>
+                        getElement("outbreak_size") |>
+                        mean()
+                    args[["n_pseudo"]] <- 0L
+                    .sims0 <- do.call(one_combo, args) |>
+                        getElement("outbreak_size") |>
+                        mean()
+                    return(tibble(!! x_name := x,
+                                  n_pseudo = factor(c(0L, np)),
+                                  outbreak_size = c(.sims0, .sims)))
+                }) |>
+                list_rbind() |>
+                mutate(combo = .combo) |>
+                select(combo, everything())
+            return(df_x)
+        })
+
+    return(sim_list)
 }
 
 
+
+one_combo_par_manip_plotter <- function(sim_list) {
+
+    .combo <- sim_list[[1]][["combo"]][[1]]
+
+    plot_list <- sim_list |>
+        map(\(df_x) {
+            # x_name = "K"
+            # rm(x_name, df_og, df_x, df_max_diff)
+            x_name <- colnames(df_x)[2]
+            df_og <- sobol_summs |>
+                filter(combo == .combo) |>
+                filter(alate_dens == 1) |>
+                select(n_pseudo, all_of(x_name), outbreak_size) |>
+                mutate(n_pseudo = factor(n_pseudo))
+            df_max_diff <- df_x |>
+                group_by(across(all_of(x_name))) |>
+                summarize(dos = outbreak_size[as.integer(n_pseudo) == 2L] -
+                              outbreak_size[as.integer(n_pseudo) == 1L],
+                          .groups = "drop") |>
+                filter(dos == max(dos)) |>
+                slice(1) |>
+                getElement(x_name)
+            df_x |>
+                ggplot(aes(.data[[x_name]], outbreak_size, color = n_pseudo)) +
+                geom_hline(yintercept = c(1, 9), color = "gray70") +
+                geom_vline(xintercept = df_max_diff, color = "gray70",
+                           linetype = "22") +
+                geom_point() +
+                geom_line() +
+                geom_point(data = df_og, size = 3, shape = 8) +
+                labs(x = pretty_params(x_name) |> first_cap(),
+                     y = yvar_desc[["outbreak_size"]] |> first_cap()) +
+                scale_y_continuous(breaks = c(1, 5, 9)) +
+                coord_cartesian(ylim = c(1, 9)) +
+                scale_color_manual(pretty_params("n_pseudo", TRUE),
+                                   values = c("goldenrod", "dodgerblue")) +
+                guides(color = guide_legend(override.aes = list(shape = 19))) +
+                theme(axis.title.x = element_markdown(),
+                      axis.title.y = element_markdown(),
+                      legend.title = element_markdown())
+        })
+
+    plot_list |>
+        do.call(what = wrap_plots) +
+        plot_layout(guides = "collect", axes = "collect") +
+        plot_annotation(title = sprintf("combo %i", .combo))
+}
+
+
+
+
+
+# *LEFT OFF 5-Nov ----
 diff_sobol_summs |>
     filter(alate_dens == 1) |>
     arrange(desc(outbreak_size)) |>
     select(combo, all_of(names(vary_pars)), outbreak_size)
 
-i = 7112L
 
-set.seed(1032439295)
+# Highest outbreak size difference:
+combo_sims1 <- one_combo_par_manip_simmer(7112)
+# higher virus_attract and pseudo_repel:
+combo_sims2 <- one_combo_par_manip_simmer(5624)
+# higher zeta, spat_config = 3 (vs 1 or 2):
+combo_sims3 <- one_combo_par_manip_simmer(10940)
+
+
+combo_p1 <- one_combo_par_manip_plotter(combo_sims1)
+combo_p2 <- one_combo_par_manip_plotter(combo_sims2)
+combo_p3 <- one_combo_par_manip_plotter(combo_sims3)
+
+combo_p1
+combo_p2
+combo_p3
+
+
+# save_plot("_plots/combo-plot1.png", combo_p1, width = 8, height = 5, dpi = 150)
+# save_plot("_plots/combo-plot2.png", combo_p2, width = 8, height = 5, dpi = 150)
+# save_plot("_plots/combo-plot3.png", combo_p3, width = 8, height = 5, dpi = 150)
+
+
+
+max_diff_args <- list(alate_dens = 1L,
+                      Y0 = 2.5,
+                      mean_N = 25,
+                      sd_N = 0,
+                      K = 23e3,
+                      virus_attract = 1,
+                      pseudo_repel = 1,
+                      pseudo_surv = 0.85,
+                      zeta = 0.0,
+                      spat_config = 1L,
+                      n_sims = 1e3L,
+                      n_pseudo = 3L,
+                      summ = "none")
+max_diff_sims <- do.call(one_combo, max_diff_args)
+max_diff_sims0 <- do.call(one_combo, list_assign(max_diff_args, n_pseudo = 0L))
+
+paired_timeseries(max_diff_sims, max_diff_sims0, .title = "Original")
+
+
+max_diff_sims2 <- do.call(one_combo, list_assign(max_diff_args, pseudo_surv = 0.95))
+max_diff_sims02 <- do.call(one_combo, list_assign(max_diff_args, pseudo_surv = 0.95, n_pseudo = 0L))
+
+bind_rows(calc_metrics(max_diff_sims), calc_metrics(max_diff_sims0),
+          calc_metrics(max_diff_sims2), calc_metrics(max_diff_sims02)) |>
+    mutate(n_pseudo = c(3, 0, 3, 0),
+           type = c(rep("orig", 2), rep("modified", 2))) |>
+    select(type, n_pseudo, everything())
+
+paired_timeseries(max_diff_sims, max_diff_sims0, .tag = "Original",
+                  .aphid_max = 1389, .alate_max = 94, .wasp_max = 39) /
+    paired_timeseries(max_diff_sims2, max_diff_sims02,
+                      .tag = serify("", "&psi;", " = 0.95"),
+                      .aphid_max = 1389, .alate_max = 94, .wasp_max = 39) &
+    theme(panel.grid.major.y = element_line(color = "gray80"))
+
+
+
+
+
+
+
+
+
+
+
+max_diff_sims_ob <- max_diff_sims |>
+    select(rep:last_col()) |>
+    filter(!is.na(wasps)) |>
+    group_by(rep) |>
+    summarize(outbreak_size = max(virus)) |>
+    getElement("outbreak_size") |>
+    mean()
+max_diff_sims0_ob <- max_diff_sims0 |>
+    select(rep:last_col()) |>
+    filter(!is.na(wasps)) |>
+    group_by(rep) |>
+    summarize(outbreak_size = max(virus)) |>
+    getElement("outbreak_size") |>
+    mean()
+
+mean(max_diff_sims_ob); mean(max_diff_sims0_ob)
+print_diff_mean_w_boot_ci(max_diff_sims_ob, max_diff_sims0_ob)
+
+
+
+
+
+# largest so far: 5.29   (5.15 - 5.42)
+#' alate_dens = 1L,
+#' Y0 = 2.5,
+#' mean_N = 25,
+#' sd_N = 0,
+#' K = 23e3,
+#' virus_attract = 1,
+#' pseudo_repel = 1,
+#' pseudo_surv = 0.85,
+#' zeta = 0.0,
+#' spat_config = 1L
+
+
+print_diff_mean_w_boot_ci <- function(a, b, B = 2000L, alpha = 0.05) {
+    n <- length(a)
+    m <- length(b)
+    stopifnot(n == m)
+    boots <- sapply(1:B, \(i) {
+        ai <- sample(a, replace = TRUE)
+        bi <- sample(b, replace = TRUE)
+        return(mean(ai) - mean(bi))
+    })
+    boot_ci <- quantile(boots, c(alpha, 1-alpha))
+    cat(sprintf("%.2f\t(%s)\n", mean(a) - mean(b),
+                paste(format(boot_ci, digits = 3), collapse = " - ")))
+    invisible(NULL)
+}
+
+# 5.071
+
+
+
+
+paired_target_sims(7112L, .n_sims = 1000, .summ = "all",
+                   pseudo_repel = 2,
+                   zeta = 0.2) |>
+    split(~ zeta +
+              pseudo_repel +
+              n_pseudo, drop = TRUE) |>
+    map(\(x) calc_metrics(x) |>
+            mutate(zeta = x$zeta[[1]],
+                   pseudo_repel = x$pseudo_repel[[1]],
+                   n_pseudo = x$n_pseudo[[1]])) |>
+    list_rbind() |>
+    arrange(zeta,
+            pseudo_repel,
+            n_pseudo) |>
+    select(zeta,
+           pseudo_repel,
+           n_pseudo, everything())
+
+
+# With just changing zeta = 0.2
+
+# # A tibble: 4 × 6
+#     zeta n_pseudo outbreak_size log_aphids log_alates log_wasps
+#    <dbl>    <int>         <dbl>      <dbl>      <dbl>     <dbl>
+# 1 0.0322        0          4.24       5.04       1.81      3.01
+# 2 0.0322        3          7.27       5.22       2.06      3.11
+# 3 0.2           0          4.25       5.03       1.80      3.01
+# 4 0.2           3          5.92       5.09       1.90      3.00
+
+
+sims <- paired_target_sims(7112L, zeta = 0.5)
+
+
+
+
+# set.seed(1032439295)
 sim_df <- sobol_summs |>
     filter(combo == i) |>
     filter(n_pseudo > 0, alate_dens == 1) |>
@@ -476,14 +1001,14 @@ sim0_df <- sobol_summs |>
 sim_df |> calc_metrics()
 sim0_df |> calc_metrics()
 
-timeseries(sim_df, sim0_df, .title = sprintf("combo %i", i))
-timeseries(sim_df, sim0_df, TRUE, 4, .title = sprintf("combo %i", i))
+paired_timeseries(sim_df, sim0_df, .title = sprintf("combo %i", i))
+paired_timeseries(sim_df, sim0_df, TRUE, 4, .title = sprintf("combo %i", i))
 
 
 
 diff_sobol_summs |>
     filter(alate_dens == 1, spat_config == 1) |>
-    ggplot(aes(zeta, K)) +
+    ggplot(aes(zeta, Y0)) +
     geom_point(aes(color = outbreak_size)) +
     scale_color_viridis_c()
 
@@ -491,9 +1016,12 @@ diff_sobol_summs |>
     filter(alate_dens == 1, spat_config == 1) |>
     ggplot(aes(zeta, outbreak_size)) +
     geom_point(alpha = 0.1) +
-    stat_smooth(method = "gam",
-                formula = y ~ s(x, bs = "cs"),
-                se = TRUE, linewidth = 1)
+    # stat_smooth(method = "gam",
+    #             formula = y ~ s(x, bs = "cs"),
+    #             se = TRUE, linewidth = 1) +
+    labs(x = pretty_params("zeta"), y = yvar_desc[["outbreak_size"]]) +
+    theme(axis.title.y = element_markdown(),
+          axis.title.x = element_markdown())
 
 
 
@@ -531,6 +1059,13 @@ dd |>
     geom_point()
 
 
+
+
+# sens_diff_scat_p <- scatter(diff_sobol_summs, .title = "")
+# save_plot("_plots/sens-diff-scatter.pdf", sens_diff_scat_p,
+#           width = 8, height = 5)
+# save_plot("_plots/sens-diff-scatter.png", sens_diff_scat_p, dpi = 150,
+#           width = 8, height = 5)
 
 
 # sens_scat_p <- scatter(sobol_summs[[2L]], "outbreak_size", .title = "")
