@@ -18,6 +18,7 @@ Imports:
     purrr,
     Rcpp (>= 1.0.0),
     svglite,
+    tibble,
     tidyr
 LinkingTo:
     Rcpp (>= 1.0.0),

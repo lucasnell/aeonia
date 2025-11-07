@@ -8,6 +8,7 @@
 
 #include <RcppArmadillo.h>
 #include <vector>
+#include <array>
 #include <math.h>
 #include <algorithm>
 #include <random>
@@ -35,46 +36,46 @@ using namespace Rcpp;
 struct OutDensities {
 
     std::vector<double> virus;          // virus density (0 or 1 when this summarizes 1 patch)
-    std::vector<double> aphids;         // aphids (non-winged) density
-    std::vector<double> alates;         // alates density
+    std::vector<std::array<double,4>> aphids;         // aphids (all stages) density
     std::vector<double> parasitized;    // parasitized aphid density
     std::vector<double> mummies;        // mummy density
     double wasps;                       // adult, female parasitoid wasp density
 
 
-    // Don't include any values, but reserve vectors for length `n`.
+    // Don't include any values, later reserve using that method.
+    OutDensities() : virus(), aphids(), parasitized(), mummies(), wasps() {};
+
+    // Fill zeros for vectors of length `n`.
+    // `wasps` double is simply set to zero.
     OutDensities(const uint32& n)
-        : virus(), aphids(), alates(), parasitized(), mummies(), wasps() {
-        virus.reserve(n);
-        aphids.reserve(n);
-        alates.reserve(n);
-        parasitized.reserve(n);
-        mummies.reserve(n);
+        : virus(n, 0.0),
+          aphids(n, std::array<double,4>()),
+          parasitized(n, 0.0),
+          mummies(n, 0.0),
+          wasps(0.0) {
+        for (std::array<double,4>& aphids_j : aphids) {
+            for (uint32 i = 0; i < 4; i++) aphids_j[i] = 0.0;
+        }
     };
 
-    // Fill values for vectors of length `n`.
-    // `wasps` double is simply set to `value`
-    OutDensities(const uint32& n, const double& value)
-        : virus(n, value), aphids(n, value), alates(n, value),
-          parasitized(n, value), mummies(n, value),
-          wasps(value) {};
 
-    // Fill a single value for all vectors and `wasps` double
-    OutDensities(const double& value)
-        : virus(1, value), aphids(1, value), alates(1, value),
-          parasitized(1, value), mummies(1, value),
-          wasps(value) {};
 
+    void reserve(const uint32& n) {
+        virus.reserve(n);
+        aphids.reserve(n);
+        parasitized.reserve(n);
+        mummies.reserve(n);
+        return;
+    }
 
     // Push back all values except wasps (bc wasps are at scale of all plants):
     void push_back(const double& virus_,
-                   const double& aphids_,
-                   const double& alates_,
+                   const arma::vec& aphids_,
                    const double& parasitized_,
                    const double& mummies_) {
         virus.push_back(virus_);
-        aphids.push_back(aphids_);
-        alates.push_back(alates_);
+        aphids.push_back(std::array<double,4>());
+        for (uint32 i = 0; i < 4; i++) aphids.back()[i] = aphids_(i);
         parasitized.push_back(parasitized_);
         mummies.push_back(mummies_);
         return;
@@ -83,6 +84,17 @@ struct OutDensities {
 
     uint32 size() const {
         return virus.size();
+    }
+
+    void add_to(const uint32& k,
+                const double& virus_,
+                const arma::vec& aphids_,
+                const double& parasitized_,
+                const double& mummies_) {
+        virus[k] += virus_;
+        for (uint32 i = 0; i < 4; i++) aphids[k][i] += aphids_(i);
+        parasitized[k] += parasitized_;
+        mummies[k] += mummies_;
     }
 
 };
@@ -131,6 +143,9 @@ class PlantScape {
      Note also that `summ = "time"` and `summ = "all"` result in the same
      output here, but they get summarized differently in the `sim_plantscape`
      function.
+     Note lastly that for each of the column lists below,
+     if `out_stages = TRUE`, there are two columns each for aphids and alates,
+     one for juveniles and one for adults.
 
      If `summ == "none"`, `n_x * n_y` rows are output for each time point.
      The columns are...
@@ -169,9 +184,10 @@ class PlantScape {
         if (summ == "none") {
             // Densities (all vectors except wasps start with length 0 but
             // are reserved for length n_x * n_y,
-            // wasps are reserved for length 1):
-            output_dens.push_back(OutDensities(n_x * n_y));
+            // wasps are a double, not a vector):
+            output_dens.push_back(OutDensities());
             OutDensities& output_dens_t(output_dens.back());
+            output_dens_t.reserve(n_x * n_y);
             // plant x, plant y:
             output_ids.push_back(arma::umat(n_x * n_y, 2, arma::fill::none));
             arma::umat& output_ids_t(output_ids.back());
@@ -187,8 +203,7 @@ class PlantScape {
                     output_ids_t(k,1) = y+1U;
 
                     output_dens_t.push_back(static_cast<double>(plant.infectious),
-                                            plant.aphids.aphids(),
-                                            plant.aphids.alates(),
+                                            plant.aphids.X,
                                             plant.aphids.P,
                                             plant.aphids.M);
                     k++;
@@ -199,7 +214,7 @@ class PlantScape {
 
             // Densities (wasps vector starts with length 1, all others start
             // with length 2, all values (including wasps) = 0):
-            output_dens.push_back(OutDensities(2, 0.0));
+            output_dens.push_back(OutDensities(2));
             OutDensities& output_dens_t(output_dens.back());
             // plant pseudo (0 or 1), # of each type:
             output_ids.push_back(arma::umat({{0, 0},
@@ -215,20 +230,19 @@ class PlantScape {
 
                     output_ids_t(k,1) += 1U;
 
-                    output_dens_t.virus[k] += static_cast<double>(plant.infectious);
-                    output_dens_t.aphids[k] += plant.aphids.aphids();
-                    output_dens_t.alates[k] += plant.aphids.alates();
-                    output_dens_t.parasitized[k] += plant.aphids.P;
-                    output_dens_t.mummies[k] += plant.aphids.M;
+                    output_dens_t.add_to(k,
+                                         static_cast<double>(plant.infectious),
+                                         plant.aphids.X,
+                                         plant.aphids.P,
+                                         plant.aphids.M);
 
-                    k++;
                 }
             }
 
         } else if (summ == "time" || summ == "all") {
 
             // Densities (all vectors start with length 1, values = 0):
-            output_dens.push_back(OutDensities(0.0));
+            output_dens.push_back(OutDensities(1));
             OutDensities& output_dens_t(output_dens.back());
             // (no ids here)
 
@@ -236,11 +250,11 @@ class PlantScape {
 
             for (uint32 x = 0; x < n_x; x++) {
                 for (const OnePlant& plant : plants[x]) {
-                    output_dens_t.virus[0] += static_cast<double>(plant.infectious);
-                    output_dens_t.aphids[0] += plant.aphids.aphids();
-                    output_dens_t.alates[0] += plant.aphids.alates();
-                    output_dens_t.parasitized[0] += plant.aphids.P;
-                    output_dens_t.mummies[0] += plant.aphids.M;
+                    output_dens_t.add_to(0,
+                                         static_cast<double>(plant.infectious),
+                                         plant.aphids.X,
+                                         plant.aphids.P,
+                                         plant.aphids.M);
                 }
             }
 
@@ -423,6 +437,12 @@ public:
             if (t % 10 == 0) RcppThread::checkUserInterrupt();
         }
         return;
+    }
+
+
+    // Print summary option:
+    std::string summary() const {
+        return summ;
     }
 
 
