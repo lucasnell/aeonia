@@ -331,6 +331,9 @@ sad_leslie <- function(L) {
 #' @param out_pseudo Single logical for whether to include *Pseudomonas*
 #'     presence in output. Ignored if `summ != "none"`.
 #'     Defaults to `FALSE`.
+#' @param out_stages Single logical for whether to separate output for aphids
+#'     by juvenile vs adults.
+#'     Defaults to `FALSE`.
 #' @param show_progress Single logical for whether to show progress bar.
 #'     Defaults to `FALSE`.
 #' @param n_threads Single integer for the number of threads to use.
@@ -345,8 +348,11 @@ sad_leslie <- function(L) {
 #' "Summarizing" section.
 #'
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, show_progress, n_threads)
+#' @importFrom tibble as_tibble
+#'
+#'
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, out_stages = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, out_stages, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

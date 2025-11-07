@@ -44,7 +44,6 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            const std::string& summ,
                                            uint32& infect_time_n,
                                            const bool& infect_stop,
-                                           const bool& out_pseudo,
                                            const bool& show_progress,
                                            uint32& n_threads) {
 
@@ -371,6 +370,9 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //' @param out_pseudo Single logical for whether to include *Pseudomonas*
 //'     presence in output. Ignored if `summ != "none"`.
 //'     Defaults to `FALSE`.
+//' @param out_stages Single logical for whether to separate output for aphids
+//'     by juvenile vs adults.
+//'     Defaults to `FALSE`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
@@ -383,6 +385,9 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'
 //' @return A tibble with columns following the description in the
 //' "Summarizing" section.
+//'
+//'
+//' @importFrom tibble as_tibble
 //'
 //'
 //[[Rcpp::export]]
@@ -405,6 +410,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          uint32 infect_time_n = 0,
                          const bool& infect_stop = true,
                          const bool& out_pseudo = false,
+                         const bool& out_stages = false,
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
 
@@ -413,19 +419,19 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                            virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
                            infect_time_n,
-                           infect_stop, out_pseudo, show_progress, n_threads);
+                           infect_stop, show_progress, n_threads);
 
     // Produce output dataframe:
     DataFrame out_df;
 
-    if (summ == "none") {
-        ps_out_none(out_df, plantscapes, landscapes, max_t, out_pseudo);
-    } else if (summ == "pseudo") {
-        ps_out_pseudo(out_df, plantscapes, landscapes, max_t);
+    if (summ == "none" || summ == "pseudo") {
+        ps_out_none_pseudo(out_df, plantscapes, landscapes, max_t,
+                           out_pseudo, out_stages);
     } else if (summ == "time") {
-        ps_out_time(out_df, plantscapes, landscapes, max_t);
+        ps_out_time(out_df, plantscapes, landscapes, max_t, out_stages);
     } else if (summ == "all") {
-        ps_out_all(out_df, plantscapes, landscapes, max_t, infect_time_n);
+        ps_out_all(out_df, plantscapes, landscapes, max_t, out_stages,
+                   infect_time_n);
     } else {
         stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
     }
