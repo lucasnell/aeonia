@@ -186,14 +186,17 @@ one_combo <- function(n_pseudo, alate_dens,
 
     out <- do.call(sim_plantscape, plant_args)
 
-    # Now add arguments to the output dataframe (not including any in `...`):
-    in_args <- as.list(match.call(expand.dots = FALSE))[-1]  # -1 removes fxn name
-    # remove dots if present:
-    if ("..." %in% names(in_args)) { # << this if statement is important!
-        in_args <- in_args[-which(names(in_args) == "...")]
+    # Now add arguments to the output dataframe:
+    in_args <- as.list(match.call(expand.dots = TRUE))[-1]  # -1 removes fxn name
+    # Removing boring parameters:
+    boring_args <- c("n_sims", "summ", "max_t", "infect_stop",
+                     "out_pseudo", "show_progress", "n_threads")
+    in_args <- in_args[-which(names(in_args) %in% boring_args)]
+    # Now add to output:
+    for (n in names(in_args)) {
+        if (length(in_args[[n]]) == 1) out[[n]] <- in_args[[n]]
+        else out[[n]] <- list(in_args[[n]])
     }
-    for (n in names(in_args)) out[[n]] <- in_args[[n]]
-
     # Make these args come first:
     out <- out |> select(all_of(names(in_args)), everything())
 

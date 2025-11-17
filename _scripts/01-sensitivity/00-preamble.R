@@ -34,11 +34,18 @@ CC <- function(K, pseudo_surv, pred_surv){
 }
 
 
-spp_pal <- viridisLite::plasma(101)[c(75, 55, 10)] |>
+spp_pal <- viridisLite::plasma(101)[c(75, 40, 10)] |>
     set_names(c("aphids", "alates", "wasps"))
 # Uncomment below to see (in RStudio):
-# "#F79143FF" "#D5536FFF" "#3E049CFF"
+# "#F79143FF" "#AD2793FF" "#3E049CFF"
 
+
+# viridisLite::plasma(101)[c(75, 60, 30, 10)]
+# "#F79143FF" "#DE6263FF" "#8D0BA5FF" "#3E049CFF"
+
+
+# for numbers of pseudomonas patches:
+np_pal <- c(`0` = "goldenrod", `3` = "dodgerblue")
 
 
 
