@@ -88,31 +88,14 @@ CharacterVector col_namer(const PlantScape& plantscape,
 }
 
 
-// Convert from list of rows to a dataframe:
+// Convert from list of columns to a dataframe:
 void list_to_data_frame(DataFrame& out_df,
-                        const List& tmp_list,
+                        const std::vector<std::vector<double>>& tmp_list,
                         const CharacterVector& col_names) {
 
-    // Convert to matrix, then data.frame, then tibble (I wish I knew a
-    // simpler way!):
-    // (NOTE: Do not try to convert directly from matrix to tibble.
-    //  It turns many of the values to zeros!)
-    Function do_call("do.call");
-    Function rbind("rbind");
-    Function as_data_frame("as.data.frame");
     Function as_tibble("as_tibble");
-    NumericMatrix tmp_matrix = do_call(rbind, tmp_list);
-    DataFrame tmp_dataframe = as_data_frame(tmp_matrix);
-    tmp_dataframe.names() = col_names; // <-- adds column names
-    out_df = as_tibble(tmp_dataframe);
-
-    // If the list was transposed (every item is a column), you could simply
-    // do this:
-    // (note: in this case, you could use `std::vector<std::vector<double>>`
-    //  instead of `List`)
-    // Function as_tibble("as_tibble");
-    // out_df = as_tibble(tmp_list, Named(".name_repair") = "unique_quiet");
-    // out_df.names() = col_names; // <-- adds column names
+    out_df = as_tibble(tmp_list, Named(".name_repair") = "unique_quiet");
+    out_df.names() = col_names; // <-- adds column names
 
     return;
 }
@@ -158,14 +141,17 @@ void ps_out_none_pseudo(DataFrame& out_df,
     }
 
 
-    List tmp_list(n_rows);
-    std::vector<double> tmp_row;
-    tmp_row.reserve(n_cols);
+    // List tmp_list(n_rows);
+    // std::vector<double> tmp_row;
+    // tmp_row.reserve(n_cols);
+    std::vector<std::vector<double>> tmp_list(n_cols);
+    for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
+
 
     double tot_virus, tot_parasitized, tot_mummies;
     arma::vec tot_aphids(((out_stages) ? 4U : 2U), arma::fill::none);
 
-    uint32 k = 0;
+    uint32 k;
     for (uint32 r = 0; r < n_reps; r++) {
         for (uint32 t = 0; t < plantscapes[r].output_dens.size(); t++) {
 
@@ -180,66 +166,74 @@ void ps_out_none_pseudo(DataFrame& out_df,
             // Aphid densities:
             for (uint32 i = 0; i < out_dens.size(); i++) {
 
-                tmp_row.clear();
+                tmp_list[0].push_back(r+1);             // rep
+                tmp_list[1].push_back(t+1);             // time
+                tmp_list[2].push_back(out_ids(i,0));    // x / pseudo
+                tmp_list[3].push_back(out_ids(i,1));    // y / n
 
-                tmp_row.push_back(r+1);             // rep
-                tmp_row.push_back(t+1);             // time
-                tmp_row.push_back(out_ids(i,0));    // x / pseudo
-                tmp_row.push_back(out_ids(i,1));    // y / n
+                k = 4;
 
                 if (out_pseudo) {
                     const uint32& lxy = landscapes(static_cast<uint32>(out_ids(i,0)-1),
                                                    static_cast<uint32>(out_ids(i,1)-1),
                                                    r);
-                    tmp_row.push_back(get_bit_int(1U, lxy));    // pseudo
+                    tmp_list[k].push_back(get_bit_int(1U, lxy));    // pseudo
+                    k++;
                 }
 
-                tmp_row.push_back(out_dens.virus[i]);
+                tmp_list[k].push_back(out_dens.virus[i]);
                 tot_virus += out_dens.virus[i];
+                k++;
 
                 const std::array<double,4>& aphids(out_dens.aphids[i]);
                 if (out_stages) {
                     // aphids_juv, aphids_adu, alates_juv, alates_adu
                     for (uint32 j = 0; j < 4; j++) {
-                        tmp_row.push_back(aphids[j]);
+                        tmp_list[k].push_back(aphids[j]);
                         tot_aphids(j) += aphids[j];
+                        k++;
                     }
                 } else {
-                    tmp_row.push_back(aphids[0] + aphids[1]);  // aphids
-                    tot_aphids(0) += tmp_row.back();
-                    tmp_row.push_back(aphids[2] + aphids[3]);  // alates
-                    tot_aphids(1) += tmp_row.back();
+                    tmp_list[k].push_back(aphids[0] + aphids[1]);  // aphids
+                    tot_aphids(0) += tmp_list[k].back();
+                    k++;
+                    tmp_list[k].push_back(aphids[2] + aphids[3]);  // alates
+                    tot_aphids(1) += tmp_list[k].back();
+                    k++;
                 }
 
-                tmp_row.push_back(out_dens.parasitized[i]);
-                tmp_row.push_back(out_dens.mummies[i]);
-                tmp_row.push_back(NA_REAL);
+                tmp_list[k+0].push_back(out_dens.parasitized[i]);
+                tmp_list[k+1].push_back(out_dens.mummies[i]);
+                tmp_list[k+2].push_back(NA_REAL);
 
                 tot_parasitized += out_dens.parasitized[i];
                 tot_mummies += out_dens.mummies[i];
 
-                tmp_list[k] = tmp_row;
-                k++;
-
             }
 
-            // Adult parasitoids (and totals across all plants):
-            tmp_row.clear();
-            tmp_row.push_back(r+1);         // rep
-            tmp_row.push_back(t+1);         // time
-            tmp_row.push_back(NA_REAL);     // x / pseudo
-            if (summ_none) {
-                tmp_row.push_back(NA_REAL);     // y
-            } else tmp_row.push_back(arma::accu(out_ids.col(1)));     // n
-            if (out_pseudo) tmp_row.push_back(NA_REAL); // pseudo
-            tmp_row.push_back(tot_virus); // virus
-            for (double& a : tot_aphids) tmp_row.push_back(a); // aphids/alates
-            tmp_row.push_back(tot_parasitized);
-            tmp_row.push_back(tot_mummies);
-            tmp_row.push_back(out_dens.wasps);
 
-            tmp_list[k] = tmp_row;
+
+            // Adult parasitoids (and totals across all plants):
+            tmp_list[0].push_back(r+1);         // rep
+            tmp_list[1].push_back(t+1);         // time
+            tmp_list[2].push_back(NA_REAL);     // x / pseudo
+            if (summ_none) {
+                tmp_list[3].push_back(NA_REAL);     // y
+            } else tmp_list[3].push_back(arma::accu(out_ids.col(1)));     // n
+            k = 4;
+            if (out_pseudo) {
+                tmp_list[k].push_back(NA_REAL); // pseudo
+                k++;
+            }
+            tmp_list[k].push_back(tot_virus); // virus
             k++;
+            for (double& a : tot_aphids) {
+                tmp_list[k].push_back(a); // aphids/alates
+                k++;
+            }
+            tmp_list[k+0].push_back(tot_parasitized);
+            tmp_list[k+1].push_back(tot_mummies);
+            tmp_list[k+2].push_back(out_dens.wasps);
 
         }
     }
@@ -292,39 +286,41 @@ void ps_out_time(DataFrame& out_df,
         stop("INTERNAL ERROR: col_namer failure");
     }
 
-    List tmp_list(n_rows);
-    std::vector<double> tmp_row;
-    tmp_row.reserve(n_cols);
+    // List tmp_list(n_rows);
+    // std::vector<double> tmp_row;
+    // tmp_row.reserve(n_cols);
+    std::vector<std::vector<double>> tmp_list(n_cols);
+    for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
 
-    uint32 k = 0;
+    uint32 k;
     for (uint32 r = 0; r < n_reps; r++) {
         for (uint32 t = 0; t < plantscapes[r].output_dens.size(); t++) {
 
             const OutDensities& out_dens(plantscapes[r].output_dens[t]);
             // < No IDs for this summary type! >
 
-            tmp_row.clear();
+            tmp_list[0].push_back(r+1);             // rep
+            tmp_list[1].push_back(t+1);             // time
+            tmp_list[2].push_back(out_dens.virus[0]); // virus
 
-            tmp_row.push_back(r+1);             // rep
-            tmp_row.push_back(t+1);             // time
+            k = 3;
 
-            tmp_row.push_back(out_dens.virus[0]); // virus
             const std::array<double,4>& aphids(out_dens.aphids[0]);
             if (out_stages) {
                 // aphids_juv, aphids_adu, alates_juv, alates_adu
                 for (uint32 j = 0; j < 4; j++) {
-                    tmp_row.push_back(aphids[j]);
+                    tmp_list[k].push_back(aphids[j]);
+                    k++;
                 }
             } else {
-                tmp_row.push_back(aphids[0] + aphids[1]);  // aphids
-                tmp_row.push_back(aphids[2] + aphids[3]);  // alates
+                tmp_list[k].push_back(aphids[0] + aphids[1]);  // aphids
+                k++;
+                tmp_list[k].push_back(aphids[2] + aphids[3]);  // alates
+                k++;
             }
-            tmp_row.push_back(out_dens.parasitized[0]);     // parasitized
-            tmp_row.push_back(out_dens.mummies[0]);         // mummies
-            tmp_row.push_back(out_dens.wasps);              // wasps
-
-            tmp_list[k] = tmp_row;
-            k++;
+            tmp_list[k+0].push_back(out_dens.parasitized[0]);     // parasitized
+            tmp_list[k+1].push_back(out_dens.mummies[0]);         // mummies
+            tmp_list[k+2].push_back(out_dens.wasps);              // wasps
 
         }
     }
@@ -365,21 +361,26 @@ void ps_out_all(DataFrame& out_df,
         stop("INTERNAL ERROR: col_namer failure");
     }
 
-    List tmp_list(n_rows);
-    std::vector<double> tmp_row;
-    tmp_row.reserve(n_cols);
+    // List tmp_list(n_rows);
+    // std::vector<double> tmp_row;
+    // tmp_row.reserve(n_cols);
+    std::vector<std::vector<double>> tmp_list(n_cols);
+    for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
+
 
     uint32 infect_idx = n_cols - 2U;
     uint32 outbreak_idx = n_cols - 1U;
 
+
+    uint32 k;
+
     for (uint32 r = 0; r < n_reps; r++) {
 
-        tmp_row.clear();
-        tmp_row.push_back(r+1); // rep
-        for (uint32 j = 1; j < n_cols; j++) tmp_row.push_back(0.0);
+        tmp_list[0].push_back(r+1); // rep
+        for (uint32 j = 1; j < n_cols; j++) tmp_list[j].push_back(0.0);
 
-        double& infect_time(tmp_row[infect_idx]);
-        double& outbreak_size(tmp_row[outbreak_idx]);
+        double& infect_time(tmp_list[infect_idx].back());
+        double& outbreak_size(tmp_list[outbreak_idx].back());
 
         infect_time = plantscapes[r].output_dens.size() + 1;
 
@@ -394,37 +395,37 @@ void ps_out_all(DataFrame& out_df,
             const double& mummies(out_dens.mummies[0]);
             const double& wasps(out_dens.wasps);
 
-            uint32 j = 1;
+            k = 1;
             double total_aphids = std::accumulate(aphids.begin(), aphids.end(), 0);
-            tmp_row[j] += (aphids[2] + aphids[3]) / (total_aphids);  // p_alates
-            j++;
+            tmp_list[k].back() += (aphids[2] + aphids[3]) / (total_aphids);  // p_alates
+            k++;
             if (out_stages) {
                 // aphids_juv, aphids_adu, alates_juv, alates_adu
                 uint32 l2;
                 for (uint32 l = 0; l < 4; l++) {
-                    l2 = j + 2U * l;
-                    tmp_row[l2] += std::log(aphids[l] + 1);
-                    tmp_row[l2+1U] += aphids[l];
+                    l2 = k + 2U * l;
+                    tmp_list[l2].back() += std::log(aphids[l] + 1);
+                    tmp_list[l2+1U].back() += aphids[l];
                 }
-                j += 8;
+                k += 8;
             } else {
-                tmp_row[j+0] += std::log(aphids[0] + aphids[1] + 1);  // log_aphids
-                tmp_row[j+1] += (aphids[0] + aphids[1]);  // aphids
-                tmp_row[j+2] += std::log(aphids[2] + aphids[3] + 1);  // log_alates
-                tmp_row[j+3] += (aphids[2] + aphids[3]);  // alates
-                j += 4;
+                tmp_list[k+0].back() += std::log(aphids[0] + aphids[1] + 1);  // log_aphids
+                tmp_list[k+1].back() += (aphids[0] + aphids[1]);  // aphids
+                tmp_list[k+2].back() += std::log(aphids[2] + aphids[3] + 1);  // log_alates
+                tmp_list[k+3].back() += (aphids[2] + aphids[3]);  // alates
+                k += 4;
             }
 
-            tmp_row[j+0] += std::log(parasitized + 1);   // log_parasitized
-            tmp_row[j+1] += parasitized;                 // parasitized
-            tmp_row[j+2] += std::log(mummies + 1);       // log_mummies
-            tmp_row[j+3] += mummies;                     // mummies
-            tmp_row[j+4] += std::log(wasps + 1);         // log_wasps
-            tmp_row[j+5] += wasps;                       // wasps
+            tmp_list[k+0].back() += std::log(parasitized + 1);   // log_parasitized
+            tmp_list[k+1].back() += parasitized;                 // parasitized
+            tmp_list[k+2].back() += std::log(mummies + 1);       // log_mummies
+            tmp_list[k+3].back() += mummies;                     // mummies
+            tmp_list[k+4].back() += std::log(wasps + 1);         // log_wasps
+            tmp_list[k+5].back() += wasps;                       // wasps
             if ((total_aphids + parasitized) < aphid_gone_thresh) {
-                tmp_row[j+6] += 1;
+                tmp_list[k+6].back() += 1;
             }
-            if (wasps < wasp_gone_thresh) tmp_row[j+7] += 1;
+            if (wasps < wasp_gone_thresh) tmp_list[k+7].back() += 1;
 
             if (t < infect_time && (uint32)virus >= infect_time_n) {
                 infect_time = t;
@@ -439,12 +440,9 @@ void ps_out_all(DataFrame& out_df,
 
         // Convert from sums to means:
         double n_dbl = static_cast<double>(plantscapes[r].output_dens.size());
-        for (uint32 j = 1; j < infect_idx; j++) tmp_row[j] /= n_dbl;
-
-        tmp_list[r] = tmp_row;
+        for (uint32 j = 1; j < infect_idx; j++) tmp_list[j].back() /= n_dbl;
 
     }
-
 
 
     list_to_data_frame(out_df, tmp_list, col_names);
