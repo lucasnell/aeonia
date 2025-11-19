@@ -117,8 +117,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& virus_attract, const double& pseudo_repel, const double& epsilon, const double& p_load_alate, const double& p_load_plant, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const bool& infect_stop, const bool& out_pseudo, const bool& out_stages, const bool& show_progress, uint32 n_threads);
-RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP virus_attractSEXP, SEXP pseudo_repelSEXP, SEXP epsilonSEXP, SEXP p_load_alateSEXP, SEXP p_load_plantSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP out_stagesSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
+DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& virus_attract, const double& pseudo_repel, const double& epsilon, const double& p_load_alate, const double& p_load_plant, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_stages, const bool& show_progress, uint32 n_threads);
+RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP virus_attractSEXP, SEXP pseudo_repelSEXP, SEXP epsilonSEXP, SEXP p_load_alateSEXP, SEXP p_load_plantSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP aphid_gone_threshSEXP, SEXP wasp_gone_threshSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP out_stagesSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -139,12 +139,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Nullable<NumericMatrix> >::type wasp_plant_attract(wasp_plant_attractSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type summ(summSEXP);
     Rcpp::traits::input_parameter< uint32 >::type infect_time_n(infect_time_nSEXP);
+    Rcpp::traits::input_parameter< const double& >::type aphid_gone_thresh(aphid_gone_threshSEXP);
+    Rcpp::traits::input_parameter< const double& >::type wasp_gone_thresh(wasp_gone_threshSEXP);
     Rcpp::traits::input_parameter< const bool& >::type infect_stop(infect_stopSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_stages(out_stagesSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, out_stages, show_progress, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_stages, show_progress, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -184,7 +186,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
     {"_aeonia_sad_leslie", (DL_FUNC) &_aeonia_sad_leslie, 1},
-    {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 22},
+    {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 24},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 8},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},
     {NULL, NULL, 0}

@@ -43,6 +43,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            Nullable<NumericMatrix> wasp_plant_attract,
                                            const std::string& summ,
                                            uint32& infect_time_n,
+                                           const double& aphid_gone_thresh,
+                                           const double& wasp_gone_thresh,
                                            const bool& infect_stop,
                                            const bool& show_progress,
                                            uint32& n_threads) {
@@ -101,6 +103,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     }
     if (infect_time_n == 0) infect_time_n = n_x * n_y;
     if (infect_time_n > n_x * n_y) stop("infect_time_n > n_x * n_y");
+    if (aphid_gone_thresh <= 0) stop("aphid_gone_thresh <= 0");
+    if (wasp_gone_thresh <= 0) stop("wasp_gone_thresh <= 0");
 
     arma::mat wasp_attract(n_x, n_y, arma::fill::none);
     if (wasp_plant_attract.isNotNull()){
@@ -364,6 +368,17 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     a negative number here could cause an error to occur.
 //'     Defaults to `0`, which results in the total number of plants
 //'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
+//' @param aphid_gone_thresh Single numeric specifying the threshold for aphid
+//'     abundance (all stages + parasitized, summed across all plants)
+//'     below which it's considered gone when calculating the
+//'     `aphid_gone_n` column when `summ == "all"`.
+//'     Ignored when `summ != "all"` except for error checking.
+//'     Defaults to `1`.
+//' @param wasp_gone_thresh Single numeric specifying the threshold for wasp
+//'     abundance below which it's considered gone when calculating the
+//'     `wasp_gone_n` column when `summ == "all"`.
+//'     Ignored when `summ != "all"` except for error checking.
+//'     Defaults to `1`.
 //' @param infect_stop Single logical for whether to stop simulations
 //'     when all plants are infected with virus.
 //'     Defaults to `TRUE`.
@@ -408,6 +423,8 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          Nullable<NumericMatrix> wasp_plant_attract = R_NilValue,
                          const std::string& summ = "none",
                          uint32 infect_time_n = 0,
+                         const double& aphid_gone_thresh = 1,
+                         const double& wasp_gone_thresh = 1,
                          const bool& infect_stop = true,
                          const bool& out_pseudo = false,
                          const bool& out_stages = false,
@@ -418,7 +435,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         sim_plantscape_cpp(true, landscapes, max_t, insect_ptr, N0, W0, Y0,
                            virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
-                           infect_time_n,
+                           infect_time_n, aphid_gone_thresh, wasp_gone_thresh,
                            infect_stop, show_progress, n_threads);
 
     // Produce output dataframe:
@@ -431,7 +448,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
         ps_out_time(out_df, plantscapes, landscapes, max_t, out_stages);
     } else if (summ == "all") {
         ps_out_all(out_df, plantscapes, landscapes, max_t, out_stages,
-                   infect_time_n);
+                   infect_time_n, aphid_gone_thresh, wasp_gone_thresh);
     } else {
         stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
     }
