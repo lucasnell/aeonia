@@ -78,6 +78,8 @@ CharacterVector col_namer(const PlantScape& plantscape,
         out.push_back("mummies");
         out.push_back("log_wasps");
         out.push_back("wasps");
+        out.push_back("aphid_gone_n");
+        out.push_back("wasp_gone_n");
         out.push_back("infect_time");
         out.push_back("outbreak_size");
     }
@@ -343,12 +345,14 @@ void ps_out_all(DataFrame& out_df,
                 const arma::ucube& landscapes,
                 const uint32& max_t,
                 const bool& out_stages,
-                const uint32& infect_time_n) {
+                const uint32& infect_time_n,
+                const double& aphid_gone_thresh,
+                const double& wasp_gone_thresh) {
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps;
 
-    uint32 n_cols = 14;
+    uint32 n_cols = 16;
     if (out_stages) n_cols += 4;
 
     CharacterVector col_names = col_namer(plantscapes[0], false, out_stages);
@@ -365,8 +369,8 @@ void ps_out_all(DataFrame& out_df,
     std::vector<double> tmp_row;
     tmp_row.reserve(n_cols);
 
-    uint32 infect_idx = (out_stages) ? 16U : 12U;
-    uint32 outbreak_idx = (out_stages) ? 17U : 13U;
+    uint32 infect_idx = n_cols - 2U;
+    uint32 outbreak_idx = n_cols - 1U;
 
     for (uint32 r = 0; r < n_reps; r++) {
 
@@ -417,6 +421,10 @@ void ps_out_all(DataFrame& out_df,
             tmp_row[j+3] += mummies;                     // mummies
             tmp_row[j+4] += std::log(wasps + 1);         // log_wasps
             tmp_row[j+5] += wasps;                       // wasps
+            if ((total_aphids + parasitized) < aphid_gone_thresh) {
+                tmp_row[j+6] += 1;
+            }
+            if (wasps < wasp_gone_thresh) tmp_row[j+7] += 1;
 
             if (t < infect_time && (uint32)virus >= infect_time_n) {
                 infect_time = t;

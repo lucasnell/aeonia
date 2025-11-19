@@ -325,6 +325,17 @@ sad_leslie <- function(L) {
 #'     a negative number here could cause an error to occur.
 #'     Defaults to `0`, which results in the total number of plants
 #'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
+#' @param aphid_gone_thresh Single numeric specifying the threshold for aphid
+#'     abundance (all stages + parasitized, summed across all plants)
+#'     below which it's considered gone when calculating the
+#'     `aphid_gone_n` column when `summ == "all"`.
+#'     Ignored when `summ != "all"` except for error checking.
+#'     Defaults to `1`.
+#' @param wasp_gone_thresh Single numeric specifying the threshold for wasp
+#'     abundance below which it's considered gone when calculating the
+#'     `wasp_gone_n` column when `summ == "all"`.
+#'     Ignored when `summ != "all"` except for error checking.
+#'     Defaults to `1`.
 #' @param infect_stop Single logical for whether to stop simulations
 #'     when all plants are infected with virus.
 #'     Defaults to `TRUE`.
@@ -351,8 +362,8 @@ sad_leslie <- function(L) {
 #' @importFrom tibble as_tibble
 #'
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, infect_stop = TRUE, out_pseudo = FALSE, out_stages = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, infect_stop, out_pseudo, out_stages, show_progress, n_threads)
+sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = TRUE, out_pseudo = FALSE, out_stages = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_stages, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.
