@@ -117,7 +117,11 @@ one_combo <- function(n_pseudo, alate_dens,
     for (i in 1:n_sims) {
         land[1,1,i] <- 1L
         if (n_pseudo > 0) {
-            if (spat_config == 0L) {
+            if (spat_config == -1L) {
+                k <- sample.int(n_plants - 1L, n_pseudo)
+                x = k - n_x * ((k-1L) %/% n_x)
+                y = (k-1L) %/% n_x + 1L
+            } else if (spat_config == 0L) {
                 k <- sample.int(n_plants - 1L, n_pseudo)
                 x <- k - n_x * (k %/% n_x) + 1L
                 y <- k %/% n_x + 1L
