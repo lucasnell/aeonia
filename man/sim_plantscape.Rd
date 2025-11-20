@@ -22,8 +22,12 @@ sim_plantscape(
   wasp_plant_attract = NULL,
   summ = "none",
   infect_time_n = 0L,
+  aphid_gone_thresh = 1,
+  wasp_gone_thresh = 1,
   infect_stop = TRUE,
   out_pseudo = FALSE,
+  out_stages = FALSE,
+  out_dispersals = FALSE,
   show_progress = FALSE,
   n_threads = 0L
 )
@@ -157,12 +161,36 @@ a negative number here could cause an error to occur.
 Defaults to \code{0}, which results in the total number of plants
 (i.e., \code{prod(dim(landscapes)[1:2])}) being used.}
 
+\item{aphid_gone_thresh}{Single numeric specifying the threshold for aphid
+abundance (all stages + parasitized, summed across all plants)
+below which it's considered gone when calculating the
+\code{aphid_gone_n} column when \code{summ == "all"}.
+Ignored when \code{summ != "all"} except for error checking.
+Defaults to \code{1}.}
+
+\item{wasp_gone_thresh}{Single numeric specifying the threshold for wasp
+abundance below which it's considered gone when calculating the
+\code{wasp_gone_n} column when \code{summ == "all"}.
+Ignored when \code{summ != "all"} except for error checking.
+Defaults to \code{1}.}
+
 \item{infect_stop}{Single logical for whether to stop simulations
 when all plants are infected with virus.
 Defaults to \code{TRUE}.}
 
 \item{out_pseudo}{Single logical for whether to include \emph{Pseudomonas}
 presence in output. Ignored if \code{summ != "none"}.
+Defaults to \code{FALSE}.}
+
+\item{out_stages}{Single logical for whether to separate output for aphids
+by juvenile vs adults.
+Defaults to \code{FALSE}.}
+
+\item{out_dispersals}{Single logical for whether to output a column list
+containing matrices with the number of alate dispersals connecting
+plants. The column indicates the plant the alate came from,
+and the row indicates the plant the alate dispersed to.
+This argument only does something when \code{summ \%in\% c("time", "all")}.
 Defaults to \code{FALSE}.}
 
 \item{show_progress}{Single logical for whether to show progress bar.

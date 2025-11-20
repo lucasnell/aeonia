@@ -133,6 +133,11 @@ class PlantScape {
     // Max time points to simulate:
     uint32 max_t;
 
+    // Whether to output dispersals:
+    bool out_dispersals;
+    // iterator for current dispersal matrix:
+    std::vector<arma::umat>::iterator disp_iter;
+
 
 
     /*
@@ -309,7 +314,10 @@ class PlantScape {
         wasps.iterate(new_Y);
 
         // Now go back through and simulate virus spread:
-        flight.infest(p_load_alate, p_load_plant, alate_plants, plants, n_alates, eng);
+        flight.infest(p_load_alate, p_load_plant, alate_plants, plants,
+                      n_alates, *disp_iter, eng);
+        // Move to next dispersal matrix if necessary:
+        if (out_dispersals && summ == "time") disp_iter++;
 
         // Fill `output` with current conditions:
         fill_output();
@@ -338,6 +346,7 @@ public:
     // Output objects:
     std::vector<OutDensities> output_dens;  // densities of organism types
     std::vector<arma::umat> output_ids;     // identifiers for each set of densities
+    std::vector<arma::umat> dispersals;     // dispersal events
 
 
     PlantScape(const uint32& max_t_,
@@ -357,9 +366,11 @@ public:
                const arma::mat& N0,
                const arma::mat& W0,
                const double& Y0,
+               const bool& out_dispersals_,
                const std::vector<uint64>& seeds)
         : wasps(insects.wasps),
-          flight(max_fly_t_, landscape_, radius_, virus_attract_, pseudo_repel_, epsilon_, w_),
+          flight(max_fly_t_, landscape_, radius_, virus_attract_, pseudo_repel_,
+                 epsilon_, w_),
           plants(),
           wasp_attract(wasp_attract_),
           p_load_alate(p_load_alate_),
@@ -371,8 +382,10 @@ public:
           eng(),
           summ(summ_),
           max_t(max_t_),
+          out_dispersals(out_dispersals_),
           output_dens(),
-          output_ids() {
+          output_ids(),
+          dispersals() {
 
         wasps.Y = Y0;
 
@@ -403,10 +416,23 @@ public:
         }
 
         // Reserve max memory required:
-        output_dens.reserve(max_t_+1U);
-        if (summ == "none" || summ == "pseudo") output_ids.reserve(max_t_+1U);
+        output_dens.reserve(max_t+1U);
+        if (summ == "none" || summ == "pseudo") output_ids.reserve(max_t+1U);
         // fill starting conditions:
         fill_output();
+
+        // Optionally reserve `dispersals`:
+        if (summ != "time" && summ != "all") out_dispersals = false;
+        if (out_dispersals) {
+            if (summ == "time") {
+                dispersals = std::vector<arma::umat>(max_t+1);
+            } else dispersals = std::vector<arma::umat>(1);
+            for (arma::umat& d : dispersals) {
+                d = arma::umat(n_x*n_y, n_x*n_y, arma::fill::zeros);
+            }
+        } else dispersals.push_back(arma::umat());
+        disp_iter = dispersals.begin();
+        if (out_dispersals && summ == "time") disp_iter++;
 
     }
 
@@ -444,6 +470,17 @@ public:
     std::string summary() const {
         return summ;
     }
+
+
+    void to_2d(uint32& x, uint32& y, const uint32& k) const {
+        flight.to_2d(x, y, k);
+        return;
+    }
+    void to_1d(uint32& k, const uint32& x, const uint32& y) const {
+        flight.to_1d(k, x, y);
+        return;
+    }
+
 
 
 

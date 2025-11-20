@@ -93,7 +93,8 @@ void list_to_data_frame(DataFrame& out_df,
                         const std::vector<std::vector<double>>& tmp_list,
                         const CharacterVector& col_names) {
 
-    Function as_tibble("as_tibble");
+    Environment pkg = Environment::namespace_env("tibble");
+    Function as_tibble = pkg["as_tibble"];
     out_df = as_tibble(tmp_list, Named(".name_repair") = "unique_quiet");
     out_df.names() = col_names; // <-- adds column names
 
@@ -141,9 +142,6 @@ void ps_out_none_pseudo(DataFrame& out_df,
     }
 
 
-    // List tmp_list(n_rows);
-    // std::vector<double> tmp_row;
-    // tmp_row.reserve(n_cols);
     std::vector<std::vector<double>> tmp_list(n_cols);
     for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
 
@@ -263,6 +261,38 @@ void ps_out_none_pseudo(DataFrame& out_df,
 
 
 
+List make_disp_col(const std::vector<PlantScape>& plantscapes,
+                   const uint32& n_rows,
+                   const uint32& n_plants) {
+
+    List disp_col(n_rows);
+    // Make row and column names:
+    CharacterVector mat_names(n_plants);
+    uint32 x,y;
+    for (uint32 k = 0; k < n_plants; k++) {
+        plantscapes[0].to_2d(x, y, k);
+        mat_names[k] = std::to_string(x+1) + "_" + std::to_string(y+1);
+    }
+
+    uint32 k = 0;
+    for (uint32 r = 0; r < plantscapes.size(); r++) {
+        for (const arma::umat& disps : plantscapes[r].dispersals) {
+            if (disps.n_rows != n_plants) {
+                stop("INTERNAL ERROR: inconsistent plantscape dispersal objects");
+            }
+            IntegerMatrix m = wrap(disps);
+            rownames(m) = mat_names;
+            colnames(m) = mat_names;
+            disp_col[k] = m;
+            k++;
+        }
+    }
+
+    return disp_col;
+}
+
+
+
 
 void ps_out_time(DataFrame& out_df,
                  const std::vector<PlantScape>& plantscapes,
@@ -286,9 +316,14 @@ void ps_out_time(DataFrame& out_df,
         stop("INTERNAL ERROR: col_namer failure");
     }
 
-    // List tmp_list(n_rows);
-    // std::vector<double> tmp_row;
-    // tmp_row.reserve(n_cols);
+    // Check if we need to also add dispersal events:
+    uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
+    bool out_dispersals = plantscapes[0].dispersals[0].n_rows == n_plants;
+    if (out_dispersals) {
+        col_names.push_back("disps");
+        n_cols++;
+    }
+
     std::vector<std::vector<double>> tmp_list(n_cols);
     for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
 
@@ -322,12 +357,21 @@ void ps_out_time(DataFrame& out_df,
             tmp_list[k+1].push_back(out_dens.mummies[0]);         // mummies
             tmp_list[k+2].push_back(out_dens.wasps);              // wasps
 
+            // Just filler for disps column:
+            if (out_dispersals) tmp_list.back().push_back(0);
+
         }
     }
 
     list_to_data_frame(out_df, tmp_list, col_names);
     std::vector<std::string> int_cols = {"rep", "time"};
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
+
+    // Now add dispersal events list column:
+    if (out_dispersals) {
+        List disp_col = make_disp_col(plantscapes, n_rows, n_plants);
+        out_df["disps"] = disp_col;
+    }
 
 
     return;
@@ -361,16 +405,25 @@ void ps_out_all(DataFrame& out_df,
         stop("INTERNAL ERROR: col_namer failure");
     }
 
-    // List tmp_list(n_rows);
-    // std::vector<double> tmp_row;
-    // tmp_row.reserve(n_cols);
+    // Check if we need to also add dispersal events:
+    uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
+    bool out_dispersals = plantscapes[0].dispersals[0].n_rows == n_plants;
+    if (out_dispersals) {
+        Rcout << "out_dispersals" << std::endl;
+        col_names.push_back("disps");
+        n_cols++;
+    }
+
     std::vector<std::vector<double>> tmp_list(n_cols);
     for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
 
 
     uint32 infect_idx = n_cols - 2U;
     uint32 outbreak_idx = n_cols - 1U;
-
+    if (out_dispersals) {
+        infect_idx--;
+        outbreak_idx--;
+    }
 
     uint32 k;
 
@@ -449,6 +502,13 @@ void ps_out_all(DataFrame& out_df,
 
     std::vector<std::string> int_cols = {"rep", "outbreak_size"};
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
+
+
+    // Now add dispersal events list column:
+    if (out_dispersals) {
+        List disp_col = make_disp_col(plantscapes, n_rows, n_plants);
+        out_df["disps"] = disp_col;
+    }
 
 
     return;
