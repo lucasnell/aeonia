@@ -23,10 +23,12 @@ using namespace Rcpp;
 
 /*
  This creates a character vector for output column names.
+ It also verifies that the output is the same length as `n_cols`
  */
 CharacterVector col_namer(const PlantScape& plantscape,
                           const bool& out_pseudo,
-                          const bool& out_stages) {
+                          const bool& out_stages,
+                          const uint32& n_cols) {
 
     const std::string summ = plantscape.summary();
 
@@ -84,6 +86,20 @@ CharacterVector col_namer(const PlantScape& plantscape,
         out.push_back("outbreak_size");
     }
 
+    if (out.size() != n_cols) {
+        if (out.size() == 0) {
+            Rcout << "col_names is empty !!" << std::endl;
+        } else {
+            Rcout << "col_names: " << out[0];
+            for (int i = 1; i < out.size(); i++) {
+                Rcout << ", " << out[i];
+            }
+            Rcout << std::endl;
+        }
+        Rcout << "n_cols = " << n_cols << std::endl;
+        stop("INTERNAL ERROR: col_namer failure");
+    }
+
     return out;
 }
 
@@ -131,16 +147,8 @@ void ps_out_none_pseudo(DataFrame& out_df,
         n_rows = n_reps * (max_t + (uint32)1U) * (uint32)3U;
     }
 
-    CharacterVector col_names = col_namer(plantscapes[0], out_pseudo, out_stages);
-    if (col_names.size() != n_cols) {
-        for (int i = 0; i < col_names.size(); i++) {
-            Rcout << col_names[i] << ", ";
-        }
-        Rcout << std::endl;
-        Rcout << "n_cols = " << std::to_string(n_cols) << std::endl;
-        stop("INTERNAL ERROR: col_namer failure");
-    }
-
+    CharacterVector col_names = col_namer(plantscapes[0], out_pseudo, out_stages,
+                                          n_cols);
 
     std::vector<std::vector<double>> tmp_list(n_cols);
     for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
@@ -259,13 +267,18 @@ void ps_out_none_pseudo(DataFrame& out_df,
 
 
 
-
-
+/*
+ Note that `n_actual_rows` here should be the actual number of items in the
+ output dataframe, not `n_rows` from the `ps_out_time` and `ps_out_all`
+ functions since those are the max possible rows.
+ There can be a mismatch between these values when simulations
+ stop once all plants are infected.
+ */
 List make_disp_col(const std::vector<PlantScape>& plantscapes,
-                   const uint32& n_rows,
+                   const uint32& n_actual_rows,
                    const uint32& n_plants) {
 
-    List disp_col(n_rows);
+    List disp_col(n_actual_rows);
     // Make row and column names:
     CharacterVector mat_names(n_plants);
     uint32 x,y;
@@ -277,12 +290,13 @@ List make_disp_col(const std::vector<PlantScape>& plantscapes,
     uint32 k = 0;
     for (uint32 r = 0; r < plantscapes.size(); r++) {
         for (const arma::umat& disps : plantscapes[r].dispersals) {
-            if (disps.n_rows != n_plants) {
+            if (disps.n_rows != n_plants || disps.n_cols != n_plants) {
                 stop("INTERNAL ERROR: inconsistent plantscape dispersal objects");
             }
             IntegerMatrix m = wrap(disps);
             rownames(m) = mat_names;
             colnames(m) = mat_names;
+            if (k >= n_actual_rows) stop("k >= n_actual_rows");
             disp_col[k] = m;
             k++;
         }
@@ -306,15 +320,8 @@ void ps_out_time(DataFrame& out_df,
     uint32 n_cols = 8;
     if (out_stages) n_cols += 2;
 
-    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages);
-    if (col_names.size() != n_cols) {
-        for (int i = 0; i < col_names.size(); i++) {
-            Rcout << col_names[i] << ", ";
-        }
-        Rcout << std::endl;
-        Rcout << "n_cols = " << std::to_string(n_cols) << std::endl;
-        stop("INTERNAL ERROR: col_namer failure");
-    }
+    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages,
+                                          n_cols);
 
     // Check if we need to also add dispersal events:
     uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
@@ -369,7 +376,7 @@ void ps_out_time(DataFrame& out_df,
 
     // Now add dispersal events list column:
     if (out_dispersals) {
-        List disp_col = make_disp_col(plantscapes, n_rows, n_plants);
+        List disp_col = make_disp_col(plantscapes, tmp_list.back().size(), n_plants);
         out_df["disps"] = disp_col;
     }
 
@@ -395,21 +402,13 @@ void ps_out_all(DataFrame& out_df,
     uint32 n_cols = 16;
     if (out_stages) n_cols += 4;
 
-    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages);
-    if (col_names.size() != n_cols) {
-        for (int i = 0; i < col_names.size(); i++) {
-            Rcout << col_names[i] << ", ";
-        }
-        Rcout << std::endl;
-        Rcout << "n_cols = " << std::to_string(n_cols) << std::endl;
-        stop("INTERNAL ERROR: col_namer failure");
-    }
+    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages,
+                                          n_cols);
 
     // Check if we need to also add dispersal events:
     uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
     bool out_dispersals = plantscapes[0].dispersals[0].n_rows == n_plants;
     if (out_dispersals) {
-        Rcout << "out_dispersals" << std::endl;
         col_names.push_back("disps");
         n_cols++;
     }
@@ -506,7 +505,7 @@ void ps_out_all(DataFrame& out_df,
 
     // Now add dispersal events list column:
     if (out_dispersals) {
-        List disp_col = make_disp_col(plantscapes, n_rows, n_plants);
+        List disp_col = make_disp_col(plantscapes, tmp_list.back().size(), n_plants);
         out_df["disps"] = disp_col;
     }
 

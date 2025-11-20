@@ -310,6 +310,7 @@ class PlantScape {
                 }
             }
         }
+
         // now update adult parasitoids:
         wasps.iterate(new_Y);
 
@@ -458,7 +459,16 @@ public:
         bool all_infected = false;
         for (uint32 t = 0; t < max_t; t++) {
             all_infected = iterate();
-            if (infect_stop && all_infected) break;
+            if (infect_stop && all_infected) {
+                // Shorten dispersals if stopping early bc of full infection:
+                if (out_dispersals && summ == "time" && disp_iter != dispersals.end()) {
+                    // Note: no need to add one to `curr_size` bc `iterate()`
+                    // already iterates `disp_iter`
+                    size_t curr_size = disp_iter - dispersals.begin();
+                    dispersals.resize(curr_size);
+                }
+                break;
+            }
             if (show_progress) prog_bar++;
             if (t % 10 == 0) RcppThread::checkUserInterrupt();
         }
