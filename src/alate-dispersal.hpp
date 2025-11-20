@@ -246,8 +246,18 @@ public:
                 std::vector<XY>& alate_plants,
                 std::vector<std::vector<OnePlant>>& plants,
                 arma::umat& n_alates,
+                arma::umat& dispersals,
                 pcg32& eng);
 
+
+    void to_2d(uint32& x, uint32& y, const uint32& k) const {
+        dim_conv.to_2d(x, y, k);
+        return;
+    }
+    void to_1d(uint32& k, const uint32& x, const uint32& y) const {
+        dim_conv.to_1d(k, x, y);
+        return;
+    }
 
 
 };

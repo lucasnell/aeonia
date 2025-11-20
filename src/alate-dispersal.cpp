@@ -216,15 +216,20 @@ inline void AlateFlightInfo::sample_inoculation(const double& p_load_alate,
  Have all alates across the landscape fly and eventually settle.
  It also samples for whether virus spread happens, and adjusts the
  `OnePlant` objects accordingly.
+ Also updates `dispersals` if it has proper size.
  */
 void AlateFlightInfo::infest(const double& p_load_alate,
                              const double& p_load_plant,
                              std::vector<XY>& alate_plants,
                              std::vector<std::vector<OnePlant>>& plants,
                              arma::umat& n_alates,
+                             arma::umat& dispersals,
                              pcg32& eng) {
 
     if (alate_plants.empty()) return;
+
+    // Store bool for whether to update `dispersals`:
+    bool update_disps = dispersals.n_cols == n_plants && dispersals.n_rows == n_plants;
 
     // Check for whether samplers need reconstructed and do it if needed:
     if (any_changed) {
@@ -282,6 +287,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
             // Sample for new location (alate always leaves first plant)
             sample(k_new, k_old, eng);
             dim_conv.to_2d(x_new, y_new, k_new);
+            if (update_disps) dispersals(k_new, k_old)++;
 
             // Sample for whether aphid or plant is inoculated:
             sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
@@ -312,6 +318,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 // Sample for new location
                 sample(k_new, k_old, eng);
                 dim_conv.to_2d(x_new, y_new, k_new);
+                if (update_disps) dispersals(k_new, k_old)++;
 
                 // Sample for whether aphid or plant is inoculated:
                 sample_inoculation(p_load_alate, p_load_plant, u, has_virus,

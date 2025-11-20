@@ -46,6 +46,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                            const double& aphid_gone_thresh,
                                            const double& wasp_gone_thresh,
                                            const bool& infect_stop,
+                                           const bool& out_dispersals,
                                            const bool& show_progress,
                                            uint32& n_threads) {
 
@@ -157,6 +158,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
                                          p_load_alate, p_load_plant,
                                          total_exp_days, insects0,
                                          N0.slice(i), W0.slice(i), Y0(i),
+                                         out_dispersals,
                                          seeds[i]));
     }
 
@@ -388,6 +390,12 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //' @param out_stages Single logical for whether to separate output for aphids
 //'     by juvenile vs adults.
 //'     Defaults to `FALSE`.
+//' @param out_dispersals Single logical for whether to output a column list
+//'     containing matrices with the number of alate dispersals connecting
+//'     plants. The column indicates the plant the alate came from,
+//'     and the row indicates the plant the alate dispersed to.
+//'     This argument only does something when `summ %in% c("time", "all")`.
+//'     Defaults to `FALSE`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
@@ -428,6 +436,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const bool& infect_stop = true,
                          const bool& out_pseudo = false,
                          const bool& out_stages = false,
+                         const bool& out_dispersals = false,
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
 
@@ -436,7 +445,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                            virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant,
                            total_exp_days, w, radius, wasp_plant_attract, summ,
                            infect_time_n, aphid_gone_thresh, wasp_gone_thresh,
-                           infect_stop, show_progress, n_threads);
+                           infect_stop, out_dispersals, show_progress, n_threads);
 
     // Produce output dataframe:
     DataFrame out_df;
