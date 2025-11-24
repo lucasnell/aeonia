@@ -139,6 +139,16 @@ sad_leslie <- function(L) {
     .Call(`_aeonia_sad_leslie`, L)
 }
 
+#' Just create column names, for use in R.
+#'
+#' @inheritParams sim_plantscape
+#'
+#' @export
+#'
+col_namer <- function(summ, out_pseudo, out_stages) {
+    .Call(`_aeonia_col_namer`, summ, out_pseudo, out_stages)
+}
+
 #' Simulation plant landscapes with virus spread.
 #'
 #' @details # Radius

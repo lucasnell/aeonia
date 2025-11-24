@@ -23,14 +23,11 @@ using namespace Rcpp;
 
 /*
  This creates a character vector for output column names.
- It also verifies that the output is the same length as `n_cols`
+ This does the heavy lifting for the next two functions.
  */
-CharacterVector col_namer(const PlantScape& plantscape,
-                          const bool& out_pseudo,
-                          const bool& out_stages,
-                          const uint32& n_cols) {
-
-    const std::string summ = plantscape.summary();
+CharacterVector col_namer__(const std::string& summ,
+                            const bool& out_pseudo,
+                            const bool& out_stages) {
 
     CharacterVector out = {"rep"};
     if (summ != "all") out.push_back("time");
@@ -86,6 +83,23 @@ CharacterVector col_namer(const PlantScape& plantscape,
         out.push_back("outbreak_size");
     }
 
+    return out;
+}
+
+
+/*
+ Extract summary type based on a `plantscape` object, create column names, then
+ verify that the output is the same length as `n_cols`
+ */
+CharacterVector col_namer_cpp(const PlantScape& plantscape,
+                            const bool& out_pseudo,
+                            const bool& out_stages,
+                            const uint32& n_cols) {
+
+    const std::string summ = plantscape.summary();
+
+    CharacterVector out = col_namer__(summ, out_pseudo, out_stages);
+
     if (out.size() != n_cols) {
         if (out.size() == 0) {
             Rcout << "col_names is empty !!" << std::endl;
@@ -101,7 +115,32 @@ CharacterVector col_namer(const PlantScape& plantscape,
     }
 
     return out;
+
 }
+
+
+//' Just create column names, for use in R.
+//'
+//' @inheritParams sim_plantscape
+//'
+//' @export
+//'
+//[[Rcpp::export]]
+CharacterVector col_namer(const std::string& summ,
+                          const bool& out_pseudo,
+                          const bool& out_stages) {
+
+    if (summ != "none" && summ != "pseudo" && summ != "time" && summ != "all") {
+        stop("`summ` should be 'none', 'pseudo', 'time', or 'all'");
+    }
+
+    CharacterVector out = col_namer__(summ, out_pseudo, out_stages);
+
+    return out;
+
+}
+
+
 
 
 // Convert from list of columns to a dataframe:
@@ -147,7 +186,7 @@ void ps_out_none_pseudo(DataFrame& out_df,
         n_rows = n_reps * (max_t + (uint32)1U) * (uint32)3U;
     }
 
-    CharacterVector col_names = col_namer(plantscapes[0], out_pseudo, out_stages,
+    CharacterVector col_names = col_namer_cpp(plantscapes[0], out_pseudo, out_stages,
                                           n_cols);
 
     std::vector<std::vector<double>> tmp_list(n_cols);
@@ -320,7 +359,7 @@ void ps_out_time(DataFrame& out_df,
     uint32 n_cols = 8;
     if (out_stages) n_cols += 2;
 
-    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages,
+    CharacterVector col_names = col_namer_cpp(plantscapes[0], false, out_stages,
                                           n_cols);
 
     // Check if we need to also add dispersal events:
@@ -402,7 +441,7 @@ void ps_out_all(DataFrame& out_df,
     uint32 n_cols = 16;
     if (out_stages) n_cols += 4;
 
-    CharacterVector col_names = col_namer(plantscapes[0], false, out_stages,
+    CharacterVector col_names = col_namer_cpp(plantscapes[0], false, out_stages,
                                           n_cols);
 
     // Check if we need to also add dispersal events:
