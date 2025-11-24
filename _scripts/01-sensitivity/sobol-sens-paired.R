@@ -9,11 +9,13 @@
 #' scp ~/GitHub/Cornell/aeonia/_scripts/01-sensitivity/sobol-preamble.R \
 #'     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/sobol-paired/
 #'
-#' This was then run on BioHPC in an interactive job started with the following:
+#' This was then run on BioHPC in a non-interactive job started with the following:
 #'
 #' cd /home2/lan68/sobol-paired
-#' srun -n 1 -c 50 -N 1 --mem=80G --time=1-20:00:00 \
-#'   --job-name="sobol-paired" --pty bash -l
+#'
+#'
+#' # srun -n 1 -c 50 -N 1 --mem=80G --time=1-20:00:00 \
+#' #   --job-name="sobol-paired" --pty bash -l
 #'
 #'
 #' Then I started R using:
