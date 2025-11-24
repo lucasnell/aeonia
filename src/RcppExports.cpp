@@ -116,6 +116,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// col_namer
+CharacterVector col_namer(const std::string& summ, const bool& out_pseudo, const bool& out_stages);
+RcppExport SEXP _aeonia_col_namer(SEXP summSEXP, SEXP out_pseudoSEXP, SEXP out_stagesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const std::string& >::type summ(summSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type out_stages(out_stagesSEXP);
+    rcpp_result_gen = Rcpp::wrap(col_namer(summ, out_pseudo, out_stages));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sim_plantscape
 DataFrame sim_plantscape(const arma::ucube& landscapes, const uint32& max_t, SEXP insect_ptr, arma::cube N0, arma::cube W0, arma::vec Y0, const double& virus_attract, const double& pseudo_repel, const double& epsilon, const double& p_load_alate, const double& p_load_plant, const uint32& total_exp_days, const double& w, const double& radius, Nullable<NumericMatrix> wasp_plant_attract, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_stages, const bool& out_dispersals, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP max_tSEXP, SEXP insect_ptrSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP Y0SEXP, SEXP virus_attractSEXP, SEXP pseudo_repelSEXP, SEXP epsilonSEXP, SEXP p_load_alateSEXP, SEXP p_load_plantSEXP, SEXP total_exp_daysSEXP, SEXP wSEXP, SEXP radiusSEXP, SEXP wasp_plant_attractSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP aphid_gone_threshSEXP, SEXP wasp_gone_threshSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP out_stagesSEXP, SEXP out_dispersalsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
@@ -187,6 +200,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
     {"_aeonia_sad_leslie", (DL_FUNC) &_aeonia_sad_leslie, 1},
+    {"_aeonia_col_namer", (DL_FUNC) &_aeonia_col_namer, 3},
     {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 25},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 8},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},
