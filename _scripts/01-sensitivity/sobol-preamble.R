@@ -1,4 +1,7 @@
 
+if (! "tidyverse" %in% .packages()) suppressPackageStartupMessages(library(tidyverse))
+if (! "aeonia" %in% .packages()) suppressPackageStartupMessages(library(aeonia))
+
 suppressPackageStartupMessages({
     library(sensobol)
     library(lhs)
@@ -13,6 +16,7 @@ suppressPackageStartupMessages({
 #' `spat_config` indicates the spatial configuration of *Pseudomonas* and
 #' the values indicate the following (v = virus, p = *Pseudomonas*, B = both):
 #'
+#' - `-1`: random configuration (including on initial virus plant)
 #' - `0`: random configuration (never starting on initial virus plant)
 #' - `1`:
 #'     |---|---|---|
@@ -45,19 +49,18 @@ suppressPackageStartupMessages({
 vary_pars <- list(Y0 = c(1, 9),
                   mean_N = c(10, 100),
                   sd_N = c(0, 50),
-                  K = 12500 * c(0.1, 2),
-                  virus_attract = c(1, 5),
-                  pseudo_repel = c(1, 5),
+                  K = 12500 * c(0.5, 2),
+                  virus_attract = c(1, 10),
+                  pseudo_repel = c(1, 10),
                   pseudo_surv = c(0.85, 1), # <= 0.8344661 results in carrying capacity of ~0
                   zeta = c(0, 1),
-                  spat_config = c(0L, 4L))
+                  spat_config = c(-1L, 4L))
 
 # Response variables
-yvars <- c("p_alates", "log_aphids", "aphids", "log_alates", "alates",
-           "log_parasitized", "parasitized", "log_mummies", "mummies",
-           "log_wasps", "wasps", "infect_time", "outbreak_size")
+yvars <- col_namer("all", FALSE, FALSE) |> (\(x) x[x != "rep"])()
 
-N <- 2^10
+
+N <- 2^12
 
 # Takes just a second or two
 set.seed(641272456)
@@ -118,9 +121,16 @@ one_combo <- function(n_pseudo, alate_dens,
         land[1,1,i] <- 1L
         if (n_pseudo > 0) {
             if (spat_config == -1L) {
-                k <- sample.int(n_plants - 1L, n_pseudo)
-                x = k - n_x * ((k-1L) %/% n_x)
-                y = (k-1L) %/% n_x + 1L
+                k <- sample.int(n_plants, n_pseudo)
+                x <- k - n_x * ((k-1L) %/% n_x)
+                y <- (k-1L) %/% n_x + 1L
+                # Deal with situation where Pseudomonas on same plant as virus:
+                if (any(x == 1 & y == 1)) {
+                    idx <- which(x == 1 & y == 1)
+                    x <- x[-idx]
+                    y <- y[-idx]
+                    land[1,1,i] <- 3L
+                }
             } else if (spat_config == 0L) {
                 k <- sample.int(n_plants - 1L, n_pseudo)
                 x <- k - n_x * (k %/% n_x) + 1L
@@ -211,9 +221,9 @@ one_combo <- function(n_pseudo, alate_dens,
 
 
 
-all_sobol_sims <- function(.prog_args = FALSE) {
+some_sobol_sims <- function(indices, .prog_args = FALSE) {
 
-    sim_outs <- map(1:nrow(sobol_mat), \(j) {
+    sim_outs <- map(indices, \(j) {
 
         args <- rep(list(NA), ncol(sobol_mat)) |>
             set_names(colnames(sobol_mat))
