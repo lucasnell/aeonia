@@ -225,76 +225,30 @@ combo_p_list <- map(combo_sims, \(x) {
 
 # LEFT OFF - 17-Nov ----
 
+# Comparing two parameter combinations:
+sobol_summs |>
+    filter(combo == 7112 | combo == 9264) |>
+    filter(alate_dens == 1, n_pseudo > 0) |>
+    select(n_pseudo, alate_dens, all_of(names(vary_pars)))
+
+
+
 new_sims_args <- sobol_summs |>
-    filter(combo == 7112) |>
-    # filter(combo == 9264) |>
+    # filter(combo == 7112) |>
+    filter(combo == 9264) |>
     filter(alate_dens == 1, n_pseudo > 0) |>
     select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
-    mutate(n_sims = 10, summ = "none") |>
+    mutate(n_sims = 1000, summ = "none") |>
     as.list()
 
 set.seed(97504033)
 old_sims <- do.call(one_combo, new_sims_args)
 old_sims0 <- do.call(one_combo, list_assign(new_sims_args, n_pseudo = 0L))
 
-new_arg <- list(pseudo_repel = 10)
-set.seed(262255805)
+new_arg <- list(Y0 = 4)
+# set.seed(262255805)
 new_sims <- do.call(one_combo, list_assign(new_sims_args, !!!new_arg))
 new_sims0 <- do.call(one_combo, list_assign(new_sims_args, !!!c(new_arg, list(n_pseudo = 0L))))
-
-
-# **Nov-19 - LEFT OFF ----
-old_sims_od <- do.call(one_combo, list_assign(new_sims_args, out_dispersals = TRUE,
-                                              summ = "all",
-                                              spat_config = 1,
-                                              n_sims = 1000))
-new_sims_od <- do.call(one_combo, list_assign(new_sims_args,
-                                              !!!c(new_arg, list(out_dispersals = TRUE,
-                                                                 summ = "all",
-                                                                 spat_config = 1,
-                                                                 n_sims = 1000))))
-
-old_sims_od |> getElement("outbreak_size") |> mean()
-new_sims_od |> getElement("outbreak_size") |> mean()
-
-
-#' With spat_config = -1:
-#' > old_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 4.517
-#' > new_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 3.571
-
-#' With spat_config = 0:
-#' > old_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 7.126
-#' > new_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 5.779
-
-#' With spat_config = 1:
-#' > old_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 7.205
-#' > new_sims_od |> getElement("outbreak_size") |> mean()
-#' [1] 5.558
-
-
-
-old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) Matrix::Matrix(x / 1000, sparse = TRUE))()
-new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) Matrix::Matrix(x / 1000, sparse = TRUE))()
-
-# Total alates input to each plant:
-cbind(old = old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums(),
-      new = new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums())
-
-old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums() |> matrix(3, 3)
-new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums() |> matrix(3, 3)
-
-
-
-
-# bind_rows(new_sims, new_sims0) |>
-#     filter(is.na(x)) |>
-#     group_by(n_pseudo, rep) |>
-#     summarize(outbreak_size = max(virus), .groups = "drop")
 
 
 .rep <- 1
@@ -315,7 +269,7 @@ sims_maxes <- c("aphids", "alates", "wasps") |>
             lgl <- !is.na(c(old_sims[["x"]], old_sims0[["x"]], new_sims[["x"]],
                             new_sims0[["x"]]))
             lgl2 <- c(old_sims[["rep"]], old_sims0[["rep"]], new_sims[["rep"]],
-                            new_sims0[["rep"]]) == .rep
+                      new_sims0[["rep"]]) == .rep
             if (spp == "aphids") {
                 p <- "parasitized"
                 z <- z + c(old_sims[[p]], old_sims0[[p]], new_sims[[p]],
@@ -343,7 +297,7 @@ new_p <- paired_timeseries(new_sims, new_sims0,
                            .wasp_max = sims_maxes$wasps,
                            .tag = serify("",
                                          pretty_params(names(new_arg), TRUE),
-                                        paste(" =", new_arg)))
+                                         paste(" =", new_arg)))
 
 old_p / new_p
 
@@ -357,6 +311,43 @@ bind_rows(old_sims, old_sims0, new_sims, new_sims0) |>
               .groups = "drop_last") |>
     summarize(across(time:last_col(), mean),
               .groups = "drop")
+
+
+
+
+
+# **Nov-19 - LEFT OFF ----
+old_sims_od <- do.call(one_combo, list_assign(new_sims_args, out_dispersals = TRUE,
+                                              summ = "all",
+                                              # n_pseudo = 0,
+                                              n_sims = 1000))
+new_sims_od <- do.call(one_combo, list_assign(new_sims_args,
+                                              !!!c(new_arg, list(out_dispersals = TRUE,
+                                                                 summ = "all",
+                                                                 # n_pseudo = 0,
+                                                                 n_sims = 1000))))
+
+old_sims_od |> getElement("outbreak_size") |> mean()
+new_sims_od |> getElement("outbreak_size") |> mean()
+
+
+# old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) Matrix::Matrix(x / 1000, sparse = TRUE))()
+# new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) Matrix::Matrix(x / 1000, sparse = TRUE))()
+
+# Total alates input to each plant:
+# cbind(old = old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums(),
+#       new = new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums())
+old_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums() |> matrix(3, 3)
+new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums() |> matrix(3, 3)
+
+
+
+
+# bind_rows(new_sims, new_sims0) |>
+#     filter(is.na(x)) |>
+#     group_by(n_pseudo, rep) |>
+#     summarize(outbreak_size = max(virus), .groups = "drop")
+
 
 
 
