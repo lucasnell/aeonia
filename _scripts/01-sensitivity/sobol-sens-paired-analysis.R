@@ -3,8 +3,8 @@
 #'
 #'
 
-source("_scripts/01-sensitivity/00-preamble.R")
-source("_scripts/01-sensitivity/sobol-preamble.R")
+source("_scripts/00-preamble.R")
+source("_scripts/01-sensitivity/00-sobol-preamble.R")
 source("_scripts/01-sensitivity/sobol-sens-paired-analysis-functions.R")
 
 
