@@ -52,6 +52,34 @@ options("mc.cores" = n_threads)
 
 source("sobol-preamble.R")
 
+
+some_sobol_sims <- function(indices) {
+
+    sim_outs <- map(indices, \(j) {
+
+        args <- rep(list(NA), ncol(sobol_mat)) |>
+            set_names(colnames(sobol_mat))
+        for (n in colnames(sobol_mat)) {
+            args[[n]] <- unname(sobol_mat[j, n])
+        }
+        args[["n_sims"]] <- 100
+
+        out_df <- crossing(n_pseudo = c(0L, 3L), alate_dens = 0:1)
+
+        out_df[["sims"]] <- pmap(out_df, \(n_pseudo, alate_dens) {
+            args[["n_pseudo"]] <- n_pseudo
+            args[["alate_dens"]] <- alate_dens
+            sim <- do.call(one_combo, args)
+            return(sim)
+        })
+
+        return(out_df)
+    })
+
+    return(sim_outs)
+}
+
+
 # Verify that indices align with 'sobol_mat' object created in 'sobol-preamble.R':
 stopifnot(nrow(sobol_mat) %% max_idx == 0L)
 
