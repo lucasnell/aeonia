@@ -219,31 +219,3 @@ one_combo <- function(n_pseudo, alate_dens,
 }
 
 
-
-
-some_sobol_sims <- function(indices, .prog_args = FALSE) {
-
-    sim_outs <- map(indices, \(j) {
-
-        args <- rep(list(NA), ncol(sobol_mat)) |>
-            set_names(colnames(sobol_mat))
-        for (n in colnames(sobol_mat)) {
-            args[[n]] <- unname(sobol_mat[j, n])
-        }
-        args[["n_sims"]] <- 100
-
-        out_df <- crossing(n_pseudo = c(0L, 3L), alate_dens = 0:1)
-
-        out_df[["sims"]] <- pmap(out_df, \(n_pseudo, alate_dens) {
-            args[["n_pseudo"]] <- n_pseudo
-            args[["alate_dens"]] <- alate_dens
-            sim <- do.call(one_combo, args)
-            return(sim)
-        })
-
-        return(out_df)
-    }, .progress = .prog_args)
-
-    return(sim_outs)
-}
-
