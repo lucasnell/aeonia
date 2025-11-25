@@ -21,7 +21,7 @@
 #' using the following:
 #'
 #' cd ~/GitHub/Cornell/aeonia/_scripts/01-sensitivity \
-#'     && scp 01-sobol-preamble.R 02-sobol-sens-paired.sh \
+#'     && scp 00-sobol-preamble.R 01-sobol-sens-paired.sh \
 #'     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/sobol-paired/
 #'
 #' This was then run on BioHPC in a non-interactive job started with the following:
@@ -50,7 +50,7 @@ if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
 # Set threads for simulations:
 options("mc.cores" = n_threads)
 
-source("01-sobol-preamble.R")
+source("00-sobol-preamble.R")
 
 
 some_sobol_sims <- function(indices) {
