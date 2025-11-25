@@ -20,7 +20,7 @@
 #' using the following:
 #'
 #' cd ~/GitHub/Cornell/aeonia/_scripts/01-sensitivity \
-#'     && scp 00-sobol-preamble.R 01-sobol-sens-paired.sh \
+#'     && scp 00-sobol-preamble.R 01-sobol-simulations.sh \
 #'     biohpc:/home2/$USER/sobol-paired/
 #'
 #' This was then run on BioHPC in a non-interactive job started with the following:
