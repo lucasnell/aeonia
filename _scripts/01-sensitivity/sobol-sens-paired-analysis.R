@@ -8,68 +8,9 @@ source("_scripts/01-sensitivity/sobol-preamble.R")
 source("_scripts/01-sensitivity/sobol-sens-paired-analysis-functions.R")
 
 
+sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-summs.rds")
 
-
-
-if (!file.exists("_scripts/interm-data/sobol-sims-summs.rds")) {
-
-    #' Directory containing output from `sobol-sens-paired.R`:
-    sobol_dir <- "~/_globus"
-    #' Output from `sobol-sens-paired.R`:
-    sobol_sims <- paste0(sobol_dir, "/sobol-sims-paired.rds") |>
-        read_rds()
-    # Summarize each set of simulations:
-    # Takes ~1 min  (multithreading doesn't help)
-    sobol_summs <- imap(sobol_sims, \(sim_set, i) {
-        out_df <- sim_set |>
-            mutate(combo = factor(i, levels = 1:length(sobol_sims)),
-                   sims = map(sims, \(s) s[1, names(vary_pars)])) |>
-            unnest(sims) |>
-            select(combo, everything())
-        for (yv in c(yvars, "p_outbreak", "outbreak_size2", "sd_outbreak_size")) {
-            out_df[[yv]] <- 0.0
-        }
-        for (j in 1:nrow(sim_set)) {
-            for (yv in yvars) {
-                y <- sim_set$sims[[j]][[yv]]
-                if (yv != "infect_time" && any(is.na(y))) stop(y, " has NA values")
-                out_df[[yv]][[j]] <- mean(y, na.rm = TRUE)
-            }
-            y <- sim_set$sims[[j]][["outbreak_size"]]
-            # now do prob. outbreak happened:
-            out_df[["p_outbreak"]][[j]] <- mean(y > 1)
-            # and outbreak size when there was one:
-            out_df[["outbreak_size2"]][[j]] <- mean(y[y > 1])
-            # Lastly, SD(outbreak size):
-            out_df[["sd_outbreak_size"]][[j]] <- sd(y)
-        }
-        return(out_df)
-
-    }, .progress = .prog_args) |>
-        list_rbind()
-
-    write_rds(sobol_summs, "_scripts/interm-data/sobol-sims-summs.rds",
-              compress = "gz")
-    rm(sobol_sims); gc()
-
-} else {
-
-    sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-summs.rds")
-
-}
-
-
-
-
-# Same thing but looking at differences between with and without Pseudo:
-diff_sobol_summs <- sobol_summs |>
-    group_by(combo, alate_dens, across(all_of(names(vary_pars)))) |>
-    summarize(across(all_of(c(yvars, "p_outbreak", "outbreak_size2",
-                              "sd_outbreak_size")),
-                     \(x) x[n_pseudo > 0] - x[n_pseudo == 0]),
-              .groups = "drop") |>
-    mutate(across(starts_with("outbreak_size"), \(x) round(x, 2)))
-
+diff_sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-diff-summs.rds")
 
 
 
