@@ -4,7 +4,7 @@
 #'
 
 source("_scripts/01-sensitivity/00-preamble.R")
-source("_scripts/01-sensitivity/sobol-preamble.R")
+source("_scripts/01-sensitivity/01-sobol-preamble.R")
 
 
 out_files <- list(summs = "sobol-sims-summs.rds",
@@ -12,6 +12,12 @@ out_files <- list(summs = "sobol-sims-summs.rds",
     map(\(x) paste("_scripts/interm-data/", x))
 
 
+
+# =============================================================================*
+# =============================================================================*
+# Sim summaries ----
+# =============================================================================*
+# =============================================================================*
 
 if (!file.exists(out_files$summs)) {
 
@@ -117,8 +123,11 @@ if (!file.exists(out_files$diff_summs)) {
 }
 
 
-
-
+# =============================================================================*
+# =============================================================================*
+# Fit Sobol' indices ----
+# =============================================================================*
+# =============================================================================*
 
 set.seed(1998643658)
 sobol_inds_np3 <- sobol_summs |>
@@ -141,16 +150,48 @@ sobol_inds_diff <- diff_sobol_summs |>
     })()
 
 
-sobol_inds_p1 <- plot(sobol_inds_np3) +
-    labs(y = "Sobol' index (outbreak size with<br>three *Pseudomonas*)") +
-    theme(axis.text.y = element_markdown(),
-          axis.title.x = element_markdown()) +
-    coord_flip()
-sobol_inds_p2 <- plot(sobol_inds_diff) +
-    labs(y = "Sobol' index (effect of *Pseudomonas*<br>on outbreak size)") +
-    theme(axis.text.y = element_markdown(),
-          axis.title.x = element_markdown()) +
-    coord_flip()
+
+# =============================================================================*
+# =============================================================================*
+# plot Sobol' indices ----
+# =============================================================================*
+# =============================================================================*
+sobol_plotter <- function(x, y_lab = NULL) {
+
+    stopifnot(inherits(x, "sensobol"))
+
+    if (is.null(y_lab)) y_lab <- "Sobol' index"
+
+    dt <- x$results |> filter(sensitivity %in% c("Si", "Ti"))
+    gg <- ggplot(dt, aes(parameters, original, fill = sensitivity)) +
+        geom_bar(stat = "identity",
+                 position = position_dodge(0.6),
+                 color = NA) +
+        scale_y_continuous(breaks = scales::pretty_breaks(n = 3)) +
+        labs(x = "", y = y_lab) +
+        scale_fill_viridis_d(name = "Estimator order:",
+                             labels = c("first", "total"),
+                             option = "cividis", begin = 0.35, end = 0.9, direction = -1)
+    if (any(grepl("high.ci", colnames(dt))) == TRUE) {
+        gg <- gg +
+            geom_errorbar(aes(ymin = low.ci, ymax = high.ci),
+                          position = position_dodge(0.6),
+                          width = 0.3, linewidth = 0.75)
+    }
+    gg +
+        theme(legend.text = element_markdown(),
+              axis.text.y = element_markdown(),
+              axis.title.x = element_markdown()) +
+        coord_flip()
+
+}
+
+
+
+sobol_inds_p1 <- sobol_plotter(sobol_inds_np3,
+                               "Sobol' index (outbreak size with<br>three *Pseudomonas* patches)")
+sobol_inds_p2 <- sobol_plotter(sobol_inds_diff,
+                               "Sobol' index (effect of *Pseudomonas*<br>on outbreak size)")
 
 sobol_inds_p <- (sobol_inds_p1 | sobol_inds_p2) +
     plot_layout(guides = "collect", axes = "collect") &
