@@ -13,15 +13,11 @@ source("_scripts/01-sensitivity/00-sobol-preamble.R")
 
 
 # Output file names:
-out_fn <- list(rf = c(ob = "-",
-                      ob0 = "-0",
-                      dob = "-diff_"),
-               part = c(ob = "Parts-",
-                         dob = "Parts-diff_"),
-               inter = c(ob = "Int-",
-                          dob = "Int-diff_"),
-               imp = c(ob = "Imp-",
-                        dob = "Imp-diff_")) |>
+out_fn <- list(rf_m = "-Mtry-",
+               rf = "-",
+               part = "Parts-",
+               inter = "Int-",
+               imp = "Imp-") |>
     map(\(x) {
         z <- sprintf("_scripts/interm-data/randomforest%soutbreak_size.rds", x)
         names(z) <- names(x)
@@ -39,157 +35,126 @@ sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-summs.rds") |>
     mutate(spat_config = factor(spat_config))
 
 # Same thing but looking at differences between with and without Pseudo:
-diff_sobol_summs <- sobol_summs |>
-    group_by(combo, alate_dens, across(all_of(names(vary_pars)))) |>
-    summarize(across(all_of(c(yvars, "p_outbreak", "outbreak_size2",
-                              "sd_outbreak_size")),
-                     \(x) x[n_pseudo > 0] - x[n_pseudo == 0]),
-              .groups = "drop") |>
-    mutate(across(starts_with("outbreak_size"), \(x) round(x, 2)))
+diff_sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-diff-summs.rds") |>
+    mutate(spat_config = factor(spat_config))
 
 # Dataset for outbreak size (n_pseudo > 0):
 set.seed(99240974) # used for shuffling dataset
-ob_sim_df <- sobol_summs |>
-    filter(alate_dens == 1, n_pseudo > 0) |>
-    select(outbreak_size, all_of(names(vary_pars))) |>
-    slice_sample(prop = 1)
-# Dataset for outbreak size (n_pseudo == 0):
-set.seed(558448128) # used for shuffling dataset
-ob_sim_df0 <- sobol_summs |>
-    filter(alate_dens == 1, n_pseudo == 0) |>
-    select(outbreak_size, all_of(names(vary_pars))) |>
-    slice_sample(prop = 1)
+sim_df_list <- list(sobol_summs, diff_sobol_summs) |>
+    map(\(x) {
+        x <- x[x$alate_dens == 1,]
+        if ("n_pseudo" %in% colnames(x)) x <- x[x$n_pseudo > 0,]
+        x |>
+            select(outbreak_size, all_of(names(vary_pars))) |>
+            slice_sample(prop = 1)
+    })
 
-# Dataset for effect of pseudo on outbreak size:
-set.seed(1976042860) # used for shuffling dataset
-dob_sim_df <- diff_sobol_summs |>
-    filter(alate_dens == 1) |>
-    select(outbreak_size, all_of(names(vary_pars))) |>
-    slice_sample(prop = 1)
+# Make sure they have the same # rows:
+stopifnot(length(unique(map_int(sim_df_list, nrow))) == 1)
 
-n_train <- as.integer(round(nrow(ob_sim_df) * 0.75))
-n_test <- nrow(ob_sim_df) - n_train
+n_total <- nrow(sim_df_list[[1]])
+n_train <- as.integer(round(n_total * 0.75))
+n_test <- n_total - n_train
 
-ob_train_df <- ob_sim_df[1:n_train,]
-ob_test_df <- ob_sim_df[(n_train+1):nrow(ob_sim_df),]
-ob_train_df0 <- ob_sim_df0[1:n_train,]
-ob_test_df0 <- ob_sim_df0[(n_train+1):nrow(ob_sim_df),]
-dob_train_df <- dob_sim_df[1:n_train,]
-dob_test_df <- dob_sim_df[(n_train+1):nrow(dob_sim_df),]
+train_df_list <- sim_df_list |>
+    map(\(x) x[1:n_train,])
+test_df_list <- sim_df_list |>
+    map(\(x) x[(n_train+1):nrow(x),])
 
 
 
 
 
-# # Which value of `mtry` results in most explained variance?
-# # Each step takes ~3 min
-# set.seed(45181283)
-# ob_m_df <- tibble(m = 2:length(vary_pars)) |>
-#     mutate(v = map_dbl(m, \(.m) {
-#         rf <- randomForest(ob_sim_df[1:n_train,names(vary_pars)],
-#                            ob_sim_df[["outbreak_size"]][1:n_train],
-#                            corr.bias = TRUE, mtry = .m)
-#         return(tail(rf$rsq, 1))
-#     }))
-# set.seed(1547476225)
-# dob_m_df <- tibble(m = 2:length(vary_pars)) |>
-#     mutate(v = map_dbl(m, \(.m) {
-#         rf <- randomForest(dob_sim_df[1:n_train,names(vary_pars)],
-#                            dob_sim_df[["outbreak_size"]][1:n_train],
-#                            corr.bias = TRUE, mtry = .m)
-#         return(tail(rf$rsq, 1))
-#     }))
-# ob_m_df |>
-#     ggplot(aes(m, v)) +
-#     geom_line() +
-#     geom_point() +
-#     scale_x_continuous(breaks = 2:10) +
-#     theme(panel.grid.major = element_line(color = "gray80"))
-# dob_m_df |>
-#     ggplot(aes(m, v)) +
-#     geom_line() +
-#     geom_point() +
-#     scale_x_continuous(breaks = 2:10) +
-#     theme(panel.grid.major = element_line(color = "gray80"))
-# # The best for both was mtry = 5
+# Which value of `mtry` results in most explained variance?
+if (!file.exists(out_fn$rf_m)) {
+    # Takes ~1 hour
+    m_df_list <- crossing(i = 1:length(sim_df_list),
+                          m = 2:length(vary_pars)) |>
+        (\(x) {
+            suppressPackageStartupMessages(library(future.apply))
+            with(plan(multisession, workers = options()[["mc.cores"]], gc = TRUE),
+                 local = TRUE)
+            oopts <- options(future.globals.maxSize = 1.5e9)  ## 1.5 GB
+            on.exit(options(oopts))
+
+            one_try <- function(j) {
+                .i <- x[["i"]][[j]]
+                .m <- x[["m"]][[j]]
+                sdf <- train_df_list[[.i]]
+                rf <- randomForest(sdf[,names(vary_pars)],
+                                   sdf[["outbreak_size"]],
+                                   corr.bias = TRUE, mtry = .m)
+                return(tail(rf$rsq, 1))
+            }
+
+            out_v <- future_lapply(1:nrow(x),
+                                   one_try,
+                                   future.seed = 45181283,
+                                   future.packages = "randomForest") |>
+                list_c()
+            x$v <-  out_v
+
+            return(x)
+
+        })()
+
+    write_rds(m_df_list, out_fn$rf_m, compress = "gz")
+
+} else {
+
+    m_df_list <- read_rds(out_fn$rf_m)
+
+}
+
+
+
+
+m_df_list |>
+    mutate(i = factor(i)) |>
+    ggplot(aes(m, v)) +
+    geom_line() +
+    geom_point() +
+    scale_x_continuous(breaks = 2:10) +
+    facet_wrap(~ i, ncol = 1, scales = "free") +
+    theme(panel.grid.major = element_line(color = "gray80"))
+# The best for both is mtry = 4
+
+
 
 
 # =============================================================================*
 # Fit randomForests ----
 # =============================================================================*
 
-if (!all(file.exists(out_fn$rf))) {
+if (!file.exists(out_fn$rf)) {
+
+    # Takes > 10 min
     set.seed(359013909)
-    ob_rf <- randomForest(ob_train_df[,names(vary_pars)],
-                          ob_train_df[["outbreak_size"]],
-                          importance = TRUE, corr.bias = TRUE, mtry = 5)
-    set.seed(794345405)
-    ob_rf0 <- randomForest(ob_train_df0[,names(vary_pars)],
-                          ob_train_df0[["outbreak_size"]],
-                          importance = TRUE, corr.bias = TRUE, mtry = 5)
-    set.seed(84490683)
-    dob_rf <- randomForest(dob_train_df[,names(vary_pars)],
-                           dob_train_df[["outbreak_size"]],
-                           importance = TRUE, corr.bias = TRUE, mtry = 5)
-    write_rds(ob_rf, out_fn$rf[["ob"]], compress = "gz")
-    write_rds(ob_rf0, out_fn$rf[["ob0"]], compress = "gz")
-    write_rds(dob_rf, out_fn$rf[["dob"]], compress = "gz")
+    rf_list <- train_df_list |>
+        map(\(x){
+            randomForest(x[,names(vary_pars)],
+                         x[["outbreak_size"]],
+                         importance = TRUE, corr.bias = TRUE, mtry = 4)
+        })
+    write_rds(rf_list, out_fn$rf, compress = "gz")
+
 } else {
-    ob_rf <- read_rds(out_fn$rf[["ob"]])
-    ob_rf0 <- read_rds(out_fn$rf[["ob0"]])
-    dob_rf <- read_rds(out_fn$rf[["dob"]])
+
+    rf_list <- read_rds(out_fn$rf)
+
 }
 
 
 
 # variances explained (partial r^2):
-(ob_rf_rsq <- tail(ob_rf$rsq, 1))
-# [1] 0.9630947
-(ob_rf_rsq0 <- tail(ob_rf0$rsq, 1))
-# [1] 0.9841875
-(dob_rf_rsq <- tail(dob_rf$rsq, 1))
-# [1] 0.8367532
+map_dbl(rf_list, \(x) tail(x$rsq, 1))
+# [1] 0.9670215 0.8915151
 
 
-#' #' Does predicting from separate randomForests for with and without Pseudomonas,
-#' #' then taking difference improve compared to a single randomForest on
-#' #' the difference?
-#' #' It does, but it's much more annoying to analyze!
-#'
-#' pred <- predict(ob_rf, dob_test_df[,names(vary_pars)]) -
-#'     predict(ob_rf0, dob_test_df[,names(vary_pars)])
-#' pred0 <- predict(dob_rf, dob_test_df[,names(vary_pars)])
-#'
-#' cor(pred, dob_test_df[["outbreak_size"]])^2
-#' # [1] 0.8809224
-#' cor(pred0, dob_test_df[["outbreak_size"]])^2
-#' # [1] 0.812233
-#'
-#' # Takes ~
-#' t0 <- Sys.time()
-#' set.seed(2106841574)
-#' ob_mse <- lapply(1:100, \(i) {
-#'     xm0 <- dob_train_df[,names(vary_pars)]
-#'     y <- dob_train_df[["outbreak_size"]]
-#'     mse0 <- Metrics::mse(y, predict(ob_rf, xm0) - predict(ob_rf0, xm0))
-#'     out <- rep(list(0), length(names(vary_pars))) |>
-#'         set_names(names(vary_pars)) |>
-#'         as_tibble()
-#'     for (n in names(vary_pars)) {
-#'         xm <- xm0
-#'         xm[[n]] <- sample(xm[[n]])
-#'         predicted2 <- predict(ob_rf, xm) - predict(ob_rf0, xm)
-#'         mse2 <- Metrics::mse(y, predicted2)
-#'         out[[n]] <- mse2 / mse0
-#'     }
-#'     return(out)
-#' }) |>
-#'     list_rbind()
-#' t1 <- Sys.time()
-#' t1 - t0
-#'
-#' apply(as.matrix(ob_mse), 2, median)
-#' dob_rf_imp$results
+
+
+# LEFT OFF -----
+# Have not updated code below for new simulations
 
 
 
