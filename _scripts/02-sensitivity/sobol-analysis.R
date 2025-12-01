@@ -4,8 +4,8 @@
 #'
 
 source("_scripts/00-preamble.R")
-source("_scripts/01-sensitivity/00-sobol-preamble.R")
-source("_scripts/01-sensitivity/sobol-analysis-functions.R")
+source("_scripts/02-sensitivity/00-sobol-preamble.R")
+source("_scripts/02-sensitivity/sobol-analysis-functions.R")
 
 
 sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-summs.rds")

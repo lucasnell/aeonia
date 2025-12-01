@@ -20,7 +20,7 @@
 #' I first moved the sensitivity preamble and this script over to bioHPC
 #' using the following:
 #'
-#' cd ~/GitHub/Cornell/aeonia/_scripts/01-sensitivity \
+#' cd ~/GitHub/Cornell/aeonia/_scripts/02-sensitivity \
 #'     && scp 00-sobol-preamble.R 01-sobol-simulations.sh \
 #'     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/sobol-paired/
 #'
