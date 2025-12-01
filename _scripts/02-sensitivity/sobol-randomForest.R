@@ -9,7 +9,7 @@ library(iml)
 
 
 source("_scripts/00-preamble.R")
-source("_scripts/01-sensitivity/00-sobol-preamble.R")
+source("_scripts/02-sensitivity/00-sobol-preamble.R")
 
 
 # Output file names:

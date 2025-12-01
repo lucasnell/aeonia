@@ -4,7 +4,7 @@
 #'
 
 source("_scripts/00-preamble.R")
-source("_scripts/01-sensitivity/00-sobol-preamble.R")
+source("_scripts/02-sensitivity/00-sobol-preamble.R")
 
 
 out_files <- list(summs = "sobol-sims-summs.rds",
