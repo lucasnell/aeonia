@@ -35,6 +35,7 @@ RemoteUsername: lucasnell
 GithubRepo: aeonia
 GithubUsername: lucasnell
 Suggests:
+    ggtext,
     knitr,
     rmarkdown
 VignetteBuilder: quarto

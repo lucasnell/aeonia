@@ -4,6 +4,7 @@ suppressPackageStartupMessages({
     library(aeonia)
     library(patchwork)
     library(ggtext)
+    library(scico)
 })
 
 # Set threads for simulations:
@@ -34,22 +35,19 @@ CC <- function(K, pseudo_surv, pred_surv){
 }
 
 
-spp_pal <- viridisLite::plasma(101)[c(75, 40, 10)] |>
+spp_pal <- scico(100, palette = "vikO")[c(25, 40, 85)] |>
     set_names(c("aphids", "alates", "wasps"))
 # Uncomment below to see (in RStudio):
-# "#F79143FF" "#AD2793FF" "#3E049CFF"
-
-
-# viridisLite::plasma(101)[c(75, 60, 30, 10)]
-# "#F79143FF" "#DE6263FF" "#8D0BA5FF" "#3E049CFF"
+# c("#41709D", "#9FB6C7", "#75211F")
 
 
 # for numbers of pseudomonas patches:
-np_pal <- c(`0` = "goldenrod", `3` = "dodgerblue")
+np_pal <- scico(2, begin = 0.1, end = 0.7, palette = "vanimo") |>
+    set_names(c("0", "3"))
+# Uncomment below to see (in RStudio):
+# c("#D787C8", "#40591E")
 
 
-
-# pseudo_pal <- c(`3` = "#1E90FF", `0` = "gray60")
 
 serify <- function(prefix, x, suffix) {
     xx <- paste0("<span style=\"font-family: serif\">", x, "</span>")
@@ -60,37 +58,41 @@ serify <- function(prefix, x, suffix) {
 first_cap <- \(str) paste(toupper(substr(str, 1, 1)), substr(str, 2, nchar(str)), sep="")
 
 
-pretty_params <- function(x, short = FALSE) {
+pretty_params <- function(x, short = FALSE, cap1 = FALSE) {
     if (short) {
-        case_when(x == "pseudo_surv" ~ "&psi;",
-                  x == "virus_attract" ~ "&nu;",
-                  x == "pseudo_repel" ~ "&rho;",
-                  x == "epsilon" ~ "&epsilon;",
-                  x == "zeta" ~ "&zeta;",
-                  x == "sd_N" ~ "&sigma;<sub>N</sub>",
-                  x == "Y0" ~ "Y<sub>0</sub>",
-                  x == "mean_N" ~ "&mu;<sub>N</sub>",
-                  x == "alate_slope" ~ "b<sub>slope</sub>",
-                  x == "alate_max" ~ "b<sub>max</sub>",
-                  x == "n_pseudo" ~ "n<sub>P</sub>",
-                  x == "spat_config" ~ "spat. conf.",
-                  .default = x)
+        out <- case_when(x == "pseudo_surv" ~ "&psi;",
+                         x == "virus_attract" ~ "&nu;",
+                         x == "pseudo_repel" ~ "&rho;",
+                         x == "epsilon" ~ "&epsilon;",
+                         x == "zeta" ~ "&zeta;",
+                         x == "sd_N" ~ "&sigma;<sub>N</sub>",
+                         x == "Y0" ~ "Y<sub>0</sub>",
+                         x == "mean_N" ~ "&mu;<sub>N</sub>",
+                         x == "N0" ~ "N<sub>0</sub>",
+                         x == "alate_slope" ~ "b<sub>slope</sub>",
+                         x == "alate_max" ~ "b<sub>max</sub>",
+                         x == "n_pseudo" ~ "n<sub>P</sub>",
+                         x == "spat_config" ~ "spat. config.",
+                         .default = x)
     } else {
-        case_when(x == "pseudo_surv" ~ serify("*Pseudomonas* survival (", "&psi;", ")"),
-                  x == "virus_attract" ~ serify("virus attraction (", "&nu;", ")"),
-                  x == "pseudo_repel" ~ serify("*Pseudomonas* repellence (", "&rho;", ")"),
-                  x == "epsilon" ~ serify("virus effect on staying (", "&epsilon;", ")"),
-                  x == "zeta" ~ serify("wasp density response (", "&zeta;", ")"),
-                  x == "sd_N" ~ serify("initial aphid density SD (", "&sigma;<sub>N</sub>", ")"),
-                  x == "Y0" ~ serify("initial wasp density (", "Y<sub>0</sub>", ")"),
-                  x == "mean_N" ~ serify("initial aphid density mean (", "&mu;<sub>N</sub>", ")"),
-                  x == "alate_slope" ~ serify("slope for aphid density ~ alate offspring (", "b<sub>slope</sub>", ")"),
-                  x == "alate_max" ~ serify("max alate proportion (", "b<sub>max</sub>", ")"),
-                  x == "n_pseudo" ~ serify("number of *Pseudomonas* patches (", "n<sub>P</sub>", ")"),
-                  x == "K" ~ serify("aphid density dependence (", "K", ")"),
-                  x == "spat_config" ~ "spatial configuration",
-                  .default = x)
+        out <- case_when(x == "pseudo_surv" ~ serify("*Pseudomonas* survival (", "&psi;", ")"),
+                         x == "virus_attract" ~ serify("virus attraction (", "&nu;", ")"),
+                         x == "pseudo_repel" ~ serify("*Pseudomonas* repellence (", "&rho;", ")"),
+                         x == "epsilon" ~ serify("virus effect on staying (", "&epsilon;", ")"),
+                         x == "zeta" ~ serify("wasp density response (", "&zeta;", ")"),
+                         x == "sd_N" ~ serify("initial aphid density SD (", "&sigma;<sub>N</sub>", ")"),
+                         x == "Y0" ~ serify("initial wasp density (", "Y<sub>0</sub>", ")"),
+                         x == "mean_N" ~ serify("initial aphid density mean (", "&mu;<sub>N</sub>", ")"),
+                         x == "N0" ~ serify("initial aphid density (", "N<sub>0</sub>", ")"),
+                         x == "alate_slope" ~ serify("slope for aphid density ~ alate offspring (", "b<sub>slope</sub>", ")"),
+                         x == "alate_max" ~ serify("max alate proportion (", "b<sub>max</sub>", ")"),
+                         x == "n_pseudo" ~ serify("number of *Pseudomonas* patches (", "n<sub>P</sub>", ")"),
+                         x == "K" ~ serify("aphid density dependence (", "K", ")"),
+                         x == "spat_config" ~ "spatial configuration",
+                         .default = x)
     }
+    if (cap1) out <- first_cap(out)
+    return(out)
 }
 
 # Descriptions for each y variable:
