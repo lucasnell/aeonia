@@ -186,11 +186,11 @@ public:
           M(0) {
 
         // Checks for parameter values that could cause negative numbers:
-        if (trans_ma >= pred_surv) stop("trans_ma cannot be >= pred_surv");
+        if (trans_ma >= pred_surv) throw std::runtime_error("trans_ma cannot be >= pred_surv");
         if (trans_pm >= pred_surv * pseudo_surv * 0.65 * s_p) {
             std::string err_msg = "trans_pm cannot be >= pred_surv * pseudo_surv * 0.65 ";
             err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
-            stop(err_msg.c_str());
+            throw std::runtime_error(err_msg.c_str());
         }
 
         L(0,0) = surv_j;
@@ -257,7 +257,7 @@ public:
         if (trans_pm >= pred_surv * pseudo_surv * 0.65 * s_p) {
             std::string err_msg = "trans_pm cannot be >= pred_surv * pseudo_surv * 0.65 ";
             err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
-            stop(err_msg.c_str());
+            throw std::runtime_error(err_msg.c_str());
         }
         pseudo_surv = new_pseudo_surv;
         return;
@@ -365,18 +365,21 @@ public:
     void fill_Yi(const std::vector<std::vector<P>>& plants,
                  const arma::mat& wasp_attract) {
         uint32 n_x = plants.size();
-        if (n_x == 0) stop("ERROR: EMPTY PLANT");
-        if (n_x != wasp_attract.n_rows) stop("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
+        if (n_x == 0) throw std::runtime_error("ERROR: EMPTY PLANT");
+        if (n_x != wasp_attract.n_rows)
+            throw std::runtime_error("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
         uint32 n_y = plants[0].size();
-        if (n_y == 0) stop("ERROR: EMPTY PLANT ROW");
-        if (n_y != wasp_attract.n_cols) stop("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
+        if (n_y == 0) throw std::runtime_error("ERROR: EMPTY PLANT ROW");
+        if (n_y != wasp_attract.n_cols)
+            throw std::runtime_error("ERROR: `plants` DIMS DON'T MATCH `wasp_attract`");
 
         if (z_mat.n_rows != n_x || z_mat.n_cols != n_y) z_mat.set_size(n_x, n_y);
         if (Yi_mat.n_rows != n_x || Yi_mat.n_cols != n_y) Yi_mat.set_size(n_x, n_y);
 
         double z_tot = 0;
         for (uint32 x = 0; x < n_x; x++) {
-            if (plants[x].size() != n_y) stop("ERROR: INCONSISTENT `plants` VECTOR");
+            if (plants[x].size() != n_y)
+                throw std::runtime_error("ERROR: INCONSISTENT `plants` VECTOR");
             for (uint32 y = 0; y < n_y; y++) {
                 const AphidPops& aphids_xy(plants[x][y].aphids);
                 z_mat(x,y) = aphids_xy.z();
