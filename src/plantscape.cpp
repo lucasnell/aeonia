@@ -131,7 +131,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     double max_leave_p = 1 - std::min(w, epsilon * w); // max Pr(leave plant)
     while (std::pow(max_leave_p, max_fly_t) > (double)1e-9) {
         max_fly_t *= 10;
-        if (max_fly_t > (uint32)1000000) stop("INTERNAL ERROR: max_fly_t too high");
+        if (max_fly_t > (uint32)1000000)
+            throw std::runtime_error("INTERNAL ERROR: max_fly_t too high");
     }
 
     // Make sure output object won't be too big for R:

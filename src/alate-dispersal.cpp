@@ -113,13 +113,13 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
                 err_msg += "pseudo_repel is very high, ";
                 err_msg += "resulting in sampling weights equal to zero. ";
                 err_msg += "This results in computational problems.";
-                stop(err_msg.c_str());
+                throw std::runtime_error(err_msg.c_str());
             }
             // --------------------------
             // Set this plant's neighbors:
             neighbors_k.clear();
             for (uint32 i = 0; i < n_neigh; i++) {
-                if (i >= neigh_dxdy.n_rows) stop("Huh");
+                if (i >= neigh_dxdy.n_rows) throw std::runtime_error("Huh");
                 const int32& dx(neigh_dxdy(i,0));
                 const int32& dy(neigh_dxdy(i,1));
                 xi = x+dx;

@@ -265,7 +265,7 @@ class PlantScape {
 
         } else {
 
-            stop("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
+            throw std::runtime_error("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
 
         }
 
