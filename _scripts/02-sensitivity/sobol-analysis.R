@@ -19,7 +19,6 @@ diff_sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-diff-summs.rds")
 
 
 
-
 # scatter(diff_sobol_summs |> filter(alate_dens == 1, abs(outbreak_size) > 0.05))
 
 
@@ -61,7 +60,10 @@ diff_sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-diff-summs.rds")
 
 
 
-# QUESTION #1 ----
+# =============================================================================*
+# alate ~ density effect? ----
+# =============================================================================*
+
 #' For parameter combos that seemed to result in a negative
 #' effect of Pseudomonas, does alate ~ density affect outcomes?
 
@@ -91,13 +93,14 @@ diff_sobol_summs <- read_rds("_scripts/interm-data/sobol-sims-diff-summs.rds")
 
 
 
-# LEFT OFF #2 ----
-#' What parameter values are associated with Pseudomonas being bad for plants?
+# =============================================================================*
+# Extreme param combos ----
+# =============================================================================*
+
+#' What parameter values are associated with Pseudomonas being especially bad
+#' or good for plants?
 
 
-
-
-# EXTREMES ----
 diff_sobol_summs |>
     filter(alate_dens == 1, spat_config %in% c(0, 1)) |>
     arrange(desc(outbreak_size)) |>
@@ -109,15 +112,108 @@ diff_sobol_summs |>
 
 
 
-if (!file.exists("_scripts/interm-data/manip-extreme-combos.rds")) {
+extreme_combos <- diff_sobol_summs |>
+    filter(alate_dens == 1, spat_config %in% c(0, 1)) |>
+    filter(outbreak_size %in% range(outbreak_size)) |>
+    arrange(desc(outbreak_size)) |>
+    getElement("combo") |>
+    set_names(c("high", "low"))
 
-    # 7112 - Highest outbreak size difference
-    # 9264 - Lowest outbreak size difference
+
+# Comparing two most extreme parameter combinations:
+diff_sobol_summs |>
+    filter(combo %in% extreme_combos) |>
+    filter(alate_dens == 1) |>
+    select(combo, outbreak_size, all_of(names(vary_pars)))
+
+sobol_summs |>
+    filter(combo %in% extreme_combos) |>
+    filter(alate_dens == 1) |>
+    select(combo, n_pseudo, outbreak_size, all_of(names(vary_pars))) |>
+    rename(OBS = outbreak_size, virus_attr = virus_attract)
+
+
+
+set.seed(1381664252)
+extreme_sims <- sobol_summs |>
+    filter(combo %in% extreme_combos) |>
+    filter(alate_dens == 1) |>
+    select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
+    mutate(spat_config = 1,  # << for easier interpretation (doesn't affect outcome)
+           n_sims = 10, summ = "none", out_stages = TRUE) |>
+    (\(x) {
+        x$sims  <- pmap(x, one_combo) |>
+            map(\(x) select(x, rep:last_col()))
+        new_pars <- c("n_pseudo", "zeta")
+        for (i in 1:nrow(x)) {
+            for (z in new_pars) {
+                x$sims[[i]][[z]] <- x[[z]][[i]]
+            }
+            x$sims[[i]] <- select(x$sims[[i]], all_of(new_pars), everything())
+        }
+        return(x)
+    })()
+
+
+
+paired_timeseries(extreme_sims$sims[[1]], extreme_sims$sims[[2]], .tag = "High",
+                  .aphid_max = 1610, .alate_max = 301, .wasp_max = 50) /
+    paired_timeseries(extreme_sims$sims[[3]], extreme_sims$sims[[4]],
+                      .tag = "Low",
+                      .aphid_max = 1610, .alate_max = 301, .wasp_max = 50)
+
+
+paired_attack_plots(extreme_sims$sims[[1]], extreme_sims$sims[[2]], .tag = "High",
+                    .y_min = 0.4) /
+    paired_attack_plots(extreme_sims$sims[[3]], extreme_sims$sims[[4]], .tag = "Low",
+                        .y_min = 0.4)
+
+
+
+
+
+infect_time <- extreme_sims$sims[[3]] |>
+    filter(rep == 1, x == 2, y == 2) |>
+    filter(virus == 1) |>
+    getElement("time") |>
+    getElement(1)
+
+
+# Weird changes in attack survival are due to influx of adult alates when
+# other aphid densities are low:
+extreme_sims$sims[[3]] |>
+    filter(rep == 1) |>
+    filter(time > infect_time - 5, time < infect_time + 12) |>
+    mutate(plant = interaction(x, y, drop = TRUE)) |>
+    split(~ time, drop = TRUE) |>
+    map(add_Y_A,
+        zeta = extreme_sims$sims[[3]][["zeta"]][[1]],
+        a = pop_info[["a"]],
+        h = pop_info[["h"]],
+        k = pop_info[["k"]],
+        R = pop_info[["R"]],
+        keep_stages = TRUE) |>
+    list_rbind() |>
+    filter(plant == "2.2") |>
+    select(time, aphids_juv:wasps, A) |>
+    pivot_longer(aphids_juv:A) |>
+    ggplot(aes(time, value)) +
+    geom_line(aes(color = name)) +
+    geom_point(aes(color = name)) +
+    geom_vline(xintercept = infect_time, linetype = "22") +
+    geom_vline(xintercept = c(36, 38), linetype = "22", color = "gray70") +
+    scale_color_viridis_d(option = "turbo", guide = "none") +
+    facet_wrap(~ name, scales = "free")
+
+
+
+# manip extremes ----
+
+if (!file.exists("_scripts/interm-data/manip-extreme-combos.rds")) {
     # Takes ~1 min
     set.seed(1783004255)
-    combo_sims <- map(c(7112, 9264), one_combo_par_manip_simmer,
+    combo_sims <- map(extreme_combos, one_combo_par_manip_simmer,
                       .progress = .prog_args)
-
     write_rds(combo_sims, "_scripts/interm-data/manip-extreme-combos.rds",
               compress = "gz")
 
@@ -136,6 +232,100 @@ combo_p_list <- map(combo_sims, \(x) {
 
 # combo_p_list[[1]]
 # combo_p_list[[2]]
+
+# save_plot("_plots/combo-plot1.pdf", combo_p_list[[1]], width = 8, height = 5)
+# save_plot("_plots/combo-plot2.pdf", combo_p_list[[2]], width = 8, height = 5)
+
+
+# 2-par manip extremes ----
+
+if (!file.exists("_scripts/interm-data/manip-extreme-combos-2pars.rds")) {
+
+    # Takes ~15 min w/ 2 sets of 7 combinations:
+    set.seed(1547643870)
+    combo_2par_sims <- extreme_combos |>
+        map(\(Z) {
+            list(c("Y0", "mean_N"),
+                 c("Y0", "sd_N"),
+                 c("mean_N", "sd_N"),
+                 c("virus_attract", "pseudo_repel"),
+                 c("pseudo_repel", "pseudo_surv"),
+                 c("zeta", "pseudo_surv"),
+                 c("zeta", "sd_N")) |>
+                (\(x) set_names(x, map_chr(x, paste, collapse = "+")))() |>
+                map(one_combo_2par_manip_simmer, .combo = Z,
+                    progress_ = FALSE, .spat_config = 1L,
+                    .progress = .prog_args)
+        })
+
+    write_rds(combo_2par_sims, "_scripts/interm-data/manip-extreme-combos-2pars.rds",
+              compress = "gz")
+
+} else {
+
+    combo_2par_sims <- read_rds("_scripts/interm-data/manip-extreme-combos-2pars.rds")
+
+}
+
+# make sure these are both within range [-5, 5]:
+combo_2par_sims |>
+    map(\(x) {
+        map(x,
+            \(xx) {
+                xx |>
+                    group_by(across(2:3))  |>
+                    summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
+                                  outbreak_size[n_pseudo == "0"],
+                              .groups = "drop") |>
+                    mutate(outbreak_size = round(outbreak_size, 3)) |>
+                    getElement("outbreak_size") |>
+                    range()
+            }) |>
+            do.call(what = rbind)
+    }) |>
+    do.call(what = rbind) |>
+    (\(xx) return(c(min(xx[,1]), max(xx[,2]))))()
+
+
+# Combinations that result in greater outbreak size with Pseudomonas:
+combo_2par_sims |>
+    map(\(.df) {
+        .df |>
+            list_rbind() |>
+            mutate(grp = map(1:(n() %/% 2L), \(i) return(rep(i, 2))) |> list_c()) |>
+            group_by(grp, .drop = FALSE) |>
+            summarize(outbreak_size = outbreak_size[n_pseudo != 0] -
+                          outbreak_size[n_pseudo == 0],
+                      across(any_of(names(vary_pars)), mean)) |>
+            mutate(outbreak_size = round(outbreak_size, 3)) |>
+            filter(outbreak_size > 0) |>
+            arrange(desc(outbreak_size))
+    })
+
+
+cbind(names(combo_2par_sims[[1]]))
+#      [,1]
+# [1,] "Y0+mean_N"
+# [2,] "Y0+sd_N"
+# [3,] "mean_N+sd_N"
+# [4,] "virus_attract+pseudo_repel"
+# [5,] "pseudo_repel+pseudo_surv"
+# [6,] "zeta+pseudo_surv"
+# [7,] "zeta+sd_N"
+
+
+which_2par <- "Y0+mean_N"
+
+(one_combo_2par_manip_plotter(combo_2par_sims[[1]][[which_2par]],
+                              .contour = TRUE, .tag = "Highest")) /
+    (one_combo_2par_manip_plotter(combo_2par_sims[[2]][[which_2par]],
+                                  .contour = TRUE, .tag = "Lowest")) +
+    plot_layout(guides = "collect")
+
+
+
+
+
 
 # combo_p_list[[1]] / combo_p_list[[2]] +
 #     plot_layout(guides = "collect", axes = "collect")
@@ -164,32 +354,204 @@ combo_p_list <- map(combo_sims, \(x) {
 #                        values = np_pal)
 
 
-# LEFT OFF - 17-Nov ----
-
-# Comparing two parameter combinations:
-sobol_summs |>
-    filter(combo == 7112 | combo == 9264) |>
-    filter(alate_dens == 1, n_pseudo > 0) |>
-    select(n_pseudo, alate_dens, all_of(names(vary_pars)))
 
 
+# For below, I'm manually manipulating parameters to go from lowest effect of
+# Pseudomonas on outbreak size, to highest (or close)
+# **Manipulate pars ----
 
-new_sims_args <- sobol_summs |>
-    # filter(combo == 7112) |>
-    filter(combo == 9264) |>
+# # A tibble: 2 × 10
+#   combo   *obs    Y0 mean_N  sd_N      K   † va    ‡ pr    ¶ ps   zeta
+#   <fct>  <dbl> <dbl>  <dbl> <dbl>  <dbl>  <dbl>   <dbl>   <dbl>  <dbl>
+# 1 7064    2.93  2.15   16.5  4.43 18358.   1.38    5.99   0.852 0.0159
+# 2 34255  -3.98  1.65   87.7 24.6  15634.   2.97    9.03   0.892 0.816
+#
+# * = outbreak_size
+# † = virus_attract
+# ‡ = pseudo_repel
+# ¶ = pseudo_surv
+
+
+old_sims_args <- sobol_summs |>
+    # filter(combo == extreme_combos[["high"]]) |>
+    filter(combo == extreme_combos[["low"]]) |>
     filter(alate_dens == 1, n_pseudo > 0) |>
     select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
-    mutate(n_sims = 1000, summ = "none") |>
+    mutate(n_sims = 1000, summ = "none", spat_config = -1L) |>
     as.list()
 
 set.seed(97504033)
-old_sims <- do.call(one_combo, new_sims_args)
-old_sims0 <- do.call(one_combo, list_assign(new_sims_args, n_pseudo = 0L))
+old_sims <- do.call(one_combo, old_sims_args)
+old_sims0 <- do.call(one_combo, list_assign(old_sims_args, n_pseudo = 0L))
 
-new_arg <- list(Y0 = 4)
+# Values for candidate arguments that could flip outcome:
+new_args <- list(zeta = 0,
+                 mean_N = 15,
+                 # Y0 = 2,
+                 virus_attract = 1,
+                 pseudo_repel = 1,
+                 sd_N = 0)
+
+
+# Just takes a few sec
+set.seed(1826998848)
+multi_pert_sims <- 0:length(new_args) |>
+    map(\(k) {
+        # k = 2L
+        # rm(k, m, out, i, arg_list_i, sims)
+        if (k == 0) {
+            out <- tibble(k = 0L,
+                          params = "",
+                          n_pseudo = c(0L, old_sims_args[["n_pseudo"]]),
+                          outbreak_size = 0)
+            out$outbreak_size <- list(old_sims0, old_sims) |>
+                map_dbl(\(x) {
+                    x |>
+
+                        filter(is.na(x)) |>
+                        group_by(rep) |>
+                        summarize(outbreak_size = max(virus)) |>
+                        getElement("outbreak_size") |>
+                        mean()
+                })
+            return(out)
+        }
+        m <- combn(length(new_args), k)
+        out <- crossing(k = k,
+                        params = map(1:ncol(m), \(i) names(new_args)[m[,i]]),
+                        n_pseudo = c(0L, old_sims_args[["n_pseudo"]]),
+                        outbreak_size = 0)
+        for (i in 1:nrow(out)) {
+            arg_list_i <- list_assign(old_sims_args, !!!new_args[out$params[[i]]])
+            arg_list_i[["n_pseudo"]] <- out$n_pseudo[[i]]
+            arg_list_i[["summ"]] <- "all"
+            sims <- do.call(one_combo, arg_list_i)
+            out$outbreak_size[[i]] <- mean(sims$outbreak_size)
+        }
+        out$params <- map_chr(out$params, \(x) paste(x, collapse = " & "))
+        return(out)
+    }) |>
+    list_rbind() |>
+    mutate(n_pseudo = factor(n_pseudo))
+
+
+old_obs <- list()
+old_obs[["0"]] <- multi_pert_sims |>
+    filter(n_pseudo == 0, k == 0) |>
+    getElement("outbreak_size")
+old_obs[["3"]] <- multi_pert_sims |>
+    filter(n_pseudo == 3, k == 0) |>
+    getElement("outbreak_size")
+old_obs[["diff"]] <- old_obs[["3"]] - old_obs[["0"]]
+
+
+
+multi_pert_plotter <- function(d, ob_lim = NULL, dob_lim = NULL) {
+    dd <- d |>
+        group_by(k, params) |>
+        summarize(outbreak_size = outbreak_size[n_pseudo == 3] -
+                      outbreak_size[n_pseudo == 0],
+                  .groups = "drop")
+    p1 <- d |>
+        ggplot(aes(outbreak_size)) +
+        geom_vline(xintercept = old_obs[["0"]], color = np_pal[["0"]],
+                   linetype = "22") +
+        geom_vline(xintercept = old_obs[["3"]], color = np_pal[["3"]],
+                   linetype = "22") +
+        geom_segment(aes(xend = origin, y = params, color = n_pseudo),
+                     position = position_dodge(width = 0.3)) +
+        geom_point(aes(y = params, color = n_pseudo),
+                   position = position_dodge(width = 0.3)) +
+        coord_cartesian(xlim = ob_lim) +
+        labs(x = "Outbreak size") +
+        scale_color_manual(pretty_params("n_pseudo", TRUE), values = np_pal)
+    p2 <- dd |>
+        ggplot(aes(outbreak_size)) +
+        geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +
+        geom_vline(xintercept = old_obs[["diff"]], color = "gray70", linetype = "22") +
+        geom_segment(aes(xend = old_obs[["diff"]], y = params)) +
+        geom_point(aes(y = params)) +
+        coord_cartesian(xlim = dob_lim) +
+        labs(x = "Effect of *Pseudomonas*<br>on outbreak size")
+
+    (p1 | p2) +
+        plot_layout(guides = "collect", axes = "collect") &
+        theme(axis.text.y = element_markdown(),
+              axis.title.y = element_blank(),
+              axis.title.x = element_markdown(),
+              legend.title = element_markdown())
+}
+
+
+
+multi_pert_p <- multi_pert_sims |>
+    filter(k == length(new_args) | k == (length(new_args)-1)) |>
+    mutate(params = map2_chr(k, params,
+                             \(k, params) {
+                                 if (k == length(new_args)) return("all")
+                                 p <- str_split(params, " & ")[[1]]
+                                 no <- names(new_args)[!names(new_args) %in% p]
+                                 serify("no ", pretty_params(no, TRUE), "")
+                             }) |>
+               factor() |>
+               fct_relevel("all", after = Inf)) |>
+    mutate(origin = ifelse(n_pseudo == 0, old_obs[["0"]], old_obs[["3"]])) |>
+    multi_pert_plotter(c(1,9), c(-3.6, 3.9))
+
+multi_pert_p2 <- multi_pert_sims |>
+    filter(k == 0 | k == 1) |>
+    mutate(params = map2_chr(k, params,
+                             \(k, params) {
+                                 if (k == 0) return("none")
+                                 if (k == 1) return(serify("", pretty_params(params, TRUE),
+                                                           ""))
+                                 stop("k must be 0 or 1 for this fxn")
+                             }) |>
+               factor() |>
+               fct_relevel("none", after = Inf)) |>
+    mutate(origin = ifelse(n_pseudo == 0, old_obs[["0"]], old_obs[["3"]])) |>
+    multi_pert_plotter(c(1,9), c(-3.6, 3.9))
+
+multi_pert_p + multi_pert_p2 +
+    plot_layout(widths = c(1, 1, 2))
+
+
+multi_pert_sims |>
+    # filter(k %in% c(1, 2)) |>
+    # filter((k == 1 & !grepl("spat_config", params)) |
+    #            (k == 2 & grepl("spat_config", params))) |>
+    mutate(params = str_split(params, " & ") |>
+               map_chr(\(x) paste(serify("", pretty_params(x, TRUE), ""),
+                                  collapse = " & "))) |>
+    mutate(dummy = paste(k, params, sep = "_"),
+           params = fct_reorder(params, dummy, .fun = \(x) x[1], .desc = TRUE)) |>
+    mutate(origin = ifelse(n_pseudo == 0, old_obs[["0"]], old_obs[["3"]])) |>
+    multi_pert_plotter(c(1,9), c(-3.6, 3.9))
+
+
+cbind(new = new_args, old = old_sims_args[names(new_args)])
+
+
 # set.seed(262255805)
-new_sims <- do.call(one_combo, list_assign(new_sims_args, !!!new_arg))
-new_sims0 <- do.call(one_combo, list_assign(new_sims_args, !!!c(new_arg, list(n_pseudo = 0L))))
+new_sims <- do.call(one_combo, list_assign(old_sims_args, !!!new_args))
+new_sims0 <- do.call(one_combo, list_assign(old_sims_args, !!!c(new_args, list(n_pseudo = 0L))))
+
+
+bind_rows(bind_rows(old_sims, old_sims0) |> mutate(params = "old"),
+          bind_rows(new_sims, new_sims0) |> mutate(params = "new")) |>
+    mutate(params = factor(params, levels = c("old", "new"))) |>
+    filter(is.na(x)) |>
+    select(n_pseudo, params, rep, time, virus:wasps) |>
+    group_by(params, n_pseudo, rep) |>
+    summarize(wasps_t = time[wasps == max(wasps)],
+              max_wasps = max(wasps),
+              outbreak_size = max(virus),
+              .groups = "drop_last") |>
+    summarize(across(wasps_t:last_col(), mean),
+              .groups = "drop_last") |>
+    (\(x) {print(ungroup(x)); return(x)})() |>
+    summarize(across(wasps_t:last_col(), \(x) x[n_pseudo > 0] - x[n_pseudo == 0]))
+
 
 
 .rep <- 1
@@ -227,42 +589,36 @@ old_p <- paired_timeseries(old_sims, old_sims0,
                            .aphid_max = sims_maxes$aphids,
                            .alate_max = sims_maxes$alates,
                            .wasp_max = sims_maxes$wasps,
-                           .tag = serify("",
-                                         pretty_params(names(new_arg), TRUE),
-                                         sprintf(" = %.2f (original)",
-                                                 new_sims_args[[names(new_arg)]])))
+                           # .tag = serify("",
+                           #               pretty_params(names(new_arg), TRUE),
+                           #               sprintf(" = %.2f",
+                           #                       old_sims_args[names(new_arg)])) |>
+                           #     paste(collapse = " | ") |>
+                           #     paste("(original)"))
+                           .tag = "original")
 new_p <- paired_timeseries(new_sims, new_sims0,
                            .rep = .rep,
                            .aphid_max = sims_maxes$aphids,
                            .alate_max = sims_maxes$alates,
                            .wasp_max = sims_maxes$wasps,
-                           .tag = serify("",
-                                         pretty_params(names(new_arg), TRUE),
-                                         paste(" =", new_arg)))
+                           # .tag = serify("",
+                           #               pretty_params(names(new_arg), TRUE),
+                           #               paste(" =", new_arg)) |>
+                           #     paste(collapse = " | "))
+                           .tag = "new")
 
 old_p / new_p
 
-bind_rows(old_sims, old_sims0, new_sims, new_sims0) |>
-    filter(is.na(x)) |>
-    select(n_pseudo, all_of(names(new_arg)), rep, time, wasps, virus) |>
-    group_by(across(all_of(c(names(new_arg), "n_pseudo", "rep")))) |>
-    summarize(time = time[wasps == max(wasps)],
-              max_wasps = max(wasps),
-              outbreak_size = max(virus),
-              .groups = "drop_last") |>
-    summarize(across(time:last_col(), mean),
-              .groups = "drop")
 
 
 
 
-
-# **Nov-19 - LEFT OFF ----
-old_sims_od <- do.call(one_combo, list_assign(new_sims_args, out_dispersals = TRUE,
+# Nov-19 - LEFT OFF ----
+old_sims_od <- do.call(one_combo, list_assign(old_sims_args, out_dispersals = TRUE,
                                               summ = "all",
                                               # n_pseudo = 0,
                                               n_sims = 1000))
-new_sims_od <- do.call(one_combo, list_assign(new_sims_args,
+new_sims_od <- do.call(one_combo, list_assign(old_sims_args,
                                               !!!c(new_arg, list(out_dispersals = TRUE,
                                                                  summ = "all",
                                                                  # n_pseudo = 0,
@@ -293,35 +649,10 @@ new_sims_od[["disps"]] |> reduce(`+`) |> (\(x) x / 1000)() |> rowSums() |> matri
 
 
 
-# 2-par combo sims ----
-
-if (!file.exists("_scripts/interm-data/manip-extreme-combos-2pars.rds")) {
-
-    # Takes ~7.5 min w/ 7 combinations:
-    set.seed(1547643870)
-    combo_2par_sims <- list(c("Y0", "mean_N"),
-                            c("Y0", "sd_N"),
-                            c("mean_N", "sd_N"),
-                            c("virus_attract", "pseudo_repel"),
-                            c("pseudo_repel", "pseudo_surv"),
-                            c("zeta", "pseudo_surv"),
-                            c("zeta", "sd_N")) |>
-        (\(x) set_names(x, map_chr(x, paste, collapse = "+")))() |>
-        map(one_combo_2par_manip_simmer, .combo = 7112, progress_ = FALSE,
-            .progress = .prog_args)
-    write_rds(combo_2par_sims, "_scripts/interm-data/manip-extreme-combos-2pars.rds",
-              compress = "gz")
-
-} else {
-
-    combo_2par_sims <- read_rds("_scripts/interm-data/manip-extreme-combos-2pars.rds")
-
-}
 
 
-cbind(names(combo_2par_sims))
-one_combo_2par_manip_plotter(combo_2par_sims[["zeta+sd_N"]], .contour = TRUE)
-one_combo_2par_manip_plotter(combo_2par_sims[["pseudo_repel+pseudo_surv"]], .contour = TRUE)
+# 2-par sims extras ----
+
 
 
 combo_2par_sims[["pseudo_repel+pseudo_surv"]] |>
@@ -346,8 +677,6 @@ combo_2par_sims[["pseudo_repel+pseudo_surv"]] |>
           legend.title = element_markdown())
 
 
-# save_plot("_plots/combo-plot1.pdf", combo_p_list[[1]], width = 8, height = 5)
-# save_plot("_plots/combo-plot2.pdf", combo_p_list[[2]], width = 8, height = 5)
 
 
 
@@ -499,7 +828,7 @@ print_diff_mean_w_boot_ci(max_diff_sims_ob, max_diff_sims0_ob)
 #' spat_config = 1L
 
 
-paired_target_sims(7112L, .n_sims = 1000, .summ = "all",
+paired_target_sims(extreme_combos[["high"]], .n_sims = 1000, .summ = "all",
                    pseudo_repel = 2,
                    zeta = 0.2) |>
     split(~ zeta +
@@ -529,7 +858,7 @@ paired_target_sims(7112L, .n_sims = 1000, .summ = "all",
 # 4 0.2           3          5.92       5.09       1.90      3.00
 
 
-sims <- paired_target_sims(7112L, zeta = 0.5)
+sims <- paired_target_sims(extreme_combos[["high"]], zeta = 0.5)
 
 
 

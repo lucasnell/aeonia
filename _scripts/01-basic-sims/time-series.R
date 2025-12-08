@@ -4,68 +4,9 @@
 #'
 
 source("_scripts/00-preamble.R")
+source("_scripts/01-basic-sims/00-time-series-plotter.R")
 
 
-
-sim_plotter <- function(sims, by_plant = FALSE, .title  = waiver()) {
-    aphids <- sims |>
-        filter(is.na(wasps)) |>
-        mutate(plant = interaction(x, y), rep = factor(rep)) |>
-        mutate(aphids = aphids + alates + parasitized) |>
-        select(rep, plant, time, aphids, mummies)
-    virus <- sims |>
-        filter(is.na(wasps)) |>
-        mutate(plant = interaction(x, y), rep = factor(rep)) |>
-        group_by(plant) |>
-        filter(virus == 1) |>
-        filter(time == min(time)) |>
-        ungroup() |>
-        select(rep, plant, time, virus)
-    if (by_plant) {
-        wasps <- sims |>
-            group_by(rep, time) |>
-            mutate(z_hat = (aphids + alates + parasitized) / sum(aphids[x > 0] + alates[x > 0] + parasitized[x > 0]),
-                   wasps = ifelse(is.na(wasps), wasps[!is.na(wasps)] * ((1 - zeta) / 9 + zeta * z_hat),
-                                  wasps)) |>
-            ungroup() |>
-            filter(x > 0) |>
-            mutate(plant = interaction(x, y), rep = factor(rep)) |>
-            select(rep, plant, time, wasps)
-    } else {
-        wasps <- sims |>
-            filter(!is.na(wasps)) |>
-            mutate(rep = factor(rep)) |>
-            select(rep, time, wasps)
-    }
-
-    aphids_max <- max(aphids$aphids)
-    wasps_max <- max(1, max(wasps$wasps))
-
-    # convert from wasps --> aphids:
-    trans <- \(x) x * aphids_max / wasps_max
-    # convert from aphids --> wasps:
-    itrans <- \(x) x * wasps_max / aphids_max
-
-    p <- aphids |>
-        ggplot(aes(time)) +
-        geom_line(aes(y = aphids, color = plant)) +
-        geom_line(data = wasps, aes(y = trans(wasps)), linewidth = 1) +
-        scale_y_continuous("Aphid density",
-                           sec.axis = sec_axis(itrans, "Wasp density")) +
-        labs(title = .title) +
-        theme(plot.title = element_markdown(hjust = 0, family = ""))
-
-    if (by_plant) {
-        p <- p +
-            geom_vline(data = virus, aes(xintercept = time), color = "#EC008C",
-                       linetype = "22") +
-            facet_wrap( ~ plant, nrow = 3) +
-            scale_color_viridis_d(begin = 0.1, end = 0.9, guide = "none")
-    } else p <- p + scale_color_viridis_d(begin = 0.1, end = 0.9)
-
-    return(p)
-
-}
 
 
 

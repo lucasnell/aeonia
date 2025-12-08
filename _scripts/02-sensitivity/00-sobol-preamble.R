@@ -53,8 +53,7 @@ vary_pars <- list(Y0 = c(1, 9),
                   virus_attract = c(1, 10),
                   pseudo_repel = c(1, 10),
                   pseudo_surv = c(0.85, 1), # <= 0.8344661 results in carrying capacity of ~0
-                  zeta = c(0, 1),
-                  spat_config = c(-1L, 4L))
+                  zeta = c(0, 1))
 
 # Response variables
 yvars <- col_namer("all", FALSE, FALSE) |> (\(x) x[x != "rep"])()
@@ -84,13 +83,17 @@ identical(sort(names(vary_pars)), sort(colnames(sobol_mat)))
 
 
 
-
+# Note: `.empir_N` forces N0 to follow `mean_N` and `sd_N` exactly
+#        (or nearly so, given numerical inexactness in R)
 one_combo <- function(n_pseudo, alate_dens,
                       Y0, mean_N, sd_N, K, virus_attract, pseudo_repel, pseudo_surv,
-                      zeta, spat_config,
-                      n_sims, ...) {
+                      zeta, n_sims,
+                      spat_config = -1L,
+                      .empir_N = TRUE,
+                      ...) {
 
     stopifnot(alate_dens %in% 0:1)
+
 
     fly_p <- 0.05
     epsilon <- 1
@@ -101,8 +104,8 @@ one_combo <- function(n_pseudo, alate_dens,
     n_y <- 3L
     n_plants <- n_x * n_y
 
-    # Convert from mean and sd of underlying normal distribution to parameters
-    # to use for lognormal:
+    # Convert from mean and sd of lognormal distribution to parameters
+    # to use for lognormal (mean and sd of underlying normal distribution):
     mu_N <- log(mean_N^2 / sqrt(mean_N^2 + sd_N^2))
     sigma_N <- sqrt(log(1 + sd_N^2 / mean_N^2))
 
@@ -151,7 +154,14 @@ one_combo <- function(n_pseudo, alate_dens,
             }
             land[cbind(x,y,i)] <- 2L
         }
-        N0[,,i] <- rlnorm(n_plants, mu_N, sigma_N)
+        if (.empir_N) {
+            N0[,,i] <- rnorm(9, 0, 1) |>
+                (\(x) ((x - mean(x)) / sd(x)) * sigma_N + mu_N)() |>
+                exp()
+        } else {
+            N0[,,i] <- rlnorm(n_plants, mu_N, sigma_N)
+        }
+
     }
 
     insect_args <- list(K = K, pseudo_surv = pseudo_surv, fly_p = fly_p,
@@ -174,8 +184,14 @@ one_combo <- function(n_pseudo, alate_dens,
     other_args <- list(...)
     if (length(other_args) > 0) {
         stopifnot(!is.null(names(other_args)) && !any(names(other_args) == ""))
-        stopifnot(all(names(other_args) %in% c(names(formals(sim_plantscape)),
-                                               names(formals(make_insect_ptr)))))
+        if (!all(names(other_args) %in% c(names(formals(sim_plantscape)),
+                                          names(formals(make_insect_ptr))))) {
+            all_names <- c(names(formals(sim_plantscape)),
+                           names(formals(make_insect_ptr)))
+            print(names(other_args)[!names(other_args) %in% all_names])
+            stop("\nNot all names in ... match args in sim_plantscape ",
+                 "or make_insect_ptr")
+        }
         not_allowed <- c("landscapes", "N0", "W0", "Y0")
         if (any(names(other_args) %in% not_allowed)) {
             not_allowed <- names(other_args)[names(other_args) %in% not_allowed]
