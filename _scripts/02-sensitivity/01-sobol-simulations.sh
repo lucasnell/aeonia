@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=20
 #SBATCH --mem=40G
-#SBATCH --time=1-20:00:00
+#SBATCH --time=20:00:00
 #SBATCH --job-name=sobol-sens-paired
 #SBATCH --output=logs/sobol-sens-paired-%a.out
 #SBATCH --error=logs/sobol-sens-paired-%a.err
@@ -27,7 +27,7 @@
 #' This was then run on BioHPC in a non-interactive job started with the following:
 #'
 #' cd /home2/lan68/sobol-paired \
-#'     && sbatch 02-sobol-sens-paired.sh
+#'     && sbatch 01-sobol-simulations.sh
 #'
 
 
@@ -62,7 +62,7 @@ some_sobol_sims <- function(indices) {
         for (n in colnames(sobol_mat)) {
             args[[n]] <- unname(sobol_mat[j, n])
         }
-        args[["n_sims"]] <- 100
+        args[["n_sims"]] <- 1000
 
         out_df <- crossing(n_pseudo = c(0L, 3L), alate_dens = 0:1)
 
@@ -94,7 +94,7 @@ n_rows_pj <- nrow(sobol_mat) %/% max_idx
 curr_start <- (curr_idx - 1L) * n_rows_pj + 1L
 curr_stop <- curr_idx * n_rows_pj
 
-# Takes ~6.5 min per job (of 8 total jobs) with 9 parameters, N=2^12, and 20 threads:
+# Takes ~1 hr per job (of 8 total jobs) with 8 parameters, N=2^12, 1000 sims, and 20 threads per job:
 cat("Starting simulations...\n")
 t0 <- Sys.time()
 set.seed(.seed)

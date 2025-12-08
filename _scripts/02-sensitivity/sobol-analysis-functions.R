@@ -157,12 +157,63 @@ scatter2 <- function(sim_outs,
 
 # Paired plot functions ----
 
+
+#'
+#' df_t is a dataframe specific to n_pseudo, rep, and time.
+#'
+add_Y_A <- function(df_t, zeta, a, h, k, R, keep_stages = FALSE) {
+    # rm(df_t, Y, q, z_i, hat_z_i, x_i, Amat, Nmat)
+    Y <- df_t$wasps[!is.na(df_t$wasps)]
+    stopifnot(length(Y) == 1)
+    df_t <- df_t |> filter(!is.na(plant))
+    q <- nrow(df_t)
+    has_stages <- "aphids_juv" %in% colnames(df_t)
+    if (has_stages) {
+        df_t <- df_t |>
+            mutate(aphids = aphids_juv + aphids_adu,
+                   alates = alates_juv + alates_adu)
+    }
+    z_i <- df_t |>
+        mutate(z = aphids + alates + parasitized) |>
+        getElement("z")
+    hat_z_i <- z_i / sum(z_i)
+    df_t$wasps <- Y * {(1 - zeta) / q + zeta * hat_z_i}
+    # Parasitoid survivals:
+    if (has_stages) {
+        x_i <- df_t |>
+            mutate(x = aphids + alates) |>
+            getElement("x")
+        # Attack survivals by plant and stage:
+        Amat <- map(R, \(R_i) (1 + R_i * a * df_t$wasps /
+                                   (k * (h * x_i + 1)))^(-k)) |>
+            do.call(what  = cbind)
+        # Relative aphid abundance by stage:
+        Nmat <- df_t |>
+            select(aphids_juv, aphids_adu, alates_juv, alates_adu) |>
+            mutate(across(everything(),
+                          \(x) {
+                              x / (aphids_juv + aphids_adu +
+                                       alates_juv + alates_adu)
+                          })) |>
+            as.matrix()
+        # Attack survivals weighted by abundance:
+        df_t$A <- rowSums(Amat * Nmat)
+        if (!keep_stages) {
+            df_t <- df_t |> select(-ends_with("_juv"), -ends_with("_adu"))
+        } else {
+            df_t <- df_t |> select(-aphids, -alates)
+        }
+    }
+    return(df_t)
+}
+
+
 #' Add wasp density and attack survivals to a dataframe.
 #' The attack survivals will only be added if the dataframe has
 #' output by stage.
 #' It's assumed that the dataframe is already filtered by rep.
 org_timeseries_vars <- function(x) {
-    # x = stg_max_diff_sims |> filter(rep == 1)
+    # x = sim_df_p
     # rm(x, zeta, a, h, k, R, attack_pars, out_survs)
     zeta <- x$zeta[[1]]
     attack_pars <- list()
@@ -174,55 +225,18 @@ org_timeseries_vars <- function(x) {
     h <- attack_pars$h
     k <- attack_pars$k
     R <- attack_pars$R
-    out_survs <- "aphids_juv" %in% colnames(x)
-    if (out_survs) {
-        x <- x |>
-            mutate(aphids = aphids_juv + aphids_adu,
-                   alates = alates_juv + alates_adu)
-    }
-    x |>
-        mutate(plant = interaction(x, y),
+    out <- x |>
+        mutate(plant = interaction(x, y, drop = TRUE),
                n_pseudo = factor(n_pseudo)) |>
         select(-x, -y) |>
         select(n_pseudo, rep, plant, time, starts_with("aphids"),
                starts_with("alates"), parasitized:wasps) |>
         split(~ n_pseudo + rep + time, drop = TRUE) |>
-        map(\(df_t) {
-            # rm(df_t, Y, q, z_i, hat_z_i, x_i, Amat, Nmat)
-            Y <- df_t$wasps[!is.na(df_t$wasps)]
-            stopifnot(length(Y) == 1)
-            df_t <- df_t |> filter(!is.na(plant))
-            q <- nrow(df_t)
-            z_i <- df_t |>
-                mutate(z = aphids + alates + parasitized) |>
-                getElement("z")
-            hat_z_i <- z_i / sum(z_i)
-            df_t$wasps <- Y * {(1 - zeta) / q + zeta * hat_z_i}
-            if (out_survs) {
-                x_i <- df_t |>
-                    mutate(x = aphids + alates) |>
-                    getElement("x")
-                # Attack survivals by plant and stage:
-                Amat <- map(R, \(R_i) (1 + R_i * a * df_t$wasps /
-                                           (k * (h * x_i + 1)))^(-k)) |>
-                    do.call(what  = cbind)
-                # Relative aphid abundance by stage:
-                Nmat <- df_t |>
-                    select(aphids_juv, aphids_adu, alates_juv, alates_adu) |>
-                    mutate(across(everything(),
-                                  \(x) {
-                                      x / (aphids_juv + aphids_adu +
-                                               alates_juv + alates_adu)
-                                  })) |>
-                    as.matrix()
-                # Attack survivals weighted by abundance:
-                df_t$A <- rowSums(Amat * Nmat)
-                df_t <- df_t |>
-                    select(-ends_with("_juv"), -ends_with("_adu"))
-            }
-            return(df_t)
-        }) |>
-        list_rbind()
+        map(add_Y_A, zeta = zeta, a = a, h = h, k = k, R = R) |>
+        list_rbind() |>
+        select(n_pseudo, rep, plant, time, starts_with("aphids"),
+               starts_with("alates"), parasitized:wasps, any_of("A"))
+    return(out)
 }
 
 # Paired time series for with and without Pseudomonas
@@ -236,7 +250,7 @@ paired_timeseries <- function(sim_df_p,
                               .title = waiver(),
                               .tag = waiver()) {
 
-    # sim_df_p = stg_max_diff_sims; sim_df_np = stg_max_diff_sims0; .rep = NULL;
+    # sim_df_p = extreme_sims$sims[[1]]; sim_df_np = extreme_sims$sims[[2]]; .rep = NULL;
     # .alate_max = NULL; .aphid_max = NULL; .wasp_max = NULL
     # .title = waiver(); .tag = waiver()
     # rm(sim_df_p, sim_df_np, .rep, .alate_max, .aphid_max, .wasp_max, .title)
@@ -578,7 +592,7 @@ one_combo_par_manip_simmer <- function(.combo) {
                  pseudo_repel = 0:19 / 2 + 1,
                  pseudo_surv = seq(0.85, 1, 0.01),
                  zeta = seq(0, 1, 0.05),
-                 spat_config = 0:4) |>
+                 spat_config = -1:4) |>
         map(\(x) round(x, 2))
 
     sim_list <- names(pars) |>
@@ -623,13 +637,20 @@ one_combo_par_manip_simmer <- function(.combo) {
 }
 
 
-one_combo_2par_manip_simmer <- function(.combo, .pars, progress_ = .prog_args) {
+
+# .spat_config allows manually specifying this argument.
+one_combo_2par_manip_simmer <- function(.combo,
+                                        .pars,
+                                        progress_ = .prog_args,
+                                        .spat_config = NULL) {
 
     # .combo = 5624; .pars = c("Y0", "mean_N"); progress_ = .prog_args
     # rm(.combo, .pars, progress_, par_perms, args, sim_list, out)
 
     stopifnot(length(.pars) == 2L && is.character(.pars))
     stopifnot(all(.pars %in% names(vary_pars)))
+    stopifnot(is.null(.spat_config) || (length(.spat_config) == 1L &&
+                                            .spat_config %in% (-1:4)))
 
     par_perms <- list(Y0 = 1:20,
                  mean_N = 1:20 * 10,
@@ -641,7 +662,7 @@ one_combo_2par_manip_simmer <- function(.combo, .pars, progress_ = .prog_args) {
                  pseudo_repel = 0:19 / 2 + 1,
                  pseudo_surv = seq(0.85, 1, 0.01),
                  zeta = seq(0, 1, 0.05),
-                 spat_config = 0:4) |>
+                 spat_config = -1:4) |>
         map(\(x) round(x, 2)) |>
         base::`[`(.pars) |>
         do.call(what = crossing)
@@ -652,6 +673,7 @@ one_combo_2par_manip_simmer <- function(.combo, .pars, progress_ = .prog_args) {
         select(n_pseudo, alate_dens, all_of(names(vary_pars))) |>
         mutate(n_sims = 1000, summ = "all") |>
         as.list()
+    if (!is.null(.spat_config)) args[["spat_config"]] <- .spat_config
 
     sim_list <- 1:nrow(par_perms) |>
         map(\(i) {
@@ -750,10 +772,10 @@ one_combo_par_manip_plotter <- function(sim_list,
 }
 
 
-one_combo_2par_manip_plotter <- function(x, .contour = FALSE) {
+one_combo_2par_manip_plotter <- function(x, .contour = FALSE, .tag = waiver()) {
 
-    # x = combo_2par_sims[[1]]
-    # rm(x, xvar, yvar, x0, y0, pf, p1, p2)
+    # x = combo_2par_sims[[1]][["Y0+mean_N"]]; .contour = TRUE
+    # rm(x, xvar, yvar, x0, y0, pf, p1, d2, p2)
 
     xvar <- colnames(x)[colnames(x) != "combo"][1]
     yvar <- colnames(x)[colnames(x) != "combo"][2]
@@ -766,11 +788,11 @@ one_combo_2par_manip_plotter <- function(x, .contour = FALSE) {
         getElement(yvar)
 
     # function to add shared plot parts:
-    pf <- function(d, contour) {
+    pf <- function(d, ..contour, ..tag = waiver()) {
         pp <- d |>
             ggplot(aes(.data[[xvar]], .data[[yvar]])) +
             geom_raster(aes(fill = outbreak_size))
-        if (contour) {
+        if (..contour) {
             pp <- pp +
                 geom_contour(aes(z = outbreak_size), color = "white")
         }
@@ -780,7 +802,8 @@ one_combo_2par_manip_plotter <- function(x, .contour = FALSE) {
             geom_vline(xintercept = x0, linetype = "22", color = "white",
                        linewidth = 1) +
             labs(x = pretty_params(xvar) |> first_cap(),
-                 y = pretty_params(yvar) |> first_cap()) +
+                 y = pretty_params(yvar) |> first_cap(),
+                 tag = ..tag) +
             theme(axis.title.y = element_markdown(),
                   axis.title.x = element_markdown(),
                   strip.text = element_markdown(),
@@ -792,19 +815,25 @@ one_combo_2par_manip_plotter <- function(x, .contour = FALSE) {
         mutate(n_pseudo = factor(paste(n_pseudo), levels = levels(n_pseudo),
                                  labels = sprintf("n<sub>P</sub> = %s",
                                                   levels(n_pseudo)))) |>
-        pf(contour = .contour) +
+        pf(..contour = .contour, ..tag = .tag) +
         facet_wrap(~ n_pseudo, nrow = 1) +
-        scale_fill_viridis_c("Outbreak<br>size")
+        scale_fill_scico("Outbreak<br>size", limits = c(1, 9),
+                         breaks = 0:4 * 2 + 1,
+                         palette = "tokyo", direction = -1)
+    if (!is.null(.tag)) p1 <- p1 + labs(tag = .tag)
     # Effect of n_pseudo:
-    p2 <- x |>
+    d2 <- x |>
         group_by(across(all_of(c(xvar, yvar))))  |>
         summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
                       outbreak_size[n_pseudo == "0"],
                   .groups = "drop") |>
-        mutate(outbreak_size = round(outbreak_size, 3)) |>
-        pf(contour = .contour) +
-        scale_fill_viridis_c("Effect of<br>*Pseudomonas* on<br>outbreak size",
-                             option = "plasma")
+        mutate(outbreak_size = round(outbreak_size, 3))
+    p2 <- d2 |>
+        pf(..contour = .contour) +
+        scale_fill_scico("Effect of<br>*Pseudomonas* on<br>outbreak size",
+                         palette = "vik", midpoint = 0,
+                         # limits = c(NA, max(0, max(d2$outbreak_size))))
+                         limits = c(-5, 5))
 
     p1 + p2 +
         plot_layout(nrow = 1, widths = c(2, 1), axes = "collect")

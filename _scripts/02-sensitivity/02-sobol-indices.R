@@ -9,7 +9,8 @@ source("_scripts/02-sensitivity/00-sobol-preamble.R")
 
 out_files <- list(summs = "sobol-sims-summs.rds",
                   diff_summs = "sobol-sims-diff-summs.rds") |>
-    map(\(x) paste("_scripts/interm-data/", x))
+    map(\(x) paste0("_scripts/interm-data/", x))
+
 
 
 
@@ -22,7 +23,7 @@ out_files <- list(summs = "sobol-sims-summs.rds",
 if (!file.exists(out_files$summs)) {
 
 
-    proc_one_file <- function(j) {
+    proc_one_file <- function(j, prog) {
         # j = 1
         # rm(j, sims_j, summs_j)
 
@@ -33,7 +34,7 @@ if (!file.exists(out_files$summs)) {
         # Start for rows in this job's simulations:
         curr_start <- (j - 1L) * (obj_env$n_rows %/% obj_env$n_files) + 1L
 
-        summs_j <- imap(sims_j, \(sim_set, i) {
+        one_set <- function(sim_set, i) {
             out_df <- sim_set |>
                 mutate(combo = factor(curr_start + i - 1L,
                                       levels = 1:(obj_env$n_rows)),
@@ -57,10 +58,16 @@ if (!file.exists(out_files$summs)) {
                 # Lastly, SD(outbreak size):
                 out_df[["sd_outbreak_size"]][[j]] <- sd(y)
             }
+
+
             return(out_df)
 
-        }) |>
+        }
+
+        summs_j <- imap(sims_j, one_set) |>
             list_rbind()
+
+        prog()
 
         return(summs_j)
 
@@ -69,16 +76,23 @@ if (!file.exists(out_files$summs)) {
     proc_all_files <- function() {
 
         suppressPackageStartupMessages(library(future.apply))
-        with(plan(multisession, workers = options()[["mc.cores"]], gc = TRUE),
-             local = TRUE)
+        suppressPackageStartupMessages(library(progressr))
+        handlers("progress")
+        with(plan(multisession, workers = min(4L, options()[["mc.cores"]]),
+                  gc = TRUE), local = TRUE)
         oopts <- options(future.globals.maxSize = 1.5e9)  ## 1.5 GB
         on.exit(options(oopts))
 
-        future_lapply(1:(obj_env$n_files),
-                      proc_one_file,
-                      future.globals = c("obj_env", "proc_one_file"),
-                      future.packages = "tidyverse") |>
-            list_rbind()
+        with_progress({
+            p <- progressor(nrow(sobol_mat))
+            out <- future_lapply(1:(obj_env$n_files),
+                                 proc_one_file,
+                                 prog = p,
+                                 future.globals = c("obj_env", "proc_one_file"),
+                                 future.packages = "tidyverse") |>
+                list_rbind()
+        })
+        return(out)
     }
 
     obj_env <- list()
@@ -88,7 +102,7 @@ if (!file.exists(out_files$summs)) {
     obj_env$yvars <- yvars
 
     # Summarize each set of simulations:
-    # Takes ~9 min w/ 6 threads
+    # Takes ~13 min w/ 4 threads
     sobol_summs <- proc_all_files()
 
     write_rds(sobol_summs, out_files$summs, compress = "gz")
@@ -120,6 +134,7 @@ if (!file.exists(out_files$diff_summs)) {
 } else {
 
     diff_sobol_summs <- read_rds(out_files$diff_summs)
+
 }
 
 
@@ -134,7 +149,7 @@ sobol_inds_np3 <- sobol_summs |>
     filter(alate_dens == 1) |>
     (\(ss) {
         Y <- ss[["outbreak_size"]][ss$n_pseudo > 0]
-        ind <- sobol_indices(Y = Y, N = N, params = pretty_params(names(vary_pars)),
+        ind <- sobol_indices(Y = Y, N = N, params = names(vary_pars),
                              boot = TRUE, R = 2000)
         return(ind)
     })()
@@ -144,11 +159,21 @@ sobol_inds_diff <- diff_sobol_summs |>
     filter(alate_dens == 1) |>
     (\(ss) {
         Y <- ss[["outbreak_size"]]
-        ind <- sobol_indices(Y = Y, N = N, params = pretty_params(names(vary_pars)),
+        ind <- sobol_indices(Y = Y, N = N, params = names(vary_pars),
                              boot = TRUE, R = 2000)
         return(ind)
     })()
 
+
+d = tibble(a = 1:3, b = 4:6)
+
+foo <- function(d, x) {
+    select(d, {{ x }})
+}
+
+foo(d, "b")
+
+# rm(foo, d)
 
 
 # =============================================================================*
@@ -156,13 +181,38 @@ sobol_inds_diff <- diff_sobol_summs |>
 # plot Sobol' indices ----
 # =============================================================================*
 # =============================================================================*
-sobol_plotter <- function(x, y_lab = NULL) {
+sobol_plotter <- function(x, y_lab = "Sobol' index", .reorder_vals = NULL) {
+
+    # x = sobol_inds_np3; y_lab = "Sobol' index"; .reorder_vals = "original"
+    # rm(x, y_lab, .reorder_vals, dt, gg)
 
     stopifnot(inherits(x, "sensobol"))
 
-    if (is.null(y_lab)) y_lab <- "Sobol' index"
+    dt <- x$results |>
+        as_tibble() |>
+        filter(sensitivity %in% c("Si", "Ti")) |>
+        mutate(parameters = pretty_params(parameters) |>
+                   factor(levels = pretty_params(names(vary_pars))))
 
-    dt <- x$results |> filter(sensitivity %in% c("Si", "Ti"))
+    stopifnot(nrow(dt) > 1)
+
+    if (!is.null(.reorder_vals)) {
+        stopifnot(length(.reorder_vals) %in% c(1L, nrow(dt)))
+        if ((is.character(.reorder_vals) || is.numeric(.reorder_vals)) &&
+            length(.reorder_vals) == nrow(dt)) {
+            dt$parameters <- fct_reorder(dt$parameters, .reorder_vals)
+        } else if (is.character(.reorder_vals) && length(.reorder_vals) == 1L) {
+            if (! .reorder_vals %in% colnames(dt)) {
+                stop("\nif .reorder_vals is a single string, it must refer ",
+                     "to a column in x$results")
+            }
+            dt$parameters <- fct_reorder(dt$parameters, dt[[.reorder_vals]])
+        } else {
+            stop("\n.reorder_vals must be a single string or a numeric / ",
+                 "character vector of same length as nrow(x$results)")
+        }
+    }
+
     gg <- ggplot(dt, aes(parameters, original, fill = sensitivity)) +
         geom_bar(stat = "identity",
                  position = position_dodge(0.6),
@@ -188,9 +238,9 @@ sobol_plotter <- function(x, y_lab = NULL) {
 
 
 
-sobol_inds_p1 <- sobol_plotter(sobol_inds_np3,
+sobol_inds_p1 <- sobol_plotter(sobol_inds_np3, .reorder_vals = "original",
                                "Sobol' index (outbreak size with<br>three *Pseudomonas* patches)")
-sobol_inds_p2 <- sobol_plotter(sobol_inds_diff,
+sobol_inds_p2 <- sobol_plotter(sobol_inds_diff, .reorder_vals = sobol_inds_np3$results$original,
                                "Sobol' index (effect of *Pseudomonas*<br>on outbreak size)")
 
 sobol_inds_p <- (sobol_inds_p1 | sobol_inds_p2) +
