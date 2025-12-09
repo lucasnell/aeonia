@@ -89,7 +89,7 @@
 #' @export
 #'
 #' @return An `externalptr` object that points to a C++ object that can
-#' be pass to [sim_plantscape()].
+#' be passed to [sim_plantscape()].
 #'
 make_insect_ptr <- function(pseudo_surv, fly_p, zeta = 0, extinct_N = 0, demog_error = FALSE, sigma_x = 0, surv_j = NA_real_, surv_a = NA_real_, recruit = NA_real_, fecund = NA_real_, K = NA_real_, K_p_mult = NA_real_, s_p = NA_real_, R = as.numeric( c()), trans_ma = NA_real_, trans_pm = NA_real_, pred_surv = NA_real_, alate_infl = NA_real_, alate_slope = NA_real_, alate_max = 1, a = NA_real_, h = NA_real_, k = NA_real_, s_y = NA_real_) {
     .Call(`_aeonia_make_insect_ptr`, pseudo_surv, fly_p, zeta, extinct_N, demog_error, sigma_x, surv_j, surv_a, recruit, fecund, K, K_p_mult, s_p, R, trans_ma, trans_pm, pred_surv, alate_infl, alate_slope, alate_max, a, h, k, s_y)
@@ -149,20 +149,90 @@ col_namer <- function(summ, out_pseudo, out_stages) {
     .Call(`_aeonia_col_namer`, summ, out_pseudo, out_stages)
 }
 
-#' Simulation plant landscapes with virus spread.
+#' Create a pointer object in which to store disease (and dispersal) info.
+#'
+#' This pointer is used as an argument to [sim_plantscape()].
 #'
 #' @details # Radius
 #' From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
 #' a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
 #' follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
 #'
-#' The default for the `radius` argument uses the median of this
-#' distribution.
-#' I'm dividing by 0.75 to convert from meters to plant locations that are
-#' 0.75 meters apart (typical spacing for pea):
-#' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
+#' For use in larger landscapes, the object `pop_info$radius` is the median
+#' of this distribution.
+#' See `raw-data/pop_info.R` for the code used to generate it.
 #'
-#' # Summarizing
+#' For smaller landscapes (e.g., 3x3), I use `radius = 1`.
+#'
+#' @param n_x Single integer indicating x dimension of the landscape.
+#'     Must be at least `2` and less than `1e6`.
+#' @param n_y Single integer indicating y dimension of the landscape.
+#'     Must be at least `2` and less than `1e6`.
+#' @param radius Max distance that alates will travel between plants.
+#'     Must be >= 1.
+#'     See "Radius" section below for details.
+#' @param virus_attract Effect of virus infection on alate alighting.
+#'     Sampling weights for virus-infectious plants is `virus_attract`,
+#'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
+#'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
+#'     plants, while `virus_attract < 1` causes them to be repelled by
+#'     virus-infectious plants.
+#'     Values must be `> 0`.
+#' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
+#'     Sampling weights for *Pseudomonas*-containing plants is
+#'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
+#'     different names!), compared to empty (no virus or *Pseudomonas*)
+#'     plants whose weight is 1.
+#'     Thus, when `pseudo_repel > 1`, alates are repelled by
+#'     *Pseudomonas*-containing plants,
+#'     while `pseudo_repel < 1` causes them to be attracted to
+#'     *Pseudomonas*-containing plants.
+#'     Values must be `> 0`.
+#' @param p_load_alate Single numeric indicating the probability that an
+#'     uninoculated alate is loaded with a virus if it interacts with an
+#'     inoculated plant.
+#' @param p_load_plant Single numeric indicating the probability that an
+#'     uninoculated plant is loaded with a virus if it interacts with an
+#'     inoculated alate.
+#' @param epsilon Effect of virus infection on alate acceptance.
+#'     Values `> 1` cause alates to be more likely to stay and feed
+#'     (indefinitely) on virus-infected plants,
+#'     while values `< 1` cause them to be less likely to stay and feed on
+#'     virus-infected plants.
+#'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
+#'     Defaults to `1`.
+#' @param w Probability that an alate accepts a plant, meaning that
+#'     it stays to feed on it indefinitely.
+#'     Must be `> 1e-4` and `< 1`.
+#'     The lower limit is because a very small value of `w` causes alates to
+#'     fly to so many plants that it becomes computationally problematic.
+#'     This is the same reason that I check for (and return and error) if
+#'     `w*epsilon < 1e-4`.
+#'     Defaults to `0.2`.
+#' @param total_exp_days Single integer indicating the number of days required
+#'     for a plant to transition from exposed (inoculated with virus but
+#'     not able to pass it on) to infectious (able to infect other plants).
+#'     A value of `0` means that an alate inoculating a plant causes that
+#'     plant to be infectious the same day.
+#'     Because this is not realistic and computationally troublesome,
+#'     only values `>1` are allowed.
+#'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
+#'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
+#'     relationships, and seed transmission" (Davis & Hampton, 1986).
+#'
+#'
+#' @return An `externalptr` object that points to a C++ object that can
+#' be passed to [sim_plantscape()].
+#'
+#' @export
+#'
+make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, p_load_plant, epsilon = 1, w = 0.2, total_exp_days = 7L) {
+    .Call(`_aeonia_make_disease_ptr`, radius, virus_attract, pseudo_repel, p_load_alate, p_load_plant, epsilon, w, total_exp_days)
+}
+
+#' Simulation plant landscapes with virus spread.
+#'
+#' @details # Summarizing
 #' If `summ == "none"`, `n_x * n_y` rows are output for each rep and time point.
 #' The columns are...
 #' 1.  `rep`: repetition number
@@ -238,8 +308,6 @@ col_namer <- function(summ, out_pseudo, out_stages) {
 #'     negative values will become very large integers.
 #'     Hence, do not expect an error for negative numbers if you pass them here.
 #' @param max_t Single integer giving the maximum time the simulations run.
-#' @param insect_ptr External pointer to a C++ object with insect population
-#'     information, output from function [make_insect_ptr()].
 #' @param N0 Numeric 3D array indicating the starting aphid (non-winged) population
 #'     density for each plant and rep.
 #'     To indicate separate densities for each plant and/or rep,
@@ -256,56 +324,10 @@ col_namer <- function(summ, out_pseudo, out_stages) {
 #'     density for each rep.
 #'     The vector can also be of length 1, in which case it's assumed that
 #'     all reps start with the same density of parasitoids.
-#' @param virus_attract Effect of virus infection on alate alighting.
-#'     Sampling weights for virus-infectious plants is `virus_attract`,
-#'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
-#'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
-#'     plants, while `virus_attract < 1` causes them to be repelled by
-#'     virus-infectious plants.
-#'     Values must be `> 0`.
-#' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
-#'     Sampling weights for *Pseudomonas*-containing plants is
-#'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
-#'     different names!), compared to empty (no virus or *Pseudomonas*)
-#'     plants whose weight is 1.
-#'     Thus, when `pseudo_repel > 1`, alates are repelled by
-#'     *Pseudomonas*-containing plants,
-#'     while `pseudo_repel < 1` causes them to be attracted to
-#'     *Pseudomonas*-containing plants.
-#'     Values must be `> 0`.
-#' @param epsilon Effect of virus infection on alate acceptance.
-#'     Values `> 1` cause alates to be more likely to stay and feed
-#'     (indefinitely) on virus-infected plants,
-#'     while values `< 1` cause them to be less likely to stay and feed on
-#'     virus-infected plants.
-#'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
-#' @param p_load_alate Single numeric indicating the probability that an
-#'     uninoculated alate is loaded with a virus if it interacts with an
-#'     inoculated plant.
-#' @param p_load_plant Single numeric indicating the probability that an
-#'     uninoculated plant is loaded with a virus if it interacts with an
-#'     inoculated alate.
-#' @param total_exp_days Single integer indicating the number of days required
-#'     for a plant to transition from exposed (inoculated with virus but
-#'     not able to pass it on) to infectious (able to infect other plants).
-#'     A value of `0` means that an alate inoculating a plant causes that
-#'     plant to be infectious the same day.
-#'     Because this is not realistic and computationally troublesome,
-#'     only values `>1` are allowed.
-#'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
-#'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
-#'     relationships, and seed transmission" (Davis & Hampton, 1986).
-#' @param w Probability that an alate accepts a plant, meaning that
-#'     it stays to feed on it indefinitely.
-#'     Must be `> 1e-4` and `< 1`.
-#'     The lower limit is because a very small value of `w` causes alates to
-#'     fly to so many plants that it becomes computationally problematic.
-#'     This is the same reason that I check for (and return and error) if
-#'     `w*epsilon < 1e-4`.
-#'     Defaults to `0.2`.
-#' @param radius Max distance that alates will travel between plants.
-#'     Defaults to `7.336451`, which is based on previous work.
-#'     See "Radius" section below for details.
+#' @param insect_ptr External pointer to a C++ object with insect population
+#'     information, output from function [make_insect_ptr()].
+#' @param disease_ptr External pointer to a C++ object with disease (and
+#'     dispersal) information, output from function [make_disease_ptr()].
 #' @param wasp_plant_attract Relative attractiveness of plants to wasps.
 #'     This affects the proportion of wasps that immigrate from the dispersal
 #'     pool to each plant.
@@ -333,8 +355,8 @@ col_namer <- function(summ, out_pseudo, out_stages) {
 #'     Ignored when `summ != "all"` except for error checking.
 #'     Note that since this is coerced to an unsigned integer, using
 #'     a negative number here could cause an error to occur.
-#'     Defaults to `0`, which results in the total number of plants
-#'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
+#'     Defaults to `0`, which results in at least half the total number of
+#'     plants (i.e., `ceiling(prod(dim(landscapes)[1:2]) / 2)`) being used.
 #' @param aphid_gone_thresh Single numeric specifying the threshold for aphid
 #'     abundance (all stages + parasitized, summed across all plants)
 #'     below which it's considered gone when calculating the
@@ -378,8 +400,8 @@ col_namer <- function(summ, out_pseudo, out_stages) {
 #' @importFrom tibble as_tibble
 #'
 #'
-sim_plantscape <- function(landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days = 7L, w = 0.2, radius = 7.336451, wasp_plant_attract = NULL, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = TRUE, out_pseudo = FALSE, out_stages = FALSE, out_dispersals = FALSE, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plantscape`, landscapes, max_t, insect_ptr, N0, W0, Y0, virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant, total_exp_days, w, radius, wasp_plant_attract, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_stages, out_dispersals, show_progress, n_threads)
+sim_plantscape <- function(landscapes, N0, W0, Y0, insect_ptr, disease_ptr, wasp_plant_attract = NULL, max_t = 100L, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = FALSE, out_pseudo = FALSE, out_stages = FALSE, out_dispersals = FALSE, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plantscape`, landscapes, N0, W0, Y0, insect_ptr, disease_ptr, wasp_plant_attract, max_t, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_stages, out_dispersals, show_progress, n_threads)
 }
 
 #' Simulate field(s) of plant types.

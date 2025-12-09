@@ -18,6 +18,128 @@ using namespace Rcpp;
 
 
 
+//' Create a pointer object in which to store disease (and dispersal) info.
+//'
+//' This pointer is used as an argument to [sim_plantscape()].
+//'
+//' @details # Radius
+//' From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
+//' a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
+//' follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
+//'
+//' For use in larger landscapes, the object `pop_info$radius` is the median
+//' of this distribution.
+//' See `raw-data/pop_info.R` for the code used to generate it.
+//'
+//' For smaller landscapes (e.g., 3x3), I use `radius = 1`.
+//'
+//' @param n_x Single integer indicating x dimension of the landscape.
+//'     Must be at least `2` and less than `1e6`.
+//' @param n_y Single integer indicating y dimension of the landscape.
+//'     Must be at least `2` and less than `1e6`.
+//' @param radius Max distance that alates will travel between plants.
+//'     Must be >= 1.
+//'     See "Radius" section below for details.
+//' @param virus_attract Effect of virus infection on alate alighting.
+//'     Sampling weights for virus-infectious plants is `virus_attract`,
+//'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
+//'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
+//'     plants, while `virus_attract < 1` causes them to be repelled by
+//'     virus-infectious plants.
+//'     Values must be `> 0`.
+//' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
+//'     Sampling weights for *Pseudomonas*-containing plants is
+//'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
+//'     different names!), compared to empty (no virus or *Pseudomonas*)
+//'     plants whose weight is 1.
+//'     Thus, when `pseudo_repel > 1`, alates are repelled by
+//'     *Pseudomonas*-containing plants,
+//'     while `pseudo_repel < 1` causes them to be attracted to
+//'     *Pseudomonas*-containing plants.
+//'     Values must be `> 0`.
+//' @param p_load_alate Single numeric indicating the probability that an
+//'     uninoculated alate is loaded with a virus if it interacts with an
+//'     inoculated plant.
+//' @param p_load_plant Single numeric indicating the probability that an
+//'     uninoculated plant is loaded with a virus if it interacts with an
+//'     inoculated alate.
+//' @param epsilon Effect of virus infection on alate acceptance.
+//'     Values `> 1` cause alates to be more likely to stay and feed
+//'     (indefinitely) on virus-infected plants,
+//'     while values `< 1` cause them to be less likely to stay and feed on
+//'     virus-infected plants.
+//'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
+//'     Defaults to `1`.
+//' @param w Probability that an alate accepts a plant, meaning that
+//'     it stays to feed on it indefinitely.
+//'     Must be `> 1e-4` and `< 1`.
+//'     The lower limit is because a very small value of `w` causes alates to
+//'     fly to so many plants that it becomes computationally problematic.
+//'     This is the same reason that I check for (and return and error) if
+//'     `w*epsilon < 1e-4`.
+//'     Defaults to `0.2`.
+//' @param total_exp_days Single integer indicating the number of days required
+//'     for a plant to transition from exposed (inoculated with virus but
+//'     not able to pass it on) to infectious (able to infect other plants).
+//'     A value of `0` means that an alate inoculating a plant causes that
+//'     plant to be infectious the same day.
+//'     Because this is not realistic and computationally troublesome,
+//'     only values `>1` are allowed.
+//'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
+//'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
+//'     relationships, and seed transmission" (Davis & Hampton, 1986).
+//'
+//'
+//' @return An `externalptr` object that points to a C++ object that can
+//' be passed to [sim_plantscape()].
+//'
+//' @export
+//'
+//[[Rcpp::export]]
+SEXP make_disease_ptr(const double& radius,
+                       const double& virus_attract,
+                       const double& pseudo_repel,
+                       const double& p_load_alate,
+                       const double& p_load_plant,
+                       const double& epsilon = 1,
+                       const double& w = 0.2,
+                       const uint32& total_exp_days = 7) {
+
+
+    if (radius < 1) stop("radius < 1");
+    if (virus_attract < 0) stop("virus_attract < 0");
+    if (pseudo_repel < 0) stop("pseudo_repel < 0");
+
+    if (p_load_alate < 0 || p_load_alate > 1) stop("p_load_alate < 0 || p_load_alate > 1");
+    if (p_load_plant < 0 || p_load_plant > 1) stop("p_load_plant < 0 || p_load_plant > 1");
+
+    if (epsilon < 0) stop("epsilon < 0");
+    if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
+    if ((w*epsilon) > 1) stop("w*epsilon > 1");
+    if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
+
+    if (total_exp_days < 1) stop("total_exp_days < 1");
+    if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
+
+    // Set a maximum on # plants an alate can fly to such that the probability
+    // that it reaches this threshold < 1e-9:
+    uint32 max_fly_t = 100;
+    double max_leave_p = 1 - std::min(w, epsilon * w); // max Pr(leave plant)
+    while (std::pow(max_leave_p, max_fly_t) > (double)1e-9) {
+        max_fly_t *= 10;
+        if (max_fly_t > (uint32)1000000)
+            throw std::runtime_error("INTERNAL ERROR: max_fly_t too high");
+    }
+
+    XPtr<DiseaseDispersal> disease_xptr(new DiseaseDispersal(
+            radius, max_fly_t, virus_attract, pseudo_repel, epsilon, w,
+            p_load_alate, p_load_plant, total_exp_days), true);
+
+    return disease_xptr;
+
+}
+
+
 
 
 /*
@@ -25,30 +147,24 @@ using namespace Rcpp;
  validity of arguments.
  The only thing it doesn't do is produce output.
  */
-std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
-                                           const arma::ucube& landscapes,
-                                           const uint32& max_t,
-                                           SEXP insect_ptr,
-                                           arma::cube& N0,
-                                           arma::cube& W0,
-                                           arma::vec& Y0,
-                                           const double& virus_attract,
-                                           const double& pseudo_repel,
-                                           const double& epsilon,
-                                           const double& p_load_alate,
-                                           const double& p_load_plant,
-                                           const uint32& total_exp_days,
-                                           const double& w,
-                                           const double& radius,
-                                           Nullable<NumericMatrix> wasp_plant_attract,
-                                           const std::string& summ,
-                                           uint32& infect_time_n,
-                                           const double& aphid_gone_thresh,
-                                           const double& wasp_gone_thresh,
-                                           const bool& infect_stop,
-                                           const bool& out_dispersals,
-                                           const bool& show_progress,
-                                           uint32& n_threads) {
+// std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
+
+/*
+ Checks arguments, adjusts starting densities if only 1 provided,
+ adjusts # threads, fills `wasp_attract` from `wasp_plant_attract` if provided and 1 / (n_x*n_y) if not.
+ */
+void check_plantscape_args(const arma::ucube& landscapes,
+                           const uint32& max_t,
+                           arma::cube& N0,
+                           arma::cube& W0,
+                           arma::vec& Y0,
+                           arma::mat& wasp_attract,
+                           Nullable<NumericMatrix> wasp_plant_attract,
+                           const std::string& summ,
+                           uint32& infect_time_n,
+                           const double& aphid_gone_thresh,
+                           const double& wasp_gone_thresh,
+                           uint32& n_threads) {
 
     uint32 n_x = landscapes.n_rows;
     uint32 n_y = landscapes.n_cols;
@@ -56,9 +172,15 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 
     if (n_x < (uint32)2) stop("nrow(landscapes) < 2");
     if (n_y < (uint32)2) stop("ncol(landscapes) < 2");
+    if (n_x > (uint32)1e6) stop("nrow(landscapes) > 1e6");
+    if (n_y > (uint32)1e6) stop("ncol(landscapes) > 1e6");
     if (n_reps < (uint32)1) stop("dim(landscapes)[3] < 1");
+    if (n_reps > (uint32)1e6) stop("dim(landscapes)[3] > 1e6");
     if (arma::any(arma::vectorise(landscapes) > 3))
         stop("landscapes cannot contain values > 3");
+    if (arma::any(arma::vectorise(N0) < 0)) stop("N0 cannot contain values < 0");
+    if (arma::any(arma::vectorise(W0) < 0)) stop("W0 cannot contain values < 0");
+    if (arma::any(Y0 < 0)) stop("Y0 cannot contain values < 0");
 
     if (max_t == 0 || max_t > 1e6) stop("max_t == 0 || max_t > 1e6");
 
@@ -71,6 +193,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
     } else if (arma::size(N0) != arma::size(landscapes)) {
         stop("dim(N0) must be c(1,1,1) or dim(landscapes)");
     }
+
 
     if (W0.n_rows == 1) {
         if (W0.n_cols != 1 || W0.n_slices != 1)
@@ -88,26 +211,16 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
         Y0.fill(val);
     } else if (Y0.n_elem != n_reps) stop("length(Y0) must be 1 or dim(landscapes)[3]");
 
-    if (virus_attract < 0) stop("virus_attract < 0");
-    if (pseudo_repel < 0) stop("pseudo_repel < 0");
-    if (epsilon < 0) stop("epsilon < 0");
-    if (p_load_alate < 0 || p_load_alate > 1) stop("p_load_alate < 0 || p_load_alate > 1");
-    if (p_load_plant < 0 || p_load_plant > 1) stop("p_load_plant < 0 || p_load_plant > 1");
-    if (total_exp_days < 1) stop("total_exp_days < 1");
-    if (total_exp_days > 1e6) stop("total_exp_days > 1e6");
-    if (w < 0.0001 || w > 1) stop("w < 0.0001 || w > 1");
-    if ((w*epsilon) > 1) stop("w*epsilon > 1");
-    if ((w*epsilon) < 0.0001) stop("w*epsilon < 0.0001");
-    if (radius < 1) stop("radius < 1");
     if (summ != "none" && summ != "pseudo" && summ != "time" && summ != "all") {
         stop("`summ` should be 'none', 'pseudo', 'time', or 'all'");
     }
-    if (infect_time_n == 0) infect_time_n = n_x * n_y;
+    // Next line is equivalent to ceiling(n_x*n_y / 2):
+    if (infect_time_n == 0) infect_time_n = 1 + ((n_x * n_y - 1) / 2U);
     if (infect_time_n > n_x * n_y) stop("infect_time_n > n_x * n_y");
     if (aphid_gone_thresh <= 0) stop("aphid_gone_thresh <= 0");
     if (wasp_gone_thresh <= 0) stop("wasp_gone_thresh <= 0");
 
-    arma::mat wasp_attract(n_x, n_y, arma::fill::none);
+    wasp_attract.set_size(n_x, n_y);
     if (wasp_plant_attract.isNotNull()){
         NumericMatrix wpa(wasp_plant_attract);
         if (wpa.nrow() != n_x) stop("nrow(wasp_plant_attract) != nrow(landscapes)");
@@ -121,22 +234,13 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
             }
         }
         if (wpa_sum != 1) wasp_attract /= wpa_sum;
-    } else wasp_attract.fill(1.0 / static_cast<double>(n_x * n_y));
+    } else wasp_attract.fill(1.0 / static_cast<double>(wasp_attract.n_elem));
 
     thread_check(n_threads); // Check that # threads isn't too high
 
-    // Set a maximum on # plants an alate can fly to such that the probability
-    // that it reaches this threshold < 1e-9:
-    uint32 max_fly_t = 100;
-    double max_leave_p = 1 - std::min(w, epsilon * w); // max Pr(leave plant)
-    while (std::pow(max_leave_p, max_fly_t) > (double)1e-9) {
-        max_fly_t *= 10;
-        if (max_fly_t > (uint32)1000000)
-            throw std::runtime_error("INTERNAL ERROR: max_fly_t too high");
-    }
-
     // Make sure output object won't be too big for R:
-    if  (R_output) {
+    // if  (R_output) {
+    if  (summ != "all") {
         uint32 n_rows = n_reps * (max_t + (uint32)1U);
         if (summ == "none") n_rows *= (n_x * n_y);
         if (summ == "pseudo") n_rows *= (uint32)2U;
@@ -144,39 +248,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
             stop("This combo of parameters will produce too large of an output for R");
     }
 
-    // Base for all insect populations to start with:
-    XPtr<InsectPops> insect_xptr(insect_ptr);
-    const InsectPops& insects0(*insect_xptr);
 
-    std::vector<std::vector<uint64>> seeds = mt_seeds(n_reps);
-    std::vector<PlantScape> plantscapes;
-    plantscapes.reserve(n_reps);
-
-    for (uint32 i = 0; i < n_reps; i++) {
-        plantscapes.push_back(PlantScape(max_t, summ, max_fly_t,
-                                         landscapes.slice(i), radius, virus_attract,
-                                         pseudo_repel, epsilon, w, wasp_attract,
-                                         p_load_alate, p_load_plant,
-                                         total_exp_days, insects0,
-                                         N0.slice(i), W0.slice(i), Y0(i),
-                                         out_dispersals,
-                                         seeds[i]));
-    }
-
-    RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
-
-    if (n_threads > 1U && n_reps > 1U) {
-        auto job = [&] (PlantScape& plantscape) {
-            plantscape.run(infect_stop, prog_bar, show_progress);
-        };
-        RcppThread::parallelForEach(plantscapes, job, n_threads);
-    } else {
-        for (uint32 i = 0; i < n_reps; i++) {
-            plantscapes[i].run(infect_stop, prog_bar, show_progress);
-        }
-    }
-
-    return plantscapes;
+    return;
 
 }
 
@@ -187,18 +260,7 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 
 //' Simulation plant landscapes with virus spread.
 //'
-//' @details # Radius
-//' From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
-//' a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
-//' follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
-//'
-//' The default for the `radius` argument uses the median of this
-//' distribution.
-//' I'm dividing by 0.75 to convert from meters to plant locations that are
-//' 0.75 meters apart (typical spacing for pea):
-//' `radius = qweibull(0.5, 0.6569, 9.613) / 0.75`.
-//'
-//' # Summarizing
+//' @details # Summarizing
 //' If `summ == "none"`, `n_x * n_y` rows are output for each rep and time point.
 //' The columns are...
 //' 1.  `rep`: repetition number
@@ -274,8 +336,6 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     negative values will become very large integers.
 //'     Hence, do not expect an error for negative numbers if you pass them here.
 //' @param max_t Single integer giving the maximum time the simulations run.
-//' @param insect_ptr External pointer to a C++ object with insect population
-//'     information, output from function [make_insect_ptr()].
 //' @param N0 Numeric 3D array indicating the starting aphid (non-winged) population
 //'     density for each plant and rep.
 //'     To indicate separate densities for each plant and/or rep,
@@ -292,56 +352,10 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     density for each rep.
 //'     The vector can also be of length 1, in which case it's assumed that
 //'     all reps start with the same density of parasitoids.
-//' @param virus_attract Effect of virus infection on alate alighting.
-//'     Sampling weights for virus-infectious plants is `virus_attract`,
-//'     compared to empty (no virus or *Pseudomonas*) plants whose weight is 1.
-//'     Thus, when `virus_attract > 1`, alates are attracted to virus-infectious
-//'     plants, while `virus_attract < 1` causes them to be repelled by
-//'     virus-infectious plants.
-//'     Values must be `> 0`.
-//' @param pseudo_repel Effect of *Pseudomonas* infection on alate alighting.
-//'     Sampling weights for *Pseudomonas*-containing plants is
-//'     `1 / pseudo_repel` (note difference from `virus_attract`, hence the
-//'     different names!), compared to empty (no virus or *Pseudomonas*)
-//'     plants whose weight is 1.
-//'     Thus, when `pseudo_repel > 1`, alates are repelled by
-//'     *Pseudomonas*-containing plants,
-//'     while `pseudo_repel < 1` causes them to be attracted to
-//'     *Pseudomonas*-containing plants.
-//'     Values must be `> 0`.
-//' @param epsilon Effect of virus infection on alate acceptance.
-//'     Values `> 1` cause alates to be more likely to stay and feed
-//'     (indefinitely) on virus-infected plants,
-//'     while values `< 1` cause them to be less likely to stay and feed on
-//'     virus-infected plants.
-//'     Values must be `> 0`, and `epsilon * w` must be `< 1`.
-//' @param p_load_alate Single numeric indicating the probability that an
-//'     uninoculated alate is loaded with a virus if it interacts with an
-//'     inoculated plant.
-//' @param p_load_plant Single numeric indicating the probability that an
-//'     uninoculated plant is loaded with a virus if it interacts with an
-//'     inoculated alate.
-//' @param total_exp_days Single integer indicating the number of days required
-//'     for a plant to transition from exposed (inoculated with virus but
-//'     not able to pass it on) to infectious (able to infect other plants).
-//'     A value of `0` means that an alate inoculating a plant causes that
-//'     plant to be infectious the same day.
-//'     Because this is not realistic and computationally troublesome,
-//'     only values `>1` are allowed.
-//'     Defaults to `7`, which is based on the paper "Cucumber mosaic virus
-//'     isolates seedborne in *Phaseolus vulgaris*: serology, host-pathogen
-//'     relationships, and seed transmission" (Davis & Hampton, 1986).
-//' @param w Probability that an alate accepts a plant, meaning that
-//'     it stays to feed on it indefinitely.
-//'     Must be `> 1e-4` and `< 1`.
-//'     The lower limit is because a very small value of `w` causes alates to
-//'     fly to so many plants that it becomes computationally problematic.
-//'     This is the same reason that I check for (and return and error) if
-//'     `w*epsilon < 1e-4`.
-//'     Defaults to `0.2`.
-//' @param radius Max distance that alates will travel between plants.
-//'     Defaults to `7.336451`, which is based on previous work.
-//'     See "Radius" section below for details.
+//' @param insect_ptr External pointer to a C++ object with insect population
+//'     information, output from function [make_insect_ptr()].
+//' @param disease_ptr External pointer to a C++ object with disease (and
+//'     dispersal) information, output from function [make_disease_ptr()].
 //' @param wasp_plant_attract Relative attractiveness of plants to wasps.
 //'     This affects the proportion of wasps that immigrate from the dispersal
 //'     pool to each plant.
@@ -369,8 +383,8 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'     Ignored when `summ != "all"` except for error checking.
 //'     Note that since this is coerced to an unsigned integer, using
 //'     a negative number here could cause an error to occur.
-//'     Defaults to `0`, which results in the total number of plants
-//'     (i.e., `prod(dim(landscapes)[1:2])`) being used.
+//'     Defaults to `0`, which results in at least half the total number of
+//'     plants (i.e., `ceiling(prod(dim(landscapes)[1:2]) / 2)`) being used.
 //' @param aphid_gone_thresh Single numeric specifying the threshold for aphid
 //'     abundance (all stages + parasitized, summed across all plants)
 //'     below which it's considered gone when calculating the
@@ -416,37 +430,61 @@ std::vector<PlantScape> sim_plantscape_cpp(const bool& R_output,
 //'
 //[[Rcpp::export]]
 DataFrame sim_plantscape(const arma::ucube& landscapes,
-                         const uint32& max_t,
-                         SEXP insect_ptr,
                          arma::cube N0,
                          arma::cube W0,
                          arma::vec Y0,
-                         const double& virus_attract,
-                         const double& pseudo_repel,
-                         const double& epsilon,
-                         const double& p_load_alate,
-                         const double& p_load_plant,
-                         const uint32& total_exp_days = 7,
-                         const double& w = 0.2,
-                         const double& radius = 7.336451,
+                         SEXP insect_ptr,
+                         SEXP disease_ptr,
                          Nullable<NumericMatrix> wasp_plant_attract = R_NilValue,
+                         const uint32& max_t = 100,
                          const std::string& summ = "none",
                          uint32 infect_time_n = 0,
                          const double& aphid_gone_thresh = 1,
                          const double& wasp_gone_thresh = 1,
-                         const bool& infect_stop = true,
+                         const bool& infect_stop = false,
                          const bool& out_pseudo = false,
                          const bool& out_stages = false,
                          const bool& out_dispersals = false,
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
 
-    std::vector<PlantScape> plantscapes =
-        sim_plantscape_cpp(true, landscapes, max_t, insect_ptr, N0, W0, Y0,
-                           virus_attract, pseudo_repel, epsilon, p_load_alate, p_load_plant,
-                           total_exp_days, w, radius, wasp_plant_attract, summ,
-                           infect_time_n, aphid_gone_thresh, wasp_gone_thresh,
-                           infect_stop, out_dispersals, show_progress, n_threads);
+    arma::mat wasp_attract;
+    check_plantscape_args(landscapes, max_t, N0, W0, Y0, wasp_attract,
+                          wasp_plant_attract, summ, infect_time_n,
+                          aphid_gone_thresh, wasp_gone_thresh, n_threads);
+
+    uint32 n_reps = landscapes.n_slices;
+
+    // Base for all insect populations to start with:
+    XPtr<InsectPops> insect_xptr(insect_ptr);
+    const InsectPops& insects(*insect_xptr);
+    // Disease (and dispersal) info:
+    XPtr<DiseaseDispersal> disease_xptr(disease_ptr);
+    const DiseaseDispersal& disease(*disease_xptr);
+
+    std::vector<std::vector<uint64>> seeds = mt_seeds(n_reps);
+    std::vector<PlantScape> plantscapes;
+    plantscapes.reserve(n_reps);
+
+    for (uint32 i = 0; i < n_reps; i++) {
+        plantscapes.push_back(PlantScape(N0.slice(i), W0.slice(i), Y0(i),
+                                         landscapes.slice(i), wasp_attract,
+                                         disease, insects, max_t, summ,
+                                         out_dispersals, seeds[i]));
+    }
+
+    RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
+
+    if (n_threads > 1U && n_reps > 1U) {
+        auto job = [&] (PlantScape& plantscape) {
+            plantscape.run(infect_stop, prog_bar, show_progress);
+        };
+        RcppThread::parallelForEach(plantscapes, job, n_threads);
+    } else {
+        for (uint32 i = 0; i < n_reps; i++) {
+            plantscapes[i].run(infect_stop, prog_bar, show_progress);
+        }
+    }
 
     // Produce output dataframe:
     DataFrame out_df;
