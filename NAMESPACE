@@ -2,7 +2,9 @@
 
 export(col_namer)
 export(inv_logit)
+export(lil_plantscape)
 export(logit)
+export(make_disease_ptr)
 export(make_insect_ptr)
 export(sad_leslie)
 export(save_plot)

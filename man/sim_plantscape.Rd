@@ -6,25 +6,18 @@
 \usage{
 sim_plantscape(
   landscapes,
-  max_t,
-  insect_ptr,
   N0,
   W0,
   Y0,
-  virus_attract,
-  pseudo_repel,
-  epsilon,
-  p_load_alate,
-  p_load_plant,
-  total_exp_days = 7L,
-  w = 0.2,
-  radius = 7.336451,
+  insect_ptr,
+  disease_ptr,
   wasp_plant_attract = NULL,
+  max_t = 100L,
   summ = "none",
   infect_time_n = 0L,
   aphid_gone_thresh = 1,
   wasp_gone_thresh = 1,
-  infect_stop = TRUE,
+  infect_stop = FALSE,
   out_pseudo = FALSE,
   out_stages = FALSE,
   out_dispersals = FALSE,
@@ -47,11 +40,6 @@ Note that this array is coerced to an array of unsigned integers, so
 negative values will become very large integers.
 Hence, do not expect an error for negative numbers if you pass them here.}
 
-\item{max_t}{Single integer giving the maximum time the simulations run.}
-
-\item{insect_ptr}{External pointer to a C++ object with insect population
-information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
-
 \item{N0}{Numeric 3D array indicating the starting aphid (non-winged) population
 density for each plant and rep.
 To indicate separate densities for each plant and/or rep,
@@ -71,63 +59,11 @@ density for each rep.
 The vector can also be of length 1, in which case it's assumed that
 all reps start with the same density of parasitoids.}
 
-\item{virus_attract}{Effect of virus infection on alate alighting.
-Sampling weights for virus-infectious plants is \code{virus_attract},
-compared to empty (no virus or \emph{Pseudomonas}) plants whose weight is 1.
-Thus, when \code{virus_attract > 1}, alates are attracted to virus-infectious
-plants, while \code{virus_attract < 1} causes them to be repelled by
-virus-infectious plants.
-Values must be \verb{> 0}.}
+\item{insect_ptr}{External pointer to a C++ object with insect population
+information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
 
-\item{pseudo_repel}{Effect of \emph{Pseudomonas} infection on alate alighting.
-Sampling weights for \emph{Pseudomonas}-containing plants is
-\code{1 / pseudo_repel} (note difference from \code{virus_attract}, hence the
-different names!), compared to empty (no virus or \emph{Pseudomonas})
-plants whose weight is 1.
-Thus, when \code{pseudo_repel > 1}, alates are repelled by
-\emph{Pseudomonas}-containing plants,
-while \code{pseudo_repel < 1} causes them to be attracted to
-\emph{Pseudomonas}-containing plants.
-Values must be \verb{> 0}.}
-
-\item{epsilon}{Effect of virus infection on alate acceptance.
-Values \verb{> 1} cause alates to be more likely to stay and feed
-(indefinitely) on virus-infected plants,
-while values \verb{< 1} cause them to be less likely to stay and feed on
-virus-infected plants.
-Values must be \verb{> 0}, and \code{epsilon * w} must be \verb{< 1}.}
-
-\item{p_load_alate}{Single numeric indicating the probability that an
-uninoculated alate is loaded with a virus if it interacts with an
-inoculated plant.}
-
-\item{p_load_plant}{Single numeric indicating the probability that an
-uninoculated plant is loaded with a virus if it interacts with an
-inoculated alate.}
-
-\item{total_exp_days}{Single integer indicating the number of days required
-for a plant to transition from exposed (inoculated with virus but
-not able to pass it on) to infectious (able to infect other plants).
-A value of \code{0} means that an alate inoculating a plant causes that
-plant to be infectious the same day.
-Because this is not realistic and computationally troublesome,
-only values \verb{>1} are allowed.
-Defaults to \code{7}, which is based on the paper "Cucumber mosaic virus
-isolates seedborne in \emph{Phaseolus vulgaris}: serology, host-pathogen
-relationships, and seed transmission" (Davis & Hampton, 1986).}
-
-\item{w}{Probability that an alate accepts a plant, meaning that
-it stays to feed on it indefinitely.
-Must be \verb{> 1e-4} and \verb{< 1}.
-The lower limit is because a very small value of \code{w} causes alates to
-fly to so many plants that it becomes computationally problematic.
-This is the same reason that I check for (and return and error) if
-\code{w*epsilon < 1e-4}.
-Defaults to \code{0.2}.}
-
-\item{radius}{Max distance that alates will travel between plants.
-Defaults to \code{7.336451}, which is based on previous work.
-See "Radius" section below for details.}
+\item{disease_ptr}{External pointer to a C++ object with disease (and
+dispersal) information, output from function \code{\link[=make_disease_ptr]{make_disease_ptr()}}.}
 
 \item{wasp_plant_attract}{Relative attractiveness of plants to wasps.
 This affects the proportion of wasps that immigrate from the dispersal
@@ -140,6 +76,8 @@ If a matrix is provided, then the values are divided by their sum
 (to make it sum to 1), then those values are used as the proportion of
 wasps from the dispersal pool that immigrate to each plant.
 Defaults to \code{NULL}.}
+
+\item{max_t}{Single integer giving the maximum time the simulations run.}
 
 \item{summ}{Single string to indicate how to summarize output.
 If \code{summ == "none"}, then no summarizing is done, so output is separate
@@ -158,8 +96,8 @@ to use when calculating the \code{infect_time} column when \code{summ == "all"}.
 Ignored when \code{summ != "all"} except for error checking.
 Note that since this is coerced to an unsigned integer, using
 a negative number here could cause an error to occur.
-Defaults to \code{0}, which results in the total number of plants
-(i.e., \code{prod(dim(landscapes)[1:2])}) being used.}
+Defaults to \code{0}, which results in at least half the total number of
+plants (i.e., \code{ceiling(prod(dim(landscapes)[1:2]) / 2)}) being used.}
 
 \item{aphid_gone_thresh}{Single numeric specifying the threshold for aphid
 abundance (all stages + parasitized, summed across all plants)
@@ -208,18 +146,6 @@ A tibble with columns following the description in the
 \description{
 Simulation plant landscapes with virus spread.
 }
-\section{Radius}{
-From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
-a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
-follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
-
-The default for the \code{radius} argument uses the median of this
-distribution.
-I'm dividing by 0.75 to convert from meters to plant locations that are
-0.75 meters apart (typical spacing for pea):
-\code{radius = qweibull(0.5, 0.6569, 9.613) / 0.75}.
-}
-
 \section{Summarizing}{
 If \code{summ == "none"}, \code{n_x * n_y} rows are output for each rep and time point.
 The columns are...
