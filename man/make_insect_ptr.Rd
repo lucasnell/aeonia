@@ -131,7 +131,7 @@ Defaults to \code{NA}. See 'Details' for more info.}
 }
 \value{
 An \code{externalptr} object that points to a C++ object that can
-be pass to \code{\link[=sim_plantscape]{sim_plantscape()}}.
+be passed to \code{\link[=sim_plantscape]{sim_plantscape()}}.
 }
 \description{
 This pointer is used as an argument to \code{\link[=sim_plantscape]{sim_plantscape()}}.

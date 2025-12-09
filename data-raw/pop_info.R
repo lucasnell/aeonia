@@ -234,6 +234,23 @@ op_alate$value
 
 
 # ------------------------*
+# Radius
+# ------------------------*
+
+# From "The Role of Aphid Behaviour in the Epidemiology of Potato Virus Y:
+# a Simulation Study" by Thomas Nemecek (1993; p. 72), dispersal distances
+# follow a Weibull distribution with shape = 0.6569 and scale = 9.613.
+#
+# For larger landscapes, we use a `radius` argument that is the median of this
+# distribution.
+# I'm dividing by 0.75 to convert from meters to plant locations that are
+# 0.75 meters apart (typical spacing for pea):
+
+radius <- qweibull(0.5, 0.6569, 9.613) / 0.75
+
+
+
+# ------------------------*
 # Create dataset
 # ------------------------*
 pop_info <- list(surv_j = sj, surv_a = sa, recruit = r, fecund = f,
@@ -241,6 +258,7 @@ pop_info <- list(surv_j = sj, surv_a = sa, recruit = r, fecund = f,
                  K = K, pred_surv = pred_surv,
                  a = a, h = h, k = k, s_y = s_y,
                  s_p = s_p, K_p_mult = K_p_mult, R = R,
-                 trans_ma = trans_ma, trans_pm = trans_pm)
+                 trans_ma = trans_ma, trans_pm = trans_pm,
+                 radius = radius)
 
 usethis::use_data(pop_info, overwrite = TRUE)
