@@ -23,7 +23,49 @@
 
 
 
+
 using namespace Rcpp;
+
+
+
+// Simple class to store many dispersal and disease inputs to PlantScape
+struct DiseaseDispersal {
+
+    double radius;
+    uint32 max_fly_t;
+    double virus_attract;
+    double pseudo_repel;
+    double epsilon;
+    double w;
+    double p_load_alate;
+    double p_load_plant;
+    uint32 total_exp_days;
+
+
+    DiseaseDispersal(const double& radius_,
+                     const uint32& max_fly_t_,
+                     const double& virus_attract_,
+                     const double& pseudo_repel_,
+                     const double& epsilon_,
+                     const double& w_,
+                     const double& p_load_alate_,
+                     const double& p_load_plant_,
+                     const uint32& total_exp_days_)
+        : radius(radius_),
+          max_fly_t(max_fly_t_),
+          virus_attract(virus_attract_),
+          pseudo_repel(pseudo_repel_),
+          epsilon(epsilon_),
+          w(w_),
+          p_load_alate(p_load_alate_),
+          p_load_plant(p_load_plant_),
+          total_exp_days(total_exp_days_) {}
+
+
+};
+
+
+
 
 
 
@@ -350,32 +392,25 @@ public:
     std::vector<arma::umat> dispersals;     // dispersal events
 
 
-    PlantScape(const uint32& max_t_,
-               const std::string& summ_,
-               const uint32& max_fly_t_,
-               const arma::umat& landscape_,
-               const double& radius_,
-               const double& virus_attract_,
-               const double& pseudo_repel_,
-               const double& epsilon_,
-               const double& w_,
-               const arma::mat& wasp_attract_,
-               const double& p_load_alate_,
-               const double& p_load_plant_,
-               const uint32& total_exp_days_,
-               const InsectPops& insects,
-               const arma::mat& N0,
+    PlantScape(const arma::mat& N0,
                const arma::mat& W0,
                const double& Y0,
+               const arma::umat& landscape_,
+               const arma::mat& wasp_attract_,
+               const DiseaseDispersal& disp_dis,
+               const InsectPops& insects,
+               const uint32& max_t_,
+               const std::string& summ_,
                const bool& out_dispersals_,
                const std::vector<uint64>& seeds)
         : wasps(insects.wasps),
-          flight(max_fly_t_, landscape_, radius_, virus_attract_, pseudo_repel_,
-                 epsilon_, w_),
+          flight(disp_dis.max_fly_t, landscape_, disp_dis.radius,
+                 disp_dis.virus_attract, disp_dis.pseudo_repel,
+                 disp_dis.epsilon, disp_dis.w),
           plants(),
           wasp_attract(wasp_attract_),
-          p_load_alate(p_load_alate_),
-          p_load_plant(p_load_plant_),
+          p_load_alate(disp_dis.p_load_alate),
+          p_load_plant(disp_dis.p_load_plant),
           n_alates(arma::size(landscape_), arma::fill::none),
           alate_plants(),
           n_x(landscape_.n_rows),
@@ -390,7 +425,7 @@ public:
 
         wasps.Y = Y0;
 
-        alate_plants.reserve(landscape_.n_elem);
+        alate_plants.reserve(n_x * n_y);
 
         // Make this sum to one:
         double wa_sum = arma::accu(wasp_attract);
@@ -408,7 +443,8 @@ public:
             for (uint32 y = 0; y < n_y; y++) {
                 infectious = get_bit_bool(0U, landscape_(x, y));
                 pseudo = get_bit_bool(1U, landscape_(x, y));
-                plants_x.push_back(OnePlant(infectious, pseudo, total_exp_days_,
+                plants_x.push_back(OnePlant(infectious, pseudo,
+                                            disp_dis.total_exp_days,
                                             insects.aphids));
                 AphidPops& aphids(plants_x.back().aphids);
                 aphids.set_aphids(N0(x,y), W0(x,y));
@@ -435,17 +471,11 @@ public:
         disp_iter = dispersals.begin();
         if (out_dispersals && summ == "time") disp_iter++;
 
+
+        return;
+
     }
 
-    // Adjust density dependence across plants:
-    void adjust_K(const arma::mat& Kmat) {
-        for (uint32 x = 0; x < n_x; x++) {
-            for (uint32 y = 0; y < n_y; y++) {
-                plants[x][y].aphids.set_K(Kmat(x,y));
-            }
-        }
-        return;
-    }
 
 
     /*

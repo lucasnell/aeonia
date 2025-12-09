@@ -135,6 +135,10 @@ class AphidPops {
 
 
 
+
+
+
+
 public:
 
     AphidPops(const double& surv_j,
@@ -192,6 +196,10 @@ public:
             err_msg += "* s_p (0.65 is about as low as S_p(z(t)) goes)";
             throw std::runtime_error(err_msg.c_str());
         }
+
+        if (L.n_rows != 4 || L.n_cols != 4) {
+            L = arma::mat(4, 4, arma::fill::zeros);
+        } else L.zeros();
 
         L(0,0) = surv_j;
         L(2,2) = surv_j;
@@ -304,6 +312,31 @@ public:
         if (W0 > 0) {
             X.tail(2) = W0 * dens.tail(2) / arma::accu(dens.tail(2));
         }
+        return;
+    }
+
+    // Set all parameters except for starting conditions and `pseudo_surv`:
+    void set_parameters(const AphidPops& other) {
+
+        L = other.L;
+        K = other.K;
+        K_p = other.K_p;
+        s_p = other.s_p;
+        R = other.R;
+        trans_ma = other.trans_ma;
+        trans_pm = other.trans_pm;
+        pred_surv = other.pred_surv;
+        extinct_N = other.extinct_N;
+        demog_error = other.demog_error;
+        sigma_x = other.sigma_x;
+        a = other.a;
+        h = other.h;
+        k = other.k;
+        alate_infl = other.alate_infl;
+        alate_slope = other.alate_slope;
+        alate_max = other.alate_max;
+        fly_p = other.fly_p;
+
         return;
     }
 

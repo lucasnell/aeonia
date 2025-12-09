@@ -219,7 +219,7 @@ void fill_pop_info(double& surv_j,
 //' @export
 //'
 //' @return An `externalptr` object that points to a C++ object that can
-//' be pass to [sim_plantscape()].
+//' be passed to [sim_plantscape()].
 //'
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& pseudo_surv,
