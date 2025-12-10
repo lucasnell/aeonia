@@ -248,20 +248,6 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' 10. `mummies`: mummy density
 #' 11. `wasps`: total parasitoid density (`x` and `y` for this row will be 0)
 #'
-#' If `summ == "pseudo"`, two rows are output for each rep and time point.
-#' The columns are...
-#' 1.  `rep`: repetition number
-#' 2.  `time`: time point
-#' 3. `pseudo`: plant contains *Pseudomonas* (0 or 1)
-#' 4. `n`: total plants of this type
-#' 5. `virus`: number of plants infectious with virus
-#' 6. `aphids`: total aphid (non-winged) density summed across all plants of
-#'    this type
-#' 7. `alates`: total alate density summed across all plants of this type
-#' 8. `parasitized`: total parasitized aphid density summed across all plants
-#'    of this type
-#' 9. `mummies`: total mummy density summed across all plants of this type
-#' 10.`wasps`:  total parasitoid density (`type` for this row will be `2`)
 #'
 #' If `summ == "time"`, one row is output per rep and time point.
 #' The columns are...
@@ -342,8 +328,6 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' @param summ Single string to indicate how to summarize output.
 #'     If `summ == "none"`, then no summarizing is done, so output is separate
 #'     by plant.
-#'     If `summ == "pseudo"`, then output is summarized by whether plants
-#'     contain *Pseudomonas*.
 #'     If `summ == "time"`, then output is summarized across all plants, so
 #'     will only be separated by time and rep.
 #'     If `summ == "all"`, then output is summarized across all plants and
