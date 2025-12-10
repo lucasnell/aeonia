@@ -205,17 +205,6 @@ class PlantScape {
          7) mummy density
          8) parasitoid density
 
-     If `summ == "pseudo"`, two rows are output for each time point.
-     The columns are...
-         1) plant pseudo (0 or 1)
-         2) total plants of this type
-         3) number of plants infectious with virus
-         4) total aphid (non-winged) density summed across all plants of this type
-         5) total alate density summed across all plants of this type
-         6) total parasitized aphid density summed across all plants of this type
-         7) total mummy density summed across all plants of this type
-         8) total parasitoid density summed across all plants of this type
-
      If `summ %in% c("time", "all")`, only one row is output per time point.
      The columns are...
          1) number of plants infectious with virus
@@ -257,35 +246,6 @@ class PlantScape {
                 }
             }
 
-        } else if (summ == "pseudo") {
-
-            // Densities (wasps vector starts with length 1, all others start
-            // with length 2, all values (including wasps) = 0):
-            output_dens.push_back(OutDensities(2));
-            OutDensities& output_dens_t(output_dens.back());
-            // plant pseudo (0 or 1), # of each type:
-            output_ids.push_back(arma::umat({{0, 0},
-                                             {1, 0}}));
-            arma::umat& output_ids_t(output_ids.back());
-
-            output_dens_t.wasps = wasps.Y;
-            uint32 k;
-            for (uint32 x = 0; x < n_x; x++) {
-                for (const OnePlant& plant : plants[x]) {
-
-                    k = (plant.pseudo) ? 1UL : 0UL;
-
-                    output_ids_t(k,1) += 1U;
-
-                    output_dens_t.add_to(k,
-                                         static_cast<double>(plant.infectious),
-                                         plant.aphids.X,
-                                         plant.aphids.P,
-                                         plant.aphids.M);
-
-                }
-            }
-
         } else if (summ == "time" || summ == "all") {
 
             // Densities (all vectors start with length 1, values = 0):
@@ -307,7 +267,7 @@ class PlantScape {
 
         } else {
 
-            throw std::runtime_error("INTERNAL ERROR: `! summ %in% c('none', 'pseudo', 'time', 'all')`");
+            throw std::runtime_error("INTERNAL ERROR: `! summ %in% c('none', 'time', 'all')`");
 
         }
 
@@ -454,7 +414,7 @@ public:
 
         // Reserve max memory required:
         output_dens.reserve(max_t+1U);
-        if (summ == "none" || summ == "pseudo") output_ids.reserve(max_t+1U);
+        if (summ == "none") output_ids.reserve(max_t+1U);
         // fill starting conditions:
         fill_output();
 

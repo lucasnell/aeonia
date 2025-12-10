@@ -36,10 +36,6 @@ CharacterVector col_namer__(const std::string& summ,
         out.push_back("y");
         if (out_pseudo) out.push_back("pseudo");
     }
-    if (summ == "pseudo") {
-        out.push_back("pseudo");
-        out.push_back("n");
-    }
     if (summ != "all") {
         out.push_back("virus");
         if (out_stages) {
@@ -130,8 +126,8 @@ CharacterVector col_namer(const std::string& summ,
                           const bool& out_pseudo,
                           const bool& out_stages) {
 
-    if (summ != "none" && summ != "pseudo" && summ != "time" && summ != "all") {
-        stop("`summ` should be 'none', 'pseudo', 'time', or 'all'");
+    if (summ != "none" && summ != "time" && summ != "all") {
+        stop("`summ` should be 'none', 'time', or 'all'");
     }
 
     CharacterVector out = col_namer__(summ, out_pseudo, out_stages);
@@ -159,32 +155,24 @@ void list_to_data_frame(DataFrame& out_df,
 
 
 
-void ps_out_none_pseudo(DataFrame& out_df,
-                        const std::vector<PlantScape>& plantscapes,
-                        const arma::ucube& landscapes,
-                        const uint32& max_t,
-                        const bool& out_pseudo,
-                        const bool& out_stages) {
-
-    bool summ_none = plantscapes[0].summary() == "none";
+void ps_out_none(DataFrame& out_df,
+                 const std::vector<PlantScape>& plantscapes,
+                 const arma::ucube& landscapes,
+                 const uint32& max_t,
+                 const bool& out_pseudo,
+                 const bool& out_stages) {
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows;
     uint32 n_cols = 10;
     if (out_stages) n_cols += 2;
 
-    if (summ_none) {
-        uint32 n_x = landscapes.n_rows;
-        uint32 n_y = landscapes.n_cols;
-        // Adding 1 to n_x*n_y below to account for separate row for adult
-        // parasitoids (since they operate across all plants)
-        n_rows = n_reps * (max_t + (uint32)1U) * (n_x * n_y + 1);
-        if (out_pseudo) n_cols++;
-    } else {
-        // Using 3 instead of 2 below because I need an extra row for adult
-        // parasitoids that operate across all plants
-        n_rows = n_reps * (max_t + (uint32)1U) * (uint32)3U;
-    }
+    uint32 n_x = landscapes.n_rows;
+    uint32 n_y = landscapes.n_cols;
+    // Adding 1 to n_x*n_y below to account for separate row for adult
+    // parasitoids (since they operate across all plants)
+    n_rows = n_reps * (max_t + (uint32)1U) * (n_x * n_y + 1);
+    if (out_pseudo) n_cols++;
 
     CharacterVector col_names = col_namer_cpp(plantscapes[0], out_pseudo, out_stages,
                                           n_cols);
@@ -261,10 +249,8 @@ void ps_out_none_pseudo(DataFrame& out_df,
             // Adult parasitoids (and totals across all plants):
             tmp_list[0].push_back(r+1);         // rep
             tmp_list[1].push_back(t+1);         // time
-            tmp_list[2].push_back(NA_REAL);     // x / pseudo
-            if (summ_none) {
-                tmp_list[3].push_back(NA_REAL);     // y
-            } else tmp_list[3].push_back(arma::accu(out_ids.col(1)));     // n
+            tmp_list[2].push_back(NA_REAL);     // x
+            tmp_list[3].push_back(NA_REAL);     // y
             k = 4;
             if (out_pseudo) {
                 tmp_list[k].push_back(NA_REAL); // pseudo
@@ -287,14 +273,8 @@ void ps_out_none_pseudo(DataFrame& out_df,
 
     // Adjust some columns to integers:
     std::vector<std::string> int_cols;
-    if (summ_none) {
-        int_cols = {"rep", "time", "x", "y"};
-        if (out_pseudo) int_cols.push_back("pseudo");
-    } else {
-        int_cols = {"rep", "time", "n"};
-        // pseudo is logical:
-        out_df["pseudo"] = as<LogicalVector>(out_df["pseudo"]);
-    }
+    int_cols = {"rep", "time", "x", "y"};
+    if (out_pseudo) int_cols.push_back("pseudo");
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
 
 
