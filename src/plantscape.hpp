@@ -81,20 +81,21 @@ struct OutDensities {
     std::vector<std::array<double,4>> aphids;         // aphids (all stages) density
     std::vector<double> parasitized;    // parasitized aphid density
     std::vector<double> mummies;        // mummy density
-    double wasps;                       // adult, female parasitoid wasp density
+    std::vector<double> wasps;          // adult, female parasitoid wasp density
+    double tot_wasps;
 
 
     // Don't include any values, later reserve using that method.
-    OutDensities() : virus(), aphids(), parasitized(), mummies(), wasps() {};
+    OutDensities() : virus(), aphids(), parasitized(), mummies(), wasps(), tot_wasps(0) {};
 
     // Fill zeros for vectors of length `n`.
-    // `wasps` double is simply set to zero.
     OutDensities(const uint32& n)
         : virus(n, 0.0),
           aphids(n, std::array<double,4>()),
           parasitized(n, 0.0),
           mummies(n, 0.0),
-          wasps(0.0) {
+          wasps(n, 0.0),
+          tot_wasps(0) {
         for (std::array<double,4>& aphids_j : aphids) {
             for (uint32 i = 0; i < 4; i++) aphids_j[i] = 0.0;
         }
@@ -107,19 +108,23 @@ struct OutDensities {
         aphids.reserve(n);
         parasitized.reserve(n);
         mummies.reserve(n);
+        wasps.reserve(n);
         return;
     }
 
-    // Push back all values except wasps (bc wasps are at scale of all plants):
+    // Push back all values:
     void push_back(const double& virus_,
                    const arma::vec& aphids_,
                    const double& parasitized_,
-                   const double& mummies_) {
+                   const double& mummies_,
+                   const double& wasps_) {
         virus.push_back(virus_);
         aphids.push_back(std::array<double,4>());
         for (uint32 i = 0; i < 4; i++) aphids.back()[i] = aphids_(i);
         parasitized.push_back(parasitized_);
         mummies.push_back(mummies_);
+        wasps.push_back(wasps_);
+        tot_wasps += wasps_;
         return;
     }
 
@@ -132,11 +137,14 @@ struct OutDensities {
                 const double& virus_,
                 const arma::vec& aphids_,
                 const double& parasitized_,
-                const double& mummies_) {
+                const double& mummies_,
+                const double& wasps_) {
         virus[k] += virus_;
         for (uint32 i = 0; i < 4; i++) aphids[k][i] += aphids_(i);
         parasitized[k] += parasitized_;
         mummies[k] += mummies_;
+        wasps[k] += wasps_;
+        tot_wasps += wasps_;
     }
 
 };
@@ -179,6 +187,7 @@ class PlantScape {
     bool out_dispersals;
     // iterator for current dispersal matrix:
     std::vector<arma::umat>::iterator disp_iter;
+
 
 
 
@@ -229,7 +238,7 @@ class PlantScape {
             arma::umat& output_ids_t(output_ids.back());
 
             uint32 k = 0;
-            output_dens_t.wasps = wasps.Y;
+            output_dens_t.tot_wasps = wasps.Y;
             for (uint32 x = 0; x < n_x; x++) {
                 for (uint32 y = 0; y < n_y; y++) {
 
@@ -241,7 +250,8 @@ class PlantScape {
                     output_dens_t.push_back(static_cast<double>(plant.infectious),
                                             plant.aphids.X,
                                             plant.aphids.P,
-                                            plant.aphids.M);
+                                            plant.aphids.M,
+                                            wasps.Yi_mat(x,y));
                     k++;
                 }
             }
@@ -253,7 +263,7 @@ class PlantScape {
             OutDensities& output_dens_t(output_dens.back());
             // (no ids here)
 
-            output_dens_t.wasps = wasps.Y;
+            output_dens_t.tot_wasps = wasps.Y;
 
             for (uint32 x = 0; x < n_x; x++) {
                 for (const OnePlant& plant : plants[x]) {
@@ -261,7 +271,8 @@ class PlantScape {
                                          static_cast<double>(plant.infectious),
                                          plant.aphids.X,
                                          plant.aphids.P,
-                                         plant.aphids.M);
+                                         plant.aphids.M,
+                                         0.0);
                 }
             }
 
@@ -379,11 +390,10 @@ public:
           summ(summ_),
           max_t(max_t_),
           out_dispersals(out_dispersals_),
+          disp_iter(),
           output_dens(),
           output_ids(),
           dispersals() {
-
-        wasps.Y = Y0;
 
         alate_plants.reserve(n_x * n_y);
 
@@ -411,6 +421,11 @@ public:
                 if (!pseudo) aphids.set_pseudo_surv(1.0);
             }
         }
+
+        // Set initial wasp density
+        wasps.Y = Y0;
+        // To allow initial call to fill_output() to fill Y by plant:
+        wasps.fill_Yi<OnePlant>(plants, wasp_attract);
 
         // Reserve max memory required:
         output_dens.reserve(max_t+1U);
