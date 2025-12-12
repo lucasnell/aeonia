@@ -1,5 +1,6 @@
 
 suppressPackageStartupMessages({
+    library(pillar) # num() for setting sig figs in tibble printing
     library(tidyverse)
     library(aeonia)
     library(patchwork)
