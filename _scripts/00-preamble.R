@@ -42,10 +42,18 @@ spp_pal <- scico(100, palette = "vikO")[c(25, 40, 85)] |>
 
 
 # for numbers of pseudomonas patches:
-np_pal <- scico(2, begin = 0.1, end = 0.7, palette = "vanimo") |>
+np_pal <- scico(100, palette = "vanimo")[c(85, 15)] |>
     set_names(c("0", "3"))
 # Uncomment below to see (in RStudio):
-# c("#D787C8", "#40591E")
+# c("#729D3B", "#C66EB4")
+
+# for plant type (P- landscape; P+ landscape, P- plant; P+ landscape, P+ plant)
+# Note this the second item is intentionally a bit different from the second
+# item in `np_pal`.
+pt_pal <- scico(100, palette = "vanimo")[c(85, 20, 10)] |>
+    set_names(c("P_none", "P_land", "P_landplant"))
+# c("#729D3B", "#B1569E", "#DA8DCD")
+
 
 
 
@@ -112,3 +120,16 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  mummies = "mean mummy abundance",
                  log_wasps = "mean log wasp abundance",
                  wasps = "mean wasp abundance")
+
+
+
+#'
+#' I add this to ggplot objects when I want to use them inside a figure
+#' I'm stitching together in Adobe Illustrator, where I'll add all the titles
+#' and annotations.
+#'
+illustrator_theme <- theme(plot.title = element_blank(),
+                           legend.position = "none",
+                           axis.title.y = element_blank(),
+                           axis.title.x = element_blank(),
+                           strip.text = element_blank())
