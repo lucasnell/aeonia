@@ -221,15 +221,20 @@ lil_plantscape <- function(n_sims,
 
     stopifnot(is.numeric(n_sims) && length(n_sims) == 1L && n_sims > 0)
     stopifnot(is.numeric(n_pseudo) && length(n_pseudo) == 1L && n_pseudo >= 0)
+    stopifnot(is.numeric(pseudo_repel) && length(pseudo_repel) == 1L)
     stopifnot(is.numeric(N0) && all(N0 >= 0))
-    stopifnot(is.numeric(Y0) && all(Y0 >= 0) && length(Y0) %in% c(1, n_sims))
     stopifnot(is.numeric(sd_N) && length(sd_N) == 1L && sd_N >= 0)
+    stopifnot(is.numeric(Y0) && all(Y0 >= 0) && length(Y0) %in% c(1, n_sims))
+    stopifnot(is.numeric(W0) && all(W0 >= 0))
+    stopifnot(is.numeric(sd_W) && length(sd_W) == 1L && sd_W >= 0)
+    stopifnot(is.numeric(radius) && length(radius) == 1L && radius >= 1)
+    stopifnot(is.numeric(virus_attract) && length(virus_attract) == 1L)
     stopifnot(is.numeric(fly_p) && length(fly_p) == 1L)
-    stopifnot(is.numeric(epsilon) && length(epsilon) == 1L)
     stopifnot(is.numeric(p_load_alate) && length(p_load_alate) == 1L)
     stopifnot(is.numeric(p_load_plant) && length(p_load_plant) == 1L)
     stopifnot(is.character(spat_config) && length(spat_config) == 1L)
     stopifnot(inherits(force_N_distr, "logical") && length(force_N_distr) == 1L)
+
 
     spat_config <- match.arg(spat_config, c("random", "no virus", "diagonal",
                                             "near virus", "far virus", "over virus"))

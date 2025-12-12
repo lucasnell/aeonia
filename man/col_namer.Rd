@@ -10,8 +10,6 @@ col_namer(summ, out_pseudo, out_stages)
 \item{summ}{Single string to indicate how to summarize output.
 If \code{summ == "none"}, then no summarizing is done, so output is separate
 by plant.
-If \code{summ == "pseudo"}, then output is summarized by whether plants
-contain \emph{Pseudomonas}.
 If \code{summ == "time"}, then output is summarized across all plants, so
 will only be separated by time and rep.
 If \code{summ == "all"}, then output is summarized across all plants and

@@ -237,7 +237,7 @@ void ps_out_none(DataFrame& out_df,
 
                 tmp_list[k+0].push_back(out_dens.parasitized[i]);
                 tmp_list[k+1].push_back(out_dens.mummies[i]);
-                tmp_list[k+2].push_back(NA_REAL);
+                tmp_list[k+2].push_back(out_dens.wasps[i]);
 
                 tot_parasitized += out_dens.parasitized[i];
                 tot_mummies += out_dens.mummies[i];
@@ -264,7 +264,7 @@ void ps_out_none(DataFrame& out_df,
             }
             tmp_list[k+0].push_back(tot_parasitized);
             tmp_list[k+1].push_back(tot_mummies);
-            tmp_list[k+2].push_back(out_dens.wasps);
+            tmp_list[k+2].push_back(out_dens.tot_wasps);
 
         }
     }
@@ -379,9 +379,9 @@ void ps_out_time(DataFrame& out_df,
                 tmp_list[k].push_back(aphids[2] + aphids[3]);  // alates
                 k++;
             }
-            tmp_list[k+0].push_back(out_dens.parasitized[0]);     // parasitized
-            tmp_list[k+1].push_back(out_dens.mummies[0]);         // mummies
-            tmp_list[k+2].push_back(out_dens.wasps);              // wasps
+            tmp_list[k+0].push_back(out_dens.parasitized[0]);   // parasitized
+            tmp_list[k+1].push_back(out_dens.mummies[0]);       // mummies
+            tmp_list[k+2].push_back(out_dens.tot_wasps);        // wasps
 
             // Just filler for disps column:
             if (out_dispersals) tmp_list.back().push_back(0);
@@ -464,7 +464,7 @@ void ps_out_all(DataFrame& out_df,
             const std::array<double,4>& aphids(out_dens.aphids[0]);
             const double& parasitized(out_dens.parasitized[0]);
             const double& mummies(out_dens.mummies[0]);
-            const double& wasps(out_dens.wasps);
+            const double& wasps(out_dens.tot_wasps);
 
             k = 1;
             double total_aphids = std::accumulate(aphids.begin(), aphids.end(), 0);

@@ -82,8 +82,6 @@ Defaults to \code{NULL}.}
 \item{summ}{Single string to indicate how to summarize output.
 If \code{summ == "none"}, then no summarizing is done, so output is separate
 by plant.
-If \code{summ == "pseudo"}, then output is summarized by whether plants
-contain \emph{Pseudomonas}.
 If \code{summ == "time"}, then output is summarized across all plants, so
 will only be separated by time and rep.
 If \code{summ == "all"}, then output is summarized across all plants and
@@ -162,23 +160,6 @@ included if \code{out_pseudo = FALSE}
 \item \code{parasitized}: parasitized aphid density
 \item \code{mummies}: mummy density
 \item \code{wasps}: total parasitoid density (\code{x} and \code{y} for this row will be 0)
-}
-
-If \code{summ == "pseudo"}, two rows are output for each rep and time point.
-The columns are...
-\enumerate{
-\item \code{rep}: repetition number
-\item \code{time}: time point
-\item \code{pseudo}: plant contains \emph{Pseudomonas} (0 or 1)
-\item \code{n}: total plants of this type
-\item \code{virus}: number of plants infectious with virus
-\item \code{aphids}: total aphid (non-winged) density summed across all plants of
-this type
-\item \code{alates}: total alate density summed across all plants of this type
-\item \code{parasitized}: total parasitized aphid density summed across all plants
-of this type
-\item \code{mummies}: total mummy density summed across all plants of this type
-10.\code{wasps}:  total parasitoid density (\code{type} for this row will be \code{2})
 }
 
 If \code{summ == "time"}, one row is output per rep and time point.
