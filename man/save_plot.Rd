@@ -12,6 +12,7 @@ save_plot(
   seed = NULL,
   dpi = 300,
   fun_args = list(),
+  bg = "transparent",
   ...
 )
 }
@@ -31,6 +32,8 @@ and will determine what type of plot is created.}
 
 \item{fun_args}{List containing arguments to \code{plot} if it's a function and has
 required arguments.}
+
+\item{bg}{Default background color for the plot. Defaults to \code{"transparent"}.}
 
 \item{...}{Other arguments to \code{cairo_pdf} or \code{svglite}.}
 }
