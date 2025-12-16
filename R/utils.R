@@ -9,6 +9,7 @@
 #' @param dpi Resolution to use if creating a png file.
 #' @param fun_args List containing arguments to `plot` if it's a function and has
 #'     required arguments.
+#' @param bg Default background color for the plot. Defaults to `"transparent"`.
 #' @param ... Other arguments to `cairo_pdf` or `svglite`.
 #'
 #' @importFrom svglite svglite
@@ -23,6 +24,7 @@ save_plot <- function(filename,
                       seed = NULL,
                       dpi = 300,
                       fun_args = list(),
+                      bg = "transparent",
                       ...) {
     stopifnot(is.list(fun_args))
     ext <- tail(strsplit(filename, "\\.")[[1]], 1)
@@ -33,7 +35,7 @@ save_plot <- function(filename,
     if (!dir.exists(fn_dir)) stop("ERROR: `", fn_dir, "` doesn't exist")
     if (!is.null(seed)) set.seed(seed)
     if (ext == "pdf") {
-        cairo_pdf(filename = filename, width = width, height = height, ...)
+        cairo_pdf(filename = filename, width = width, height = height, bg = bg, ...)
         if (is.function(plot)) {
             do.call(plot, fun_args)
         } else {
@@ -41,7 +43,7 @@ save_plot <- function(filename,
         }
         dev.off()
     } else if (ext == "svg") {
-        svglite(filename = filename, width = width, height = height, ...)
+        svglite(filename = filename, width = width, height = height, bg = bg, ...)
         if (is.function(plot)) {
             do.call(plot, fun_args)
         } else {
@@ -49,7 +51,7 @@ save_plot <- function(filename,
         }
         dev.off()
     } else {
-        png(filename = filename, width = width, height = height,
+        png(filename = filename, width = width, height = height, bg = bg,
             units = "in", res = dpi, ...)
         if (is.function(plot)) {
             do.call(plot, fun_args)
