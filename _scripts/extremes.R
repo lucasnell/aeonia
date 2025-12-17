@@ -17,49 +17,7 @@ source("_scripts/00-preamble.R")
 
 
 
-#' Run lil_landscape under two simulation scenarios: large or small,
-#' and under two parameter combo types:
-#' "low" (Pseudomonas decreases outbreak size)
-#' "high" (Pseudomonas increases outbreak size)
-#'
-run_sim_combos <- function(type, n_pseudo, large_sims = FALSE, ...) {
 
-    stopifnot(length(type) == 1L && type %in% c("low", "high"))
-    stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
-    stopifnot(length(large_sims) == 1L && is.logical(large_sims))
-
-    shared_args <- list(Y0 = 2,
-                        sd_N = 0,
-                        K = 12.5e3,
-                        pseudo_surv = 0.85,
-                        n_pseudo = n_pseudo)
-
-    if (large_sims) {
-        size_args <- list_assign(shared_args, n_sims = 1000,
-                                 spat_config = "random", summ = "all")
-    } else {
-        size_args <- list_assign(shared_args, n_sims = 1,
-                                 spat_config = "diagonal", summ = "none")
-    }
-
-    if (type == "high") {
-        args <- list_assign(size_args,
-                            N0 = 15,
-                            virus_attract = 1.5,
-                            pseudo_repel = 1.5,
-                            zeta = 0.1)
-    } else {
-        args <- list_assign(size_args,
-                            N0 = 90,
-                            virus_attract = 4,
-                            pseudo_repel = 10,
-                            zeta = 1)
-    }
-
-    args <- list_assign(args, ...)
-
-    return(do.call(lil_plantscape, args))
-}
 
 
 

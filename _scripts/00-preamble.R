@@ -36,27 +36,18 @@ CC <- function(K, pseudo_surv, pred_surv){
 }
 
 
-spp_pal <- scico(100, palette = "vikO")[c(25, 40, 85)] |>
-    set_names(c("aphids", "alates", "wasps"))
-# Uncomment below to see (in RStudio):
-# c("#41709D", "#9FB6C7", "#75211F")
+color_pal <- c("#999999", "#0046D2", "#FF64FF",
+               viridisLite::inferno(100)[c(50, 25, 80)]) |>
+    set_names(c("no_pseudo", "pseudo", "virus", "aphids", "alates", "wasps"))
+# scales::show_col(color_pal, labels = FALSE)
+
+
 
 
 # for numbers of pseudomonas patches:
-np_pal <- scico(100, palette = "vanimo")[c(85, 15)] |>
+np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
-# Uncomment below to see (in RStudio):
-# c("#729D3B", "#C66EB4")
-
-# for plant type (P- landscape; P+ landscape, P- plant; P+ landscape, P+ plant)
-# Note this the second item is intentionally a bit different from the second
-# item in `np_pal`.
-pt_pal <- scico(100, palette = "vanimo")[c(85, 20, 10)] |>
-    set_names(c("P_none", "P_land", "P_landplant"))
-# c("#729D3B", "#B1569E", "#DA8DCD")
-
-
-
+# scales::show_col(np_pal, labels = FALSE)
 
 serify <- function(prefix, x, suffix) {
     xx <- paste0("<span style=\"font-family: serif\">", x, "</span>")
@@ -65,6 +56,8 @@ serify <- function(prefix, x, suffix) {
 
 # Only first letter capitalized (others not forced to lowercase, as in `str_to_sentence`):
 first_cap <- \(str) paste(toupper(substr(str, 1, 1)), substr(str, 2, nchar(str)), sep="")
+
+
 
 
 pretty_params <- function(x, short = FALSE, cap1 = FALSE) {
@@ -133,4 +126,50 @@ illustrator_theme <- theme(plot.title = element_blank(),
                            legend.position = "none",
                            axis.title.y = element_blank(),
                            axis.title.x = element_blank(),
-                           strip.text = element_blank())
+                           strip.text = element_blank(),
+                           panel.background = element_rect(fill="transparent", color=NA),
+                           plot.background = element_rect(fill="transparent", color=NA),
+                           strip.background = element_blank())
+
+
+#' Run lil_landscape under two simulation scenarios: large or small,
+#' and under two parameter combo types:
+#' "low" (Pseudomonas decreases outbreak size)
+#' "high" (Pseudomonas increases outbreak size)
+#'
+run_sim_combos <- function(type, n_pseudo, large_sims = FALSE, ...) {
+
+    stopifnot(length(type) == 1L && type %in% c("low", "high"))
+    stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
+    stopifnot(length(large_sims) == 1L && is.logical(large_sims))
+
+    shared_args <- list(Y0 = 2,
+                        sd_N = 0,
+                        K = 12.5e3,
+                        pseudo_surv = 0.9,
+                        virus_attract = 1,
+                        n_pseudo = n_pseudo,
+                        spat_config = "diagonal")
+
+    if (large_sims) {
+        size_args <- list_assign(shared_args, n_sims = 1000, summ = "all")
+    } else {
+        size_args <- list_assign(shared_args, n_sims = 1, summ = "none")
+    }
+
+    if (type == "low") {
+        args <- list_assign(size_args,
+                            N0 = 100,
+                            pseudo_repel = 10,
+                            zeta = 1)
+    } else {
+        args <- list_assign(size_args,
+                            N0 = 10,
+                            pseudo_repel = 1.5,
+                            zeta = 0.2)
+    }
+
+    args <- list_assign(args, ...)
+
+    return(do.call(lil_plantscape, args))
+}
