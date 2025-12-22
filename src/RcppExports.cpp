@@ -13,6 +13,20 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// alate_prop
+NumericVector alate_prop(const NumericVector& z, const double& alate_max, double alate_infl, double alate_slope);
+RcppExport SEXP _aeonia_alate_prop(SEXP zSEXP, SEXP alate_maxSEXP, SEXP alate_inflSEXP, SEXP alate_slopeSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const NumericVector& >::type z(zSEXP);
+    Rcpp::traits::input_parameter< const double& >::type alate_max(alate_maxSEXP);
+    Rcpp::traits::input_parameter< double >::type alate_infl(alate_inflSEXP);
+    Rcpp::traits::input_parameter< double >::type alate_slope(alate_slopeSEXP);
+    rcpp_result_gen = Rcpp::wrap(alate_prop(z, alate_max, alate_infl, alate_slope));
+    return rcpp_result_gen;
+END_RCPP
+}
 // make_insect_ptr
 SEXP make_insect_ptr(const double& pseudo_surv, const double& fly_p, const double& zeta, const double& extinct_N, const bool& demog_error, const double& sigma_x, double surv_j, double surv_a, double recruit, double fecund, double K, double K_p_mult, double s_p, NumericVector R, double trans_ma, double trans_pm, double pred_surv, double alate_infl, double alate_slope, double alate_max, double a, double h, double k, double s_y);
 RcppExport SEXP _aeonia_make_insect_ptr(SEXP pseudo_survSEXP, SEXP fly_pSEXP, SEXP zetaSEXP, SEXP extinct_NSEXP, SEXP demog_errorSEXP, SEXP sigma_xSEXP, SEXP surv_jSEXP, SEXP surv_aSEXP, SEXP recruitSEXP, SEXP fecundSEXP, SEXP KSEXP, SEXP K_p_multSEXP, SEXP s_pSEXP, SEXP RSEXP, SEXP trans_maSEXP, SEXP trans_pmSEXP, SEXP pred_survSEXP, SEXP alate_inflSEXP, SEXP alate_slopeSEXP, SEXP alate_maxSEXP, SEXP aSEXP, SEXP hSEXP, SEXP kSEXP, SEXP s_ySEXP) {
@@ -206,6 +220,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_aeonia_alate_prop", (DL_FUNC) &_aeonia_alate_prop, 4},
     {"_aeonia_make_insect_ptr", (DL_FUNC) &_aeonia_make_insect_ptr, 24},
     {"_aeonia_test_insect_pops", (DL_FUNC) &_aeonia_test_insect_pops, 26},
     {"_aeonia_logit", (DL_FUNC) &_aeonia_logit, 1},

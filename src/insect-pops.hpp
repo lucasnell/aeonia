@@ -24,6 +24,15 @@ using namespace Rcpp;
 
 
 
+inline double alate_prop_cpp(const double& z,
+                             const double& alate_max,
+                             const double& alate_infl,
+                             const double& alate_slope) {
+    double pa = alate_max / (1 + std::pow(10, ((alate_infl - z) * alate_slope)));
+    return pa;
+}
+
+
 
 /*
  * ============================================================================
@@ -87,7 +96,7 @@ class AphidPops {
         } else A = arma::ones(R.n_elem);
 
         // Proportion of new aphids (from apterous females) that are alates
-        double alate_p = alate_max / (1 + std::pow(10, ((alate_infl - z) * alate_slope)));
+        double alate_p = alate_prop_cpp(z, alate_max, alate_infl, alate_slope);
 
         // Now adjust Leslie matrix for alate proportion:
         L(0,1) = L(0,3) * (1 - alate_p); // non-winged offspring from winged adults
