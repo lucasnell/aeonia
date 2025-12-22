@@ -16,6 +16,41 @@
 using namespace Rcpp;
 
 
+//' Calculate the proportion of offspring that are alates.
+//'
+//' @param z Numeric vector of total aphid abundances (including non-winged,
+//'     winged, and parasitized).
+//' @inheritParams make_insect_ptr
+//'
+//' @export
+//'
+//[[Rcpp::export]]
+NumericVector alate_prop(const NumericVector& z,
+                         const double& alate_max = 1,
+                         double alate_infl = NA_REAL,
+                         double alate_slope = NA_REAL) {
+
+    if (is_true(any(z < 0.0))) stop("any(z < 0)");
+    if (alate_max > 1.0) stop("alate_max > 1");
+    if (alate_max < 0.0) stop("alate_max < 0");
+
+    // Fill alate_infl and alate_slope if NA:
+    List pop_info = retrieve_dataset<List>("pop_info");
+    if (NumericVector::is_na(alate_infl)) alate_infl = pop_info["alate_infl"];
+    if (NumericVector::is_na(alate_slope)) alate_slope = pop_info["alate_slope"];
+
+    uint32 n = z.size();
+    NumericVector out(n);
+
+    for (uint32 i = 0; i < n; i++) {
+        out[i] = alate_prop_cpp(z[i], alate_max, alate_infl, alate_slope);
+    }
+
+    return out;
+
+}
+
+
 
 void check_insect_args(const uint32& max_t,
                        const double& N0,
