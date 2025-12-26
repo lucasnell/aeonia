@@ -261,10 +261,7 @@ z_pa_p_list <- low_high_sims |>
     split(~ type) |>
     map(\(x) {
         # x = low_high_sims |> filter(type == "low")
-        # rm(x, pw, dd, max_z)
-        pw <- function(z) {
-            1 / (1 + 10^((pop_info$alate_infl - z) * pop_info$alate_slope))
-        }
+        # rm(x, dd, max_z)
         dd <- x |>
             filter(!is.na(plant)) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
@@ -272,10 +269,10 @@ z_pa_p_list <- low_high_sims |>
             group_by(n_pseudo, plant) |>
             summarize(z = max(aphids + alates), .groups = "drop_last") |>
             summarize(z = max(z)) |>
-            mutate(pa = pw(z))
+            mutate(ap = alate_prop(z))
         max_z <- ceiling((max(empty_data$density) * 1.1) / 100) * 100
-        tibble(z = 1:max_z, pa = pw(z)) |>
-            ggplot(aes(z, pa)) +
+        tibble(z = 1:max_z, ap = alate_prop(z)) |>
+            ggplot(aes(z, ap)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_line(linewidth = 1) +
             geom_point(data = dd, aes(color = n_pseudo), size = 3) +
@@ -293,6 +290,17 @@ wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 
 
+# Curve for model diagram:
+z_pa_curve <- tibble(z = 1:3e3, ap = alate_prop(z)) |>
+    ggplot(aes(z, ap)) +
+    geom_hline(yintercept = 0, color = "gray70") +
+    geom_line(linewidth = 1) +
+    scale_x_continuous(breaks = 0:3*1000)
+
+save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
+          width = 2, height = 2)
+
+
 
 
 
@@ -307,27 +315,18 @@ boot_ci <- function(x, alpha = 0.05, R = 2000L) {
     return(ci)
 }
 
-set.seed(4480013)
-large_rand_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
-                            n_pseudo = c(0L, 3L)) |>
-    mutate(outbreak_size = map2(type, n_pseudo, \(type, n_pseudo) {
-        run_sim_combos(type, n_pseudo, TRUE, spat_config = "no virus") |>
-            getElement("outbreak_size")
-    }))
-
 low_high_hist_list <- levels(large_sims$type) |>
+    set_names() |>
     map(\(tp) {
         # tp = "low"
         # rm(tp, d, dd, dd_means)
-        d  <- bind_rows(large_sims |> mutate(config = "diag"),
-                        large_rand_sims |> mutate(config = "random")) |>
-            filter(type == tp) |>
-            mutate(config = factor(config, levels = c("random", "diag")))
+        d  <- large_sims |>
+            filter(type == tp)
         dd <- d |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             unnest(outbreak_size) |>
             mutate(outbreak_size = factor(outbreak_size, levels = 1:9)) |>
-            group_by(config, n_pseudo, outbreak_size) |>
+            group_by(n_pseudo, outbreak_size) |>
             count(name = "perc", .drop = FALSE) |>
             ungroup() |>
             mutate(outbreak_size = as.integer(paste(outbreak_size)),
@@ -335,26 +334,21 @@ low_high_hist_list <- levels(large_sims$type) |>
         dd_means <- d |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             unnest(outbreak_size) |>
-            group_by(config, n_pseudo) |>
+            group_by(n_pseudo) |>
             summarize(boot = list(boot_ci(outbreak_size)),
                       outbreak_size = mean(outbreak_size),
                       .groups = "drop") |>
             unnest(boot) |>
-            mutate(perc = ifelse(config == "diag", max(dd$perc) * 0.95,
-                                 max(dd$perc) * 0.9))
+            mutate(perc = max(dd$perc) * 0.95)
         dd |>
             ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_point(aes(color = n_pseudo, alpha = config), size = 2) +
-            geom_line(aes(color = n_pseudo, alpha = config), linewidth = 1) +
+            geom_point(aes(color = n_pseudo), size = 2) +
+            geom_line(aes(color = n_pseudo), linewidth = 1) +
             geom_pointrange(data = dd_means,
-                            aes(color = n_pseudo, xmin = lo, xmax = hi,
-                                alpha = config),
+                            aes(color = n_pseudo, xmin = lo, xmax = hi),
                             linewidth = 1.5, size = 0.75, shape = 1) +
             scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
-            scale_alpha_manual(values = c(random = 0.3, diag = 1)) +
-            # scale_shape_manual(values = c(random = 1, diag = 19)) +
-            # scale_linetype_manual(values = c(random = "22", diag = "solid")) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
@@ -364,6 +358,6 @@ wrap_plots(low_high_hist_list, ncol = 1, guides = "collect", axis_titles = "coll
 
 # for (n in names(low_high_hist_list)) {
 #     save_plot(sprintf("_plots/extremes-histograms-%s.pdf", n),
-#               low_high_hist_list[[n]] + illustrator_theme, width = 4.5, height = 1)
+#               low_high_hist_list[[n]] + illustrator_theme, width = 4.5, height = 1.5)
 # }; rm(n)
 
