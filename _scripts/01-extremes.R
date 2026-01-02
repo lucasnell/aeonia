@@ -13,13 +13,9 @@ source("_scripts/00-preamble.R")
 # ============================================================================*
 
 #'
-#' Do a bunch of simulations for sets of parameter values to show how these
+#' Do a bunch of simulations for each set of parameter values to show how these
 #' parameter sets behave over many simulations.
 #'
-
-
-
-
 
 
 
