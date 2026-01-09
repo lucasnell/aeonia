@@ -69,8 +69,8 @@ make_aphids0 <- function(N0, sd_N, n_x, n_y, n_sims, force_N_distr) {
 
             # Convert from mean and sd of lognormal distribution to parameters
             # to use for lognormal (mean and sd of underlying normal distribution):
-            mu_N <- log(N0^2 / sqrt(N0^2 + sd_N^2))
-            sigma_N <- sqrt(log(1 + sd_N^2 / N0^2))
+            mu_N <- log(N0[1,1,1]^2 / sqrt(N0[1,1,1]^2 + sd_N^2))
+            sigma_N <- sqrt(log(1 + sd_N^2 / N0[1,1,1]^2))
 
             for (i in 1:n_sims) {
                 if (force_N_distr) {
