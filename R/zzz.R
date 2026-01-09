@@ -20,5 +20,6 @@
                        legend.title = .element_text(color = "black", size = 11),
                        axis.ticks = ggplot2::element_line(color = "black"),
                        legend.background = ggplot2::element_blank(),
-                       plot.title = .element_text(size = 14, hjust = 0.5)))
+                       plot.title = .element_text(size = 14, hjust = 0.5),
+                       plot.tag = .element_text(size = 14)))
 }
