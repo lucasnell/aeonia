@@ -8,6 +8,14 @@ suppressPackageStartupMessages({
     library(scico)
 })
 
+# RDS files with simulation output:
+rds_files <- list(extreme_large = "extremes-large-sims.rds",
+                  extreme_manip = "extremes-manip-sims.rds",
+                  extreme_manip2 = "extremes-manip2-sims.rds") |>
+    map(\(x) paste0("_scripts/interm-data/", x))
+
+
+
 # Set threads for simulations:
 options("mc.cores" = max(1L, parallel::detectCores()-2))
 
@@ -60,7 +68,7 @@ first_cap <- \(str) paste(toupper(substr(str, 1, 1)), substr(str, 2, nchar(str))
 
 
 
-pretty_params <- function(x, short = FALSE, cap1 = FALSE) {
+pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
     if (short) {
         out <- case_when(x == "pseudo_surv" ~ "&psi;",
                          x == "virus_attract" ~ "&nu;",
@@ -76,6 +84,9 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE) {
                          x == "n_pseudo" ~ "n<sub>P</sub>",
                          x == "spat_config" ~ "spat. config.",
                          .default = x)
+        if (serif && any(x != "spat_config")) {
+            out[x != "spat_config"] <- serify("", out[x != "spat_config"], "")
+        }
     } else {
         out <- case_when(x == "pseudo_surv" ~ serify("*Pseudomonas* survival (", "&psi;", ")"),
                          x == "virus_attract" ~ serify("virus attraction (", "&nu;", ")"),
@@ -116,6 +127,15 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  wasps = "mean wasp abundance")
 
 
+spat_config_lvls <- c("random", "no virus", "diagonal",
+                      "near virus", "far virus", "over virus")
+spat_config_abbrevs <- c("random" = "rnd+v",
+                         "no virus" = "rnd&minus;v",
+                         "diagonal" = "diag",
+                         "near virus" = "nr v",
+                         "far virus" = "fr v",
+                         "over virus" = "on v")
+
 
 #'
 #' I add this to ggplot objects when I want to use them inside a figure
@@ -131,13 +151,28 @@ illustrator_theme <- theme(plot.title = element_blank(),
                            plot.background = element_rect(fill="transparent", color=NA),
                            strip.background = element_blank())
 
+# Nonparametric bootstrap CI:
+boot_ci <- function(x, alpha = 0.01, R = 2000L) {
+    b <- sapply(1:R, \(i) mean(sample(x, replace = TRUE), na.rm = TRUE))
+    ci <- tibble(lo = quantile(b, alpha/2),
+                 hi = quantile(b, 1-alpha/2))
+    return(ci)
+}
+
+
 
 #' Run lil_landscape under two simulation scenarios: large or small,
 #' and under two parameter combo types:
 #' "low" (Pseudomonas decreases outbreak size)
 #' "high" (Pseudomonas increases outbreak size)
 #'
-run_sim_combos <- function(type, n_pseudo, large_sims = FALSE, ...) {
+#' Use of `...` allows you to adjust parameter values.
+#'
+run_sim_combos <- function(type,
+                           n_pseudo,
+                           large_sims = FALSE,
+                           return_args = FALSE,
+                           ...) {
 
     stopifnot(length(type) == 1L && type %in% c("low", "high"))
     stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
@@ -146,8 +181,9 @@ run_sim_combos <- function(type, n_pseudo, large_sims = FALSE, ...) {
     shared_args <- list(Y0 = 2,
                         sd_N = 0,
                         K = 12.5e3,
-                        pseudo_surv = 0.9,
                         virus_attract = 1,
+                        pseudo_repel = 1.5,
+                        pseudo_surv = 0.85,
                         n_pseudo = n_pseudo,
                         spat_config = "diagonal")
 
@@ -159,17 +195,17 @@ run_sim_combos <- function(type, n_pseudo, large_sims = FALSE, ...) {
 
     if (type == "low") {
         args <- list_assign(size_args,
-                            N0 = 100,
-                            pseudo_repel = 10,
+                            N0 = 110,
                             zeta = 1)
     } else {
         args <- list_assign(size_args,
                             N0 = 10,
-                            pseudo_repel = 1.5,
-                            zeta = 0.2)
+                            zeta = 0.37)
     }
 
     args <- list_assign(args, ...)
+
+    if (return_args) return(args)
 
     return(do.call(lil_plantscape, args))
 }

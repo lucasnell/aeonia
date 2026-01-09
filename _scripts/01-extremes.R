@@ -8,6 +8,7 @@
 source("_scripts/00-preamble.R")
 
 
+
 # ============================================================================*
 # Larger sims ----
 # ============================================================================*
@@ -17,25 +18,34 @@ source("_scripts/00-preamble.R")
 #' parameter sets behave over many simulations.
 #'
 
+if (!file.exists(rds_files$extreme_large)) {
 
+    # Takes very little time, but I'm saving RDS to use output in other scripts.
+    set.seed(259619622)
+    large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
+                           n_pseudo = c(0L, 3L)) |>
+        mutate(outbreak_size = map2(type, n_pseudo, \(type, n_pseudo) {
+            run_sim_combos(type, n_pseudo, TRUE) |>
+                getElement("outbreak_size")
+        }))
 
-set.seed(259619622)
-large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
-                       n_pseudo = c(0L, 3L)) |>
-    mutate(outbreak_size = map2(type, n_pseudo, \(type, n_pseudo) {
-        run_sim_combos(type, n_pseudo, TRUE) |>
-            getElement("outbreak_size")
-    }))
+    write_rds(large_sims, rds_files$extreme_large, compress = "gz")
+
+} else {
+
+    large_sims <- read_rds(rds_files$extreme_large)
+
+}
 
 large_sims |>
     mutate(outbreak_size = num(map_dbl(outbreak_size, mean), digits = 3))
 # # A tibble: 4 × 3
 #   type  n_pseudo outbreak_size
 #   <fct>    <int>     <num:.3!>
-# 1 low          0         6.426
-# 2 low          3         4.074
-# 3 high         0         2.977
-# 4 high         3         5.371
+# 1 low          0         6.938
+# 2 low          3         4.946
+# 3 high         0         2.970
+# 4 high         3         4.966
 
 large_sims |>
     mutate(outbreak_size = map_dbl(outbreak_size, mean)) |>
@@ -46,8 +56,8 @@ large_sims |>
 # # A tibble: 2 × 2
 #   type  outbreak_size
 #   <fct>     <num:.3!>
-# 1 low          -2.352
-# 2 high          2.394
+# 1 low          -1.992
+# 2 high          1.996
 
 
 
@@ -147,8 +157,8 @@ empty_data <- low_high_sims |>
 
 # Object `dens_maxes` depends on the following `empty_data` values:
 stopifnot(max(empty_data$density) > 1000 && max(empty_data$density) < 1100)
-stopifnot(min(empty_data$density) > 39 && min(empty_data$density) < 40)
-dens_maxes <- list(aphids = 1000, alates = 40, wasps = 40)
+stopifnot(min(empty_data$density) > 44 && min(empty_data$density) < 45)
+dens_maxes <- list(aphids = 1000, alates = 45, wasps = 45)
 
 
 low_high_p_list <- low_high_sims |>
@@ -293,8 +303,8 @@ z_pa_curve <- tibble(z = 1:3e3, ap = alate_prop(z)) |>
     geom_line(linewidth = 1) +
     scale_x_continuous(breaks = 0:3*1000)
 
-save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
-          width = 2, height = 2)
+# save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
+#           width = 2, height = 2)
 
 
 
@@ -304,12 +314,7 @@ save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
 # Histograms ----
 # ============================================================================*
 
-boot_ci <- function(x, alpha = 0.05, R = 2000L) {
-    b <- sapply(1:R, \(i) mean(sample(x, replace = TRUE)))
-    ci <- tibble(lo = quantile(b, alpha/2),
-                 hi = quantile(b, 1-alpha/2))
-    return(ci)
-}
+
 
 low_high_hist_list <- levels(large_sims$type) |>
     set_names() |>
@@ -331,19 +336,19 @@ low_high_hist_list <- levels(large_sims$type) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             unnest(outbreak_size) |>
             group_by(n_pseudo) |>
-            summarize(boot = list(boot_ci(outbreak_size)),
+            summarize(# boot = list(boot_ci(outbreak_size)),
                       outbreak_size = mean(outbreak_size),
                       .groups = "drop") |>
-            unnest(boot) |>
+            # unnest(boot) |>
             mutate(perc = max(dd$perc) * 0.95)
         dd |>
-            ggplot(aes(outbreak_size, perc)) +
+            ggplot(aes(outbreak_size, perc, color = n_pseudo)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_point(aes(color = n_pseudo), size = 2) +
-            geom_line(aes(color = n_pseudo), linewidth = 1) +
-            geom_pointrange(data = dd_means,
-                            aes(color = n_pseudo, xmin = lo, xmax = hi),
-                            linewidth = 1.5, size = 0.75, shape = 1) +
+            geom_point(size = 2) +
+            geom_line(linewidth = 1) +
+            # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
+            #                 linewidth = 1.5, size = 0.75, shape = 1) +
+            geom_point(data = dd_means, size = 4) +
             scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             labs(x = "Outbreak size", y = "Percent of simulations")
