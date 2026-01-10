@@ -184,7 +184,6 @@ void fill_pop_info(double& surv_j,
 //'     parasitoids respond to aphid density, where 0 results in an even
 //'     distribution of parasitoids, and 1 results in a linear relationship
 //'     between aphid density and parasitoids.
-//'     Defaults to `0`.
 //' @param extinct_N Single numeric indicating the extinction threshold.
 //'     Defaults to `0`.
 //' @param demog_error Single logical for whether to include demographic
@@ -259,7 +258,7 @@ void fill_pop_info(double& surv_j,
 //[[Rcpp::export]]
 SEXP make_insect_ptr(const double& pseudo_surv,
                      const double& fly_p,
-                     const double& zeta = 0,
+                     const double& zeta,
                      const double& extinct_N = 0,
                      const bool& demog_error = false,
                      const double& sigma_x = 0,
