@@ -7,7 +7,7 @@
 make_insect_ptr(
   pseudo_surv,
   fly_p,
-  zeta = 0,
+  zeta,
   extinct_N = 0,
   demog_error = FALSE,
   sigma_x = 0,
@@ -40,8 +40,7 @@ off plants each day.}
 \item{zeta}{Constant between 0 and 1 that affects the extent to which
 parasitoids respond to aphid density, where 0 results in an even
 distribution of parasitoids, and 1 results in a linear relationship
-between aphid density and parasitoids.
-Defaults to \code{0}.}
+between aphid density and parasitoids.}
 
 \item{extinct_N}{Single numeric indicating the extinction threshold.
 Defaults to \code{0}.}

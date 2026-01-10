@@ -2,7 +2,7 @@
 
 
 # make a little landscape
-make_lil_land <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
+make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 
     n_plants <- n_x * n_y
 
@@ -54,49 +54,6 @@ make_lil_land <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 }
 
 
-
-
-# make an array of starting aphid abundances (also works for winged aphids)
-make_aphids0 <- function(N0, sd_N, n_x, n_y, n_sims, force_N_distr) {
-
-    n_plants <- n_x * n_y
-
-    if (length(N0) == 1) {
-
-        N0 <- array(N0, c(n_x, n_y, n_sims))
-
-        if (sd_N > 0) {
-
-            # Convert from mean and sd of lognormal distribution to parameters
-            # to use for lognormal (mean and sd of underlying normal distribution):
-            mu_N <- log(N0[1,1,1]^2 / sqrt(N0[1,1,1]^2 + sd_N^2))
-            sigma_N <- sqrt(log(1 + sd_N^2 / N0[1,1,1]^2))
-
-            for (i in 1:n_sims) {
-                if (force_N_distr) {
-                    N0[,,i] <- rnorm(n_plants, 0, 1) |>
-                        (\(x) ((x - mean(x)) / sd(x)) * sigma_N + mu_N)() |>
-                        exp()
-                } else {
-                    N0[,,i] <- rlnorm(n_plants, mu_N, sigma_N)
-                }
-            }
-
-        }
-    } else {
-        if (!is.array(N0) || ! length(dim(N0)) %in% 2:3)
-            stop("If length(N0) > 1, it must be a 2D or 3D array.")
-        if (!identical(dim(N0)[1:2], c(n_x, n_y)))
-            stop("If length(N0) > 1, it must be an array with 3 rows & 3 cols.")
-        if (sd_N > 0) stop("If length(N0) > 1, then sd_N must be 0.")
-        if (length(dim(N0)) == 2L) N0 <- array(N0, c(n_x, n_y, n_sims))
-        if (dim(N0)[3] != n_sims) stop("dim(N0)[3] must equal n_sims")
-    }
-
-    return(N0)
-
-
-}
 
 
 
@@ -204,6 +161,7 @@ make_aphids0 <- function(N0, sd_N, n_x, n_y, n_sims, force_N_distr) {
 lil_plantscape <- function(n_sims,
                            n_pseudo,
                            pseudo_repel,
+                           zeta,
                            N0,
                            sd_N,
                            Y0,
@@ -219,75 +177,22 @@ lil_plantscape <- function(n_sims,
                            ...) {
 
 
-    stopifnot(is.numeric(n_sims) && length(n_sims) == 1L && n_sims > 0)
-    stopifnot(is.numeric(n_pseudo) && length(n_pseudo) == 1L && n_pseudo >= 0)
-    stopifnot(is.numeric(pseudo_repel) && length(pseudo_repel) == 1L)
-    stopifnot(is.numeric(N0) && all(N0 >= 0))
-    stopifnot(is.numeric(sd_N) && length(sd_N) == 1L && sd_N >= 0)
-    stopifnot(is.numeric(Y0) && all(Y0 >= 0) && length(Y0) %in% c(1, n_sims))
-    stopifnot(is.numeric(W0) && all(W0 >= 0))
-    stopifnot(is.numeric(sd_W) && length(sd_W) == 1L && sd_W >= 0)
-    stopifnot(is.numeric(radius) && length(radius) == 1L && radius >= 1)
-    stopifnot(is.numeric(virus_attract) && length(virus_attract) == 1L)
-    stopifnot(is.numeric(fly_p) && length(fly_p) == 1L)
-    stopifnot(is.numeric(p_load_alate) && length(p_load_alate) == 1L)
-    stopifnot(is.numeric(p_load_plant) && length(p_load_plant) == 1L)
-    stopifnot(is.character(spat_config) && length(spat_config) == 1L)
-    stopifnot(inherits(force_N_distr, "logical") && length(force_N_distr) == 1L)
-
+    single_integer(n_pseudo, "n_pseudo", .min = 0)
+    is_type(spat_config, "spat_config", "character", L = 1L)
 
     spat_config <- match.arg(spat_config, c("random", "no virus", "diagonal",
                                             "near virus", "far virus", "over virus"))
 
     n_x <- 3L
     n_y <- 3L
-    n_plants <- n_x * n_y
 
-    land <- make_lil_land(n_x, n_y, n_sims, n_pseudo, spat_config)
+    landscapes <- make_lil_lands(n_x, n_y, n_sims, n_pseudo, spat_config)
 
-    N0 <- make_aphids0(N0, sd_N, n_x, n_y, n_sims, force_N_distr)
-    W0 <- make_aphids0(W0, sd_W, n_x, n_y, n_sims, force_N_distr)
-    if (length(Y0) == 1) Y0 <- rep(Y0, n_sims)
+    out <- plantscape_shared(n_x, n_y, n_sims, N0, sd_N, W0, sd_W, Y0,
+                             force_N_distr, fly_p,
+                             radius, virus_attract, pseudo_repel, zeta,
+                             p_load_alate, p_load_plant, landscapes, ...)
 
-    .args <- list(insect = list(fly_p = fly_p),
-                 disease = list(radius = radius,
-                                virus_attract = virus_attract,
-                                pseudo_repel = pseudo_repel,
-                                p_load_alate = p_load_alate,
-                                p_load_plant = p_load_plant),
-                 plantscape = list(landscapes = land,
-                                   N0 = N0,
-                                   W0 = W0,
-                                   Y0 = Y0,
-                                   insect_ptr = NULL,
-                                   disease_ptr = NULL))
-    other_args <- list(...)
-    if (length(other_args) > 0) {
-
-        stopifnot(!is.null(names(other_args)) && all(names(other_args) != ""))
-
-        .formals <- c(insect = make_insect_ptr, disease = make_disease_ptr,
-                      plantscape = sim_plantscape) |>
-            lapply(\(x) names(formals(x)))
-        all_formals <- do.call(c, .formals) |> unname()
-
-        if (!all(names(other_args) %in% all_formals)) {
-            print(names(other_args)[!names(other_args) %in% all_formals])
-            stop("\nThe names printed above (inside `...`) do not match args ",
-                 "in sim_plantscape, make_insect_ptr, or make_disease_ptr")
-        }
-
-        for (x in names(.args)) {
-            nm_args <- names(other_args)[names(other_args) %in% .formals[[x]]]
-            for (n in nm_args) .args[[x]][[n]] <- other_args[[n]]
-        }
-
-    }
-
-    .args$plantscape[["insect_ptr"]] <- do.call(make_insect_ptr, .args$insect)
-    .args$plantscape[["disease_ptr"]] <- do.call(make_disease_ptr, .args$disease)
-
-    out <- do.call(sim_plantscape, .args$plantscape)
 
     return(out)
 
