@@ -47,6 +47,7 @@
 big_plantscape <- function(n_sims,
                            landscape,
                            pseudo_repel,
+                           pseudo_surv,
                            zeta,
                            N0,
                            sd_N,
@@ -67,10 +68,25 @@ big_plantscape <- function(n_sims,
 
     landscape <- array(landscape, dim = c(dim(landscape), 1L))
 
-    out <- plantscape_shared(n_x, n_y, n_sims, N0, sd_N, W0, sd_W, Y0,
-                             FALSE, fly_p,
-                             radius, virus_attract, pseudo_repel, zeta,
-                             p_load_alate, p_load_plant, landscapes, ...)
+    out <- plantscape_shared(n_x = n_x,
+                             n_y = n_y,
+                             n_sims = n_sims,
+                             N0 = N0,
+                             sd_N = sd_N,
+                             W0 = W0,
+                             sd_W = sd_W,
+                             Y0 = Y0,
+                             force_N_distr = FALSE,
+                             fly_p = fly_p,
+                             radius = radius,
+                             virus_attract = virus_attract,
+                             pseudo_repel = pseudo_repel,
+                             pseudo_surv = pseudo_surv,
+                             zeta = zeta,
+                             p_load_alate = p_load_alate,
+                             p_load_plant = p_load_plant,
+                             landscapes = landscapes,
+                             ...)
 
     return(out)
 

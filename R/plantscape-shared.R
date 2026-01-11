@@ -56,6 +56,7 @@ plantscape_shared <- function(n_x,
                               radius,
                               virus_attract,
                               pseudo_repel,
+                              pseudo_surv,
                               zeta,
                               p_load_alate,
                               p_load_plant,
@@ -75,6 +76,7 @@ plantscape_shared <- function(n_x,
     single_number(radius, "radius", .min = 1)
     single_number(virus_attract, "virus_attract", .min = 1)
     single_number(pseudo_repel, "pseudo_repel", .min = 1)
+    single_number(pseudo_surv, "pseudo_surv", .min = 0, .max = 1)
     single_number(zeta, "zeta", .min = 0, .max = 1)
     single_number(p_load_alate, "p_load_alate", .min = 0, .max = 1)
     single_number(p_load_plant, "p_load_plant", .min = 0, .max = 1)
@@ -84,11 +86,12 @@ plantscape_shared <- function(n_x,
     W0 <- make_aphids0(W0, sd_W, n_x, n_y, n_sims, force_N_distr)
     if (length(Y0) == 1) Y0 <- rep(Y0, n_sims)
 
-    .args <- list(insect = list(fly_p = fly_p),
+    .args <- list(insect = list(pseudo_surv = pseudo_surv,
+                                fly_p = fly_p,
+                                zeta = zeta),
                   disease = list(radius = radius,
                                  virus_attract = virus_attract,
                                  pseudo_repel = pseudo_repel,
-                                 zeta = zeta,
                                  p_load_alate = p_load_alate,
                                  p_load_plant = p_load_plant),
                   plantscape = list(landscapes = landscapes,
