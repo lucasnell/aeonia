@@ -8,6 +8,7 @@ lil_plantscape(
   n_sims,
   n_pseudo,
   pseudo_repel,
+  pseudo_surv,
   zeta,
   N0,
   sd_N,
@@ -41,6 +42,8 @@ Thus, when \code{pseudo_repel > 1}, alates are repelled by
 while \code{pseudo_repel < 1} causes them to be attracted to
 \emph{Pseudomonas}-containing plants.
 Values must be \verb{> 0}.}
+
+\item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
 
 \item{zeta}{Constant between 0 and 1 that affects the extent to which
 parasitoids respond to aphid density, where 0 results in an even
