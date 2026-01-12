@@ -100,7 +100,7 @@ using namespace Rcpp;
 //' @export
 //'
 //[[Rcpp::export]]
-arma::ucube sim_plant_types(const uint32& n_x,
+arma::icube sim_plant_types(const uint32& n_x,
                             const uint32& n_y,
                             const uint32& n_virus,
                             const uint32& n_pseudo,
@@ -160,7 +160,7 @@ arma::ucube sim_plant_types(const uint32& n_x,
         }
     }
 
-    arma::ucube out(n_x, n_y, n_lands);
+    arma::icube out(n_x, n_y, n_lands);
     for (uint32 i = 0; i < n_lands; i++) {
         simmers[i].fill_output(out, i);
     }
@@ -180,7 +180,7 @@ arma::ucube sim_plant_types(const uint32& n_x,
 //'     `x`, `y`, and `type`.
 //'
 //[[Rcpp::export]]
-List land_cube2list(const arma::ucube& land_cube) {
+List land_cube2list(const arma::icube& land_cube) {
 
     uint32 n_x = land_cube.n_rows;
     uint32 n_y = land_cube.n_cols;
