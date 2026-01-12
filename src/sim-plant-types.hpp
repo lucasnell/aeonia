@@ -335,13 +335,13 @@ public:
 
     // Fill an output cube with the matrix for this landscape's output.
     // `s` refers to the slice index for this landscape
-    void fill_output(arma::ucube& out, const uint32& s) {
+    void fill_output(arma::icube& out, const uint32& s) {
 
         uint32 x, y;
 
         for (uint32 k = 0; k < out_types.size(); k++) {
             dim_conv.to_2d(x, y, k);
-            out(x, y, s) = out_types[k];
+            out(x, y, s) = static_cast<int32>(out_types[k]);
         }
 
         return;
