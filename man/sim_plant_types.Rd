@@ -11,6 +11,8 @@ sim_plant_types(
   n_virus,
   n_pseudo,
   n_lands = 1L,
+  virus_starts = NULL,
+  pseudo_starts = NULL,
   show_progress = FALSE,
   n_threads = 0L
 )

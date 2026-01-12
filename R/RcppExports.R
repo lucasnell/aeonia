@@ -462,8 +462,8 @@ sim_plantscape <- function(landscapes, N0, W0, Y0, insect_ptr, disease_ptr, wasp
 #'
 #' @export
 #'
-sim_plant_types <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, show_progress = FALSE, n_threads = 0L) {
-    .Call(`_aeonia_sim_plant_types`, n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, show_progress, n_threads)
+sim_plant_types <- function(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands = 1L, virus_starts = NULL, pseudo_starts = NULL, show_progress = FALSE, n_threads = 0L) {
+    .Call(`_aeonia_sim_plant_types`, n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, virus_starts, pseudo_starts, show_progress, n_threads)
 }
 
 #' Convert a landscape cube to a list of dataframes.
