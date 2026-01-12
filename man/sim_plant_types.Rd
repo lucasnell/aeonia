@@ -7,9 +7,12 @@
 sim_plant_types(
   n_x,
   n_y,
-  wt_mat,
   n_virus,
   n_pseudo,
+  wt_vp = 1,
+  wt_pv = 1,
+  wt_vv = 1,
+  wt_pp = 1,
   n_lands = 1L,
   virus_starts = NULL,
   pseudo_starts = NULL,
@@ -26,28 +29,32 @@ Must be at least \code{2} and less than \code{1e6}.}
 Locations will be drawn from \code{1} to \code{n_y}.
 Must be at least \code{2} and less than \code{1e6}.}
 
-\item{wt_mat}{Square numeric matrix indicating how sample weighting on
-neighboring locations is affected by a target of each type being
-placed in a particular spot.
-Item \code{wt_mat[i,j]} indicates the effect of target type \code{i} on
-subsequent samplings of target type \code{j}.
-Values above 1 cause neighboring locations to be more likely to be
-sampled later, while values below 1 cause them to be less likely
-sampled.
-For locations that have been adjusted using \code{wt_mat} multiple times,
-the weights are multiplied by each other
-(e.g., \verb{w *= wt_mat[1,3]} at time \code{t}, then
-\verb{w *= wt_mat[1,2]} at time \code{t+1}).
-All weights start with values of \code{1}.
-The matrix should have the same number of rows and columns as the
-number of target types.}
-
 \item{n_virus}{Single integer indicating the number of plants that should
 be virus infected. This value must be \verb{>=1} and \verb{<= n_x * n_y}.}
 
 \item{n_pseudo}{Single integer indicating the number of plants that should
 be \emph{Pseudomonas} infected.
 This value must be \verb{>=1} and \verb{<= n_x * n_y}.}
+
+\item{wt_vp}{A single number indicating how virus placement
+affects subsequent placement of \emph{Pseudomonas}.
+See section "Weighting" above for how these weights work.
+Must be >= 0. Defaults to \code{1}.}
+
+\item{wt_pv}{A single number indicating how \emph{Pseudomonas} placement
+affects subsequent placement of virus.
+See section "Weighting" above for how these weights work.
+Must be >= 0. Defaults to \code{1}.}
+
+\item{wt_vv}{A single number indicating how virus placement
+affects subsequent placement of virus.
+See section "Weighting" above for how these weights work.
+Must be >= 0. Defaults to \code{1}.}
+
+\item{wt_pp}{A single number indicating how \emph{Pseudomonas} placement
+affects subsequent placement of \emph{Pseudomonas}.
+See section "Weighting" above for how these weights work.
+Must be >= 0. Defaults to \code{1}.}
 
 \item{n_lands}{Single integer indicating the number of independent
 landscapes to simulate. Each landscape will have a number of samples
@@ -78,9 +85,27 @@ where each item is a \code{\link[tibble:tbl_df-class]{tibble}} with columns
 }
 \description{
 Simulate locations of plants of different types
-(virus-infected or -uninfected, \emph{Pseudomonas}-infected or uninfected)
+(virus-infected or -uninfected, \emph{Pseudomonas}-inhabited or uninhabited)
 along an evenly spaced grid of integers, where the placement of one
 target can affect subsequent placement of other targets.
 Target locations are drawn from all combinations of \code{1} to
 \code{n_x} and \code{1} to \code{n_y}.
 }
+\section{Weighting}{
+All \verb{wt_*} parameters refer to how placement of one type of plant
+(virus-infected or -uninfected, \emph{Pseudomonas}-inhabited or uninhabited)
+affects the sampling weight of subsequent plants of different types.
+Weight values above 1 cause neighboring locations to be more likely to be
+sampled later, while values below 1 cause them to be less likely
+sampled.
+These weights apply to all plants directly next to the plant of a given
+type, and they accrue multiplicatively.
+For example, if \code{wt_vp = 2} and \emph{Pseudomonas} was place on a plant at
+location \verb{1,1} (x,y), then plants at locations \verb{1,1}; \verb{1,2}; \verb{2,2}; and \verb{2,1}
+would all be twice as likely to be sampled as a location for a virus to be
+placed later on.
+In the same situation, if \emph{Pseudomonas} was next placed at location \verb{2,1},
+then those same locations would now be four times as likely to be chosen
+for a virus; locations \verb{3,1} and \verb{3,2} would now be twice as likely.
+}
+

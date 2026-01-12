@@ -21,11 +21,28 @@ using namespace Rcpp;
 //' Simulate field(s) of plant types.
 //'
 //' Simulate locations of plants of different types
-//' (virus-infected or -uninfected, *Pseudomonas*-infected or uninfected)
+//' (virus-infected or -uninfected, *Pseudomonas*-inhabited or uninhabited)
 //' along an evenly spaced grid of integers, where the placement of one
 //' target can affect subsequent placement of other targets.
 //' Target locations are drawn from all combinations of `1` to
 //' `n_x` and `1` to `n_y`.
+//'
+//' @details # Weighting
+//' All `wt_*` parameters refer to how placement of one type of plant
+//' (virus-infected or -uninfected, *Pseudomonas*-inhabited or uninhabited)
+//' affects the sampling weight of subsequent plants of different types.
+//' Weight values above 1 cause neighboring locations to be more likely to be
+//' sampled later, while values below 1 cause them to be less likely
+//' sampled.
+//' These weights apply to all plants directly next to the plant of a given
+//' type, and they accrue multiplicatively.
+//' For example, if `wt_vp = 2` and *Pseudomonas* was place on a plant at
+//' location `1,1` (x,y), then plants at locations `1,1`; `1,2`; `2,2`; and `2,1`
+//' would all be twice as likely to be sampled as a location for a virus to be
+//' placed later on.
+//' In the same situation, if *Pseudomonas* was next placed at location `2,1`,
+//' then those same locations would now be four times as likely to be chosen
+//' for a virus; locations `3,1` and `3,2` would now be twice as likely.
 //'
 //'
 //' @param n_x Single integer indicating x dimension of search area.
@@ -34,21 +51,22 @@ using namespace Rcpp;
 //' @param n_y Single integer indicating y dimension of search area.
 //'     Locations will be drawn from `1` to `n_y`.
 //'     Must be at least `2` and less than `1e6`.
-//' @param wt_mat Square numeric matrix indicating how sample weighting on
-//'     neighboring locations is affected by a target of each type being
-//'     placed in a particular spot.
-//'     Item `wt_mat[i,j]` indicates the effect of target type `i` on
-//'     subsequent samplings of target type `j`.
-//'     Values above 1 cause neighboring locations to be more likely to be
-//'     sampled later, while values below 1 cause them to be less likely
-//'     sampled.
-//'     For locations that have been adjusted using `wt_mat` multiple times,
-//'     the weights are multiplied by each other
-//'     (e.g., `w *= wt_mat[1,3]` at time `t`, then
-//'     `w *= wt_mat[1,2]` at time `t+1`).
-//'     All weights start with values of `1`.
-//'     The matrix should have the same number of rows and columns as the
-//'     number of target types.
+//' @param wt_vv A single number indicating how virus placement
+//'     affects subsequent placement of virus.
+//'     See section "Weighting" above for how these weights work.
+//'     Must be >= 0. Defaults to `1`.
+//' @param wt_pp A single number indicating how *Pseudomonas* placement
+//'     affects subsequent placement of *Pseudomonas*.
+//'     See section "Weighting" above for how these weights work.
+//'     Must be >= 0. Defaults to `1`.
+//' @param wt_vp A single number indicating how virus placement
+//'     affects subsequent placement of *Pseudomonas*.
+//'     See section "Weighting" above for how these weights work.
+//'     Must be >= 0. Defaults to `1`.
+//' @param wt_pv A single number indicating how *Pseudomonas* placement
+//'     affects subsequent placement of virus.
+//'     See section "Weighting" above for how these weights work.
+//'     Must be >= 0. Defaults to `1`.
 //' @param n_virus Single integer indicating the number of plants that should
 //'     be virus infected. This value must be `>=1` and `<= n_x * n_y`.
 //' @param n_pseudo Single integer indicating the number of plants that should
@@ -84,9 +102,12 @@ using namespace Rcpp;
 //[[Rcpp::export]]
 arma::ucube sim_plant_types(const uint32& n_x,
                             const uint32& n_y,
-                            const arma::mat& wt_mat,
                             const uint32& n_virus,
                             const uint32& n_pseudo,
+                            const double& wt_vp = 1,
+                            const double& wt_pv = 1,
+                            const double& wt_vv = 1,
+                            const double& wt_pp = 1,
                             const uint32& n_lands = 1,
                             Nullable<IntegerMatrix> virus_starts = R_NilValue,
                             Nullable<IntegerMatrix> pseudo_starts = R_NilValue,
@@ -96,8 +117,6 @@ arma::ucube sim_plant_types(const uint32& n_x,
     if (n_x < 1 || n_x > 1e6) stop("n_x must be >= 1 and <= 1e6");
     if (n_y < 1 || n_y > 1e6) stop("n_y must be >= 1 and <= 1e6");
     if (n_x * n_y < 2) stop("n_x * n_y must be >= 2");
-    if (wt_mat.n_rows != 2 || wt_mat.n_cols != 2) stop("wt_mat must be 2x2");
-    if (arma::any(arma::vectorise(wt_mat) < 0)) stop("wt_mat cannot contain values < 0");
     if ((n_virus + n_pseudo) < 1) {
         std::string err_msg = "n_virus + n_pseudo cannot be < 1; ";
         err_msg += "just use an array of zeros instead of using this function.";
@@ -109,10 +128,16 @@ arma::ucube sim_plant_types(const uint32& n_x,
     if (n_lands >= 1e6) stop("n_lands must be < 1e6");
     thread_check(n_threads); // Check that # threads isn't too high
 
+    arma::mat wt_mat(2, 2, arma::fill::none);
+    wt_mat(0,0) = wt_vv;
+    wt_mat(1,1) = wt_pp;
+    wt_mat(0,1) = wt_vp;
+    wt_mat(1,0) = wt_pv;
+
     RcppThread::ProgressBar prog_bar(n_lands * (n_virus + n_pseudo), 1);
 
     // Extract starting positions, if provided
-    // (*_xy0 are empty if *_starts are NULL):
+    // (virus_pseudo_xy0 is empty if *_starts are NULL):
     arma::umat virus_pseudo_xy0 = get_xy_starts(virus_starts, pseudo_starts,
                                                 n_virus, n_pseudo, n_x, n_y);
 
