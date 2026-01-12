@@ -88,13 +88,13 @@ arma::ucube sim_plant_types(const uint32& n_x,
                             const uint32& n_virus,
                             const uint32& n_pseudo,
                             const uint32& n_lands = 1,
+                            Nullable<IntegerMatrix> virus_starts = R_NilValue,
+                            Nullable<IntegerMatrix> pseudo_starts = R_NilValue,
                             const bool& show_progress = false,
                             uint32 n_threads = 0) {
 
-    if (n_x < 1) stop("n_x must be >= 1");
-    if (n_x > 1e6) stop("n_x must be <= 1e6");
-    if (n_y < 1) stop("n_y must be >= 1");
-    if (n_y > 1e6) stop("n_y must be <= 1e6");
+    if (n_x < 1 || n_x > 1e6) stop("n_x must be >= 1 and <= 1e6");
+    if (n_y < 1 || n_y > 1e6) stop("n_y must be >= 1 and <= 1e6");
     if (n_x * n_y < 2) stop("n_x * n_y must be >= 2");
     if (wt_mat.n_rows != 2 || wt_mat.n_cols != 2) stop("wt_mat must be 2x2");
     if (arma::any(arma::vectorise(wt_mat) < 0)) stop("wt_mat cannot contain values < 0");
@@ -111,10 +111,16 @@ arma::ucube sim_plant_types(const uint32& n_x,
 
     RcppThread::ProgressBar prog_bar(n_lands * (n_virus + n_pseudo), 1);
 
+    // Extract starting positions, if provided
+    // (*_xy0 are empty if *_starts are NULL):
+    arma::umat virus_pseudo_xy0 = get_xy_starts(virus_starts, pseudo_starts,
+                                                n_virus, n_pseudo, n_x, n_y);
+
     std::vector<OnePlantTypeSimmer> simmers;
     simmers.reserve(n_lands);
     for (uint32 i = 0; i < n_lands; i++) {
-        simmers.push_back(OnePlantTypeSimmer(wt_mat, n_virus, n_pseudo, n_x, n_y));
+        simmers.push_back(OnePlantTypeSimmer(wt_mat, n_virus, n_pseudo, n_x, n_y,
+                                             virus_pseudo_xy0));
     }
 
 

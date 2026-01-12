@@ -18,6 +18,51 @@
 using namespace Rcpp;
 
 
+/*
+ Convert two Nullable NumericMatrix objects of starting virus and pseudomonas
+ xy positions to a single object for use in OnePlantTypeSimmer constructor.
+ If both `starts` are NULL, then an empty `arma::mat` is returned.
+ */
+arma::umat get_xy_starts(const Rcpp::Nullable<IntegerMatrix>& virus_starts,
+                         const Rcpp::Nullable<IntegerMatrix>& pseudo_starts,
+                         const uint32& n_virus,
+                         const uint32& n_pseudo,
+                         const uint32& n_x,
+                         const uint32& n_y) {
+    arma::imat tmp1, tmp2;
+    if (virus_starts.isNotNull()) {
+        tmp1 = Rcpp::as<arma::imat>(virus_starts);
+        if (tmp1.n_cols != 2) stop("ncol(virus_starts) must be 2");
+        if (tmp1.n_rows > n_virus) stop("nrow(virus_starts) must be <= n_virus");
+        if (arma::any(arma::vectorise(tmp1) < 1)) stop("items in virus_starts must be >= 1");
+        if (arma::any(tmp1.col(0) > n_x)) stop("items in virus_starts[,1] must be <= n_x");
+        if (arma::any(tmp1.col(1) > n_y)) stop("items in virus_starts[,2] must be <= n_y");
+    }
+    if (pseudo_starts.isNotNull()) {
+        tmp2 = Rcpp::as<arma::imat>(pseudo_starts);
+        if (tmp2.n_cols != 2) stop("ncol(pseudo_starts) must be 2");
+        if (tmp2.n_rows > n_pseudo) stop("nrow(pseudo_starts) must be <= n_pseudo");
+        if (arma::any(arma::vectorise(tmp2) < 1)) stop("items in pseudo_starts must be >= 1");
+        if (arma::any(tmp2.col(0) > n_x)) stop("items in pseudo_starts[,1] must be <= n_x");
+        if (arma::any(tmp2.col(1) > n_y)) stop("items in pseudo_starts[,2] must be <= n_y");
+    }
+
+    arma::umat xy0(tmp1.n_rows + tmp2.n_rows, 3U, arma::fill::none);
+    for (uint32 i = 0; i < tmp1.n_rows; i++) {
+        xy0(i, 0) = (uint32)0;
+        xy0(i, 1) = static_cast<uint32>(tmp1(i, 0)) - (uint32)1;
+        xy0(i, 2) = static_cast<uint32>(tmp1(i, 1)) - (uint32)1;
+    }
+    uint32 j;
+    for (uint32 i = 0; i < tmp2.n_rows; i++) {
+        j = tmp1.n_rows + i;
+        xy0(j, 0) = (uint32)1;
+        xy0(j, 1) = static_cast<uint32>(tmp2(i, 0)) - (uint32)1;
+        xy0(j, 2) = static_cast<uint32>(tmp2(i, 1)) - (uint32)1;
+    }
+
+    return xy0;
+}
 
 
 
@@ -153,24 +198,56 @@ class OnePlantTypeSimmer {
     // Object collecting sampled type for each plant:
     std::vector<uint32> out_types;
 
+    // vector for neighbors:
+    std::vector<uint32> neighbors;
+
     // Random number generator
     pcg32 eng;
 
 
     // Use bit assignment to quickly assign types:
-    void put_type(const uint32& type, const uint32& k) {
+    inline void put_type(const uint32& type, const uint32& k) {
         out_types[k] = out_types[k] | ((uint32)1 << type);
         return;
     }
+
+    /*
+     Add to output and adjust both sampling probabilities and samplers.
+     `i` is the type (0 for virus, 1 for Pseudomonas),
+     `k` is the location where that type is being placed
+     */
+    void out_and_adjust(const uint32& i, const uint32& k) {
+
+        // add to output:
+        put_type(i, k);
+
+        // Adjust sampling probabilities:
+        dim_conv.nextdoor_neighbors(neighbors, k); // fill neighbors vector
+        for (uint32 j = 0; j < n_samples.size(); j++) {
+            samplers[j].update_weights(neighbors, wt_mat(i,j));
+        }
+        /*
+         Note: You don't have to update `k`th prob to zero after the call
+         to `update_weights` on `neighbors` even though the latter also
+         updates `k` because `update_weights` never updates weights that
+         are already set to zero.
+         */
+        samplers[i].update_weights(k, 0.0);
+
+        return;
+
+    }
+
 
 
 public:
 
     OnePlantTypeSimmer(const arma::mat& wt_mat_,
-               const uint32& n_virus_,
-               const uint32& n_pseudo_,
-               const uint32& x_size_,
-               const uint32& y_size_)
+                       const uint32& n_virus_,
+                       const uint32& n_pseudo_,
+                       const uint32& x_size_,
+                       const uint32& y_size_,
+                       const arma::umat& virus_pseudo_xy0)
     : wt_mat(wt_mat_),
       n_samples({n_virus_, n_pseudo_}),
       n_plants(x_size_ * y_size_),
@@ -179,9 +256,33 @@ public:
       samplers(2, LocationSampler(n_plants)),
       dim_conv(x_size, y_size),
       out_types(n_plants, 0U),
+      neighbors(),
       eng() {
+
         seed_pcg(eng);
-      }
+        neighbors.reserve(9); // highest number of neighbors possible
+
+        if (!virus_pseudo_xy0.is_empty()) {
+
+            uint32 k;
+
+            for (uint32 r = 0; r < virus_pseudo_xy0.n_rows; r++) {
+
+                const uint32& i(virus_pseudo_xy0(r, 0));
+                const uint32& x(virus_pseudo_xy0(r, 1));
+                const uint32& y(virus_pseudo_xy0(r, 2));
+
+                // assign new k based on x and y:
+                dim_conv.to_1d(k, x, y);
+                // Add to output and adjust both sampling probs and samplers
+                out_and_adjust(i, k);
+                // Adjust # samples:
+                n_samples[i]--;
+
+            }
+        }
+
+    }
 
 
     void run(RcppThread::ProgressBar& prog_bar, const bool& show_progress) {
@@ -209,32 +310,17 @@ public:
         if (type_to_samp.size() != total_samps)
             stop("INTERNAL ERROR: type_to_samp.size() != total_samps");
 
-        uint32 x, y, k;
-        std::vector<uint32> neighbors;
-        neighbors.reserve(9); // highest number of neighbors possible
+        // uint32 x, y;
+        uint32 k;
         uint32 n = 0; // for error checking
-
 
         for (const uint32& i : type_to_samp) {
 
             k = samplers[i].sample(eng);
-            dim_conv.to_2d(x, y, k); // assign new x and y based on k
+            // dim_conv.to_2d(x, y, k); // assign new x and y based on k
 
-            // add to output:
-            put_type(i, k);
-
-            // Adjust sampling probabilities:
-            dim_conv.nextdoor_neighbors(neighbors, k); // fill neighbors vector
-            for (uint32 j = 0; j < n_samples.size(); j++) {
-                samplers[j].update_weights(neighbors, wt_mat(i,j));
-            }
-            /*
-             Note: You don't have to update `k`th prob to zero after the call
-             to `update_weights` on `neighbors` even though the latter also
-             updates `k` because `update_weights` never updates weights that
-             are already set to zero.
-             */
-            samplers[i].update_weights(k, 0.0);
+            // Add to output and adjust both sampling probs and samplers
+            out_and_adjust(i, k);
 
             n++;
 

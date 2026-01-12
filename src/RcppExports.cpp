@@ -190,8 +190,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plant_types
-arma::ucube sim_plant_types(const uint32& n_x, const uint32& n_y, const arma::mat& wt_mat, const uint32& n_virus, const uint32& n_pseudo, const uint32& n_lands, const bool& show_progress, uint32 n_threads);
-RcppExport SEXP _aeonia_sim_plant_types(SEXP n_xSEXP, SEXP n_ySEXP, SEXP wt_matSEXP, SEXP n_virusSEXP, SEXP n_pseudoSEXP, SEXP n_landsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
+arma::ucube sim_plant_types(const uint32& n_x, const uint32& n_y, const arma::mat& wt_mat, const uint32& n_virus, const uint32& n_pseudo, const uint32& n_lands, Nullable<IntegerMatrix> virus_starts, Nullable<IntegerMatrix> pseudo_starts, const bool& show_progress, uint32 n_threads);
+RcppExport SEXP _aeonia_sim_plant_types(SEXP n_xSEXP, SEXP n_ySEXP, SEXP wt_matSEXP, SEXP n_virusSEXP, SEXP n_pseudoSEXP, SEXP n_landsSEXP, SEXP virus_startsSEXP, SEXP pseudo_startsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -201,9 +201,11 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const uint32& >::type n_virus(n_virusSEXP);
     Rcpp::traits::input_parameter< const uint32& >::type n_pseudo(n_pseudoSEXP);
     Rcpp::traits::input_parameter< const uint32& >::type n_lands(n_landsSEXP);
+    Rcpp::traits::input_parameter< Nullable<IntegerMatrix> >::type virus_starts(virus_startsSEXP);
+    Rcpp::traits::input_parameter< Nullable<IntegerMatrix> >::type pseudo_starts(pseudo_startsSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sim_plant_types(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, show_progress, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sim_plant_types(n_x, n_y, wt_mat, n_virus, n_pseudo, n_lands, virus_starts, pseudo_starts, show_progress, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -229,7 +231,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_col_namer", (DL_FUNC) &_aeonia_col_namer, 3},
     {"_aeonia_make_disease_ptr", (DL_FUNC) &_aeonia_make_disease_ptr, 8},
     {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 18},
-    {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 8},
+    {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 10},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},
     {NULL, NULL, 0}
 };
