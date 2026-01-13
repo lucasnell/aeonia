@@ -48,8 +48,9 @@ is_landscape_array <- function(x, par, .dims) {
         all_good <- FALSE
     } else {
         all_good <- is.numeric(x) && all(x >= 0) && all(x <= 3) && all(x %% 1 == 0)
-        if (all_good) all_good <- is.array(x) && length(dim(x)) == length(.dims)
-        if (all_good) all_good <- all(dim(x) == .dims)
+        if (all_good) all_good <- is.array(x)
+        if (!is.null(.dims) && all_good) all_good <- length(dim(x)) == length(.dims)
+        if (!is.null(.dims) && all_good) all_good <- all(dim(x) == .dims)
     }
     if (!all_good) {
         err_msg(par, sprintf("a %s array containing integers from 0 to 3",
