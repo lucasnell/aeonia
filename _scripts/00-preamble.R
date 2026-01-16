@@ -83,6 +83,8 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "alate_max" ~ "b<sub>max</sub>",
                          x == "n_pseudo" ~ "n<sub>P</sub>",
                          x == "spat_config" ~ "spat. config.",
+                         x == "wt_vp" ~ "*Pseudo.* place.",
+                         x == "wt_pp" ~ "*Pseudo.* spacing",
                          .default = x)
         if (serif && any(x != "spat_config")) {
             out[x != "spat_config"] <- serify("", out[x != "spat_config"], "")
@@ -102,6 +104,8 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "n_pseudo" ~ serify("number of *Pseudomonas* patches (", "n<sub>P</sub>", ")"),
                          x == "K" ~ serify("aphid density dependence (", "K", ")"),
                          x == "spat_config" ~ "spatial configuration",
+                         x == "wt_vp" ~ "*Pseudomonas* placement",
+                         x == "wt_pp" ~ "*Pseudomonas* spacing",
                          .default = x)
     }
     if (cap1) out <- first_cap(out)

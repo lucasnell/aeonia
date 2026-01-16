@@ -11,6 +11,8 @@
         ggplot2::theme_classic() +
         ggplot2::theme(strip.background = ggplot2::element_blank(),
                        strip.text = .element_text(size = 10),
+                       strip.text.x = .element_text(size = 10),
+                       strip.text.y = .element_text(size = 10),
                        axis.title = .element_text(color = "black", size = 11),
                        axis.title.x = .element_text(color = "black", size = 11),
                        axis.title.y = .element_text(color = "black", size = 11),
@@ -18,7 +20,10 @@
                        axis.text.x = .element_text(color = "black", size = 9),
                        axis.text.y = .element_text(color = "black", size = 9),
                        legend.title = .element_text(color = "black", size = 11),
+                       legend.text = .element_text(color = "black", size = 9),
                        axis.ticks = ggplot2::element_line(color = "black"),
+                       axis.ticks.x = ggplot2::element_line(color = "black"),
+                       axis.ticks.y = ggplot2::element_line(color = "black"),
                        legend.background = ggplot2::element_blank(),
                        plot.title = .element_text(size = 14, hjust = 0.5),
                        plot.tag = .element_text(size = 14)))
