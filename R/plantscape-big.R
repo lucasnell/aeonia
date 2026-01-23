@@ -5,8 +5,9 @@
 
 #' Simulate large (100 x 100) plantscape.
 #'
-#' @param landscape Integer matrix of size 100 x 100 (or 100 x 100 x 1 array)
-#'     with the types of each plant in each landscape.
+#' @param landscape Integer 100 x 100 matrix,
+#'     100 x 100 x `n_sims` array, or 100 x 100 x `n_sims` array.
+#'     It should contain the types of each plant in each landscape.
 #'     It's assumed that rows are x the dimension and
 #'     columns are the y dimension.
 #'     Values in each cell give the state of the plant:
@@ -72,13 +73,16 @@ big_plantscape <- function(n_sims,
         if (!identical(dim(landscape), c(n_x, n_y))) {
             stop("if landscape is a 2D matrix, it must be 100 x 100")
         }
+        landscape <- array(landscape, dim = c(dim(landscape), n_sims))
     } else {
-        if (!identical(dim(landscape), c(n_x, n_y, 1L))) {
-            stop("if landscape is not a matrix, it must be 100 x 100 x 1 array")
+        if (identical(dim(landscape), c(n_x, n_y, 1L))) {
+            landscape <- landscape[,,1]
+            landscape <- array(landscape, dim = c(dim(landscape), n_sims))
+        } else if (!identical(dim(landscape), c(n_x, n_y, n_sims))) {
+            stop("if landscape is not a matrix, it must be 100 x 100 x 1 ",
+                 "or 100 x 100 x n_sims array")
         }
-        landscape <- landscape[,,1]
     }
-    landscape <- array(landscape, dim = c(dim(landscape), n_sims))
     is_landscape_array(landscape, "landscape", c(n_x, n_y, n_sims))
 
 
