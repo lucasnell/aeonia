@@ -65,6 +65,7 @@ big_plantscape <- function(n_sims,
 
     n_x <- 100L
     n_y <- 100L
+    n_sims <- as.integer(n_sims)
 
     # First check that it's a sensible input:
     is_landscape_array(landscape, "landscape", NULL)
