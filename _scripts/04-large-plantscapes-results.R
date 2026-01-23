@@ -38,14 +38,14 @@ make_land_type <- function(wt_vp, wt_pp, sep = "<br>") {
 #' them to: Pseudomonas decreases outbreak size in "low" and increases in "high"
 
 sim_df |>
-    filter(sd_N == 0 & virus_attract == 1 & pseudo_repel == 1.5 &
+    filter(sd_N == 0 & virus_attract == 1 & pseudo_repel == 1 &
                ((wt_vp == "off virus" & wt_pp == "uniform" & n_pseudo == 3e3) |
                     n_pseudo == 0)) |>
     select(type, n_pseudo, outbreak_size) |>
     arrange(type, n_pseudo)
 
 sim_df |>
-    filter(sd_N == 0 & virus_attract == 1 & pseudo_repel == 1.5 &
+    filter(sd_N == 0 & virus_attract == 1 & pseudo_repel == 1 &
                ((wt_vp == "on virus" & wt_pp == "uniform" & n_pseudo == 3e3) |
                     n_pseudo == 0)) |>
     select(type, n_pseudo, outbreak_size) |>
@@ -56,7 +56,8 @@ big_land_plotter <- function(type,
                              x_facet_fct = "land_type",
                              y_facet_fct = c("virus_attract", "pseudo_repel"),
                              shp_lty_fct = NULL,
-                             fixed = NULL) {
+                             fixed = NULL,
+                             color_vals = NULL) {
 
     # type = "low"; col_fct = "sd_N"; x_facet_fct = c("virus_attract", "pseudo_repel")
     # y_facet_fct = NULL; shp_lty_fct = NULL; fixed = list(wt_pp = "uniform")
@@ -110,16 +111,22 @@ big_land_plotter <- function(type,
                         paste(x_facet_fct, collapse = "+")) |>
         as.formula()
 
+    if (!is.null(color_vals)) {
+        col_scale <- scale_color_manual(pretty_params(col_fct, TRUE, serif = TRUE),
+                                        values = color_vals)
+    } else {
+        col_scale <- scale_color_viridis_d(pretty_params(col_fct, TRUE, serif = TRUE),
+                                           begin = 0.2, end = 0.8, option = "plasma")
+    }
+
     dd |>
         ggplot(aes(n_pseudo / 10e3 * 100, outbreak_size, color = .data[[col_fct]])) +
         geom_hline(yintercept = 0, color = "gray70") +
         points_lines +
-        scale_color_viridis_d(pretty_params(col_fct, TRUE) |>
-                                  str_replace_all("\\s+", "<br>"),
-                              begin = 0.2, end = 0.8, option = "plasma") +
+        col_scale +
         scale_linetype_manual(shp_lty_ttl, values = c("solid", "22")) +
         scale_shape_manual(shp_lty_ttl, values = c(19, 17)) +
-        scale_x_continuous(breaks = c(0, 10, 30, 70)) +
+        scale_x_continuous(breaks = c(0, 10, 30, 50, 70, 90)) +
         facet_grid(facet_form) +
         coord_cartesian(ylim = c(0, max(sim_df$outbreak_size))) +
         labs(x = "Percent *Pseudomonas* patches",
@@ -132,57 +139,6 @@ big_land_plotter <- function(type,
 
 
 
-big_land_slope_plotter <- function(type) {
-    dd <- sim_df |>
-        filter(type == .env$type) |>
-        mutate(outbreak_size = map(sim, \(x) x$outbreak_size)) |>
-        select(-type, -landscape, -lo, -hi, -sim) |>
-        unnest(outbreak_size) |>
-        split(~ sd_N + virus_attract + pseudo_repel, drop = TRUE) |>
-        # Add np = 0 for each landscape type and do `lm()`:
-        map(\(x) {
-            row_n0 <- filter(x, is.na(wt_vp)) |> select(-wt_vp, -wt_pp)
-            stopifnot(nrow(row_n0) == 100)
-            rows_np <- x |>
-                filter(!is.na(wt_vp))
-            rows_np |>
-                distinct(wt_vp, wt_pp) |>
-                mutate(obs = map(1:n(), \(i) row_n0)) |>
-                unnest(obs) |>
-                bind_rows(rows_np) |>
-                split(~ wt_vp + wt_pp) |>
-                map(\(z) {
-                    npc <- coef(lm(outbreak_size ~ n_pseudo, z))[["n_pseudo"]]
-                    z[1,] |>
-                        select(-n_pseudo, -outbreak_size) |>
-                        mutate(pseudo_eff = npc)
-                }) |>
-                list_rbind()
-        }) |>
-        list_rbind() |>
-        mutate(sd_N = factor(sd_N),
-               land_type = make_land_type(wt_vp, wt_pp),
-               pseudo_repel = pretty_greek_fct(pseudo_repel, "rho"),
-               virus_attract = pretty_greek_fct(virus_attract, "nu"))
-    dds <- dd |>
-        group_by(pseudo_repel, virus_attract, sd_N) |>
-        summarize(pseudo_eff = mean(pseudo_eff), .groups = "drop")
-    dd |>
-        ggplot(aes(pseudo_eff, land_type, color = sd_N)) +
-        geom_vline(xintercept = 0, color = "gray70", linetype = "22") +
-        geom_point() +
-        # geom_line() +
-        geom_vline(data = dds, aes(xintercept = pseudo_eff, color = sd_N)) +
-        scale_color_manual("&sigma;<sub>N</sub>",
-                           values = c(`0` = "black", `50` = "gray60")) +
-        facet_grid(virus_attract + pseudo_repel ~ .) +
-        labs(y = "Landscape type",
-             x = "Effect of *Pseudomonas* on outbreak size",
-             title = sprintf("*Pseudomonas* %s outbreaks",
-                             ifelse(type == "low", "inhibits", "promotes"))) +
-        theme(strip.text.y = element_markdown())
-}
-
 
 
 # big_land_plotter("high", col_fct = "virus_attract",
@@ -190,7 +146,8 @@ big_land_slope_plotter <- function(type) {
 #                  x_facet_fct = "land_type",
 #                  y_facet_fct = "pseudo_repel", fixed = list(sd_N = 50))
 
-big_land_plotter(type = "low",
+
+big_land_plotter(type = "high",
                  col_fct = "sd_N",
                  shp_lty_fct = "wt_vp",
                  x_facet_fct = c("virus_attract", "pseudo_repel"),
@@ -199,19 +156,26 @@ big_land_plotter(type = "low",
 big_land_plotter(type = "high",
                  col_fct = "virus_attract",
                  shp_lty_fct = "pseudo_repel",
-                 x_facet_fct = c("sd_N", "wt_vp"),
-                 y_facet_fct = NULL, fixed = list(wt_pp = "uniform"))
+                 x_facet_fct = c("wt_vp", "sd_N"),
+                 y_facet_fct = "wt_pp", # , fixed = list(wt_pp = "uniform"),
+                 color_vals = c("black", "red"))
+
+# for (.t in c("low", "high")) {
+#     .p <- big_land_plotter(type = .t,
+#                            col_fct = "virus_attract",
+#                            shp_lty_fct = "pseudo_repel",
+#                            x_facet_fct = c("sd_N", "wt_vp"),
+#                            y_facet_fct = NULL, fixed = list(wt_pp = "uniform"),
+#                            color_vals = scico(2, end = 0.8, palette = "hawaii")) +
+#         illustrator_theme +
+#         theme(strip.text.x = element_blank())
+#     .f <- sprintf("_plots/large-plantscapes-%s.pdf", .t)
+#     save_plot(.f, .p, width = 6, height = 2)
+# }; rm(.t, .p, .f)
 
 
-
-# big_land_slope_plotter("high")
-
-
-# c("low", "high") |>
-#     map(big_land_slope_plotter) |>
-#     do.call(what = wrap_plots) +
-#     plot_layout(nrow = 1, guides = "collect", axes = "collect")
-
+# LEFT OFF ----
+# Use above (for both high and low) for figure?
 
 
 
@@ -219,47 +183,55 @@ big_land_plotter(type = "high",
 #'
 #' When `type = "high"`
 #' - `pseudo_repel`:
-#'     - usually decreases outbreak sizes and the effect of *Pseudomonas* on
-#'       outbreak sizes
+#'     - `pseudo_repel` = 5 usually decreases outbreak sizes and the effect
+#'       of *Pseudomonas* on outbreak sizes
 #'     - increases outbreak sizes and makes *Pseudomonas* more likely to promote
 #'       outbreaks only when *Pseudomonas* starts off the virus and is
-#'       uniformly distributed
-#'     - effects are minimal when *Pseudomonas* starts off the virus and is
-#'       clustered
-#'     - effects are strongest at middle *Pseudomonas* densities when on virus
-#'       and uniform
-#'     - effects are uniform when on virus and clustered
+#'       uniformly distributed; this effect is minor
+#'     - effects are minimal when *Pseudomonas* starts off the virus
+#'     - when *Pseudomonas* starts on the virus, the reduction on outbreak
+#'       sizes is strongest at low *Pseudomonas* densities, especially
+#'       when `sd_N` = 50 (see description under `wt_vp`, too)
 #' - `virus_attract`:
-#'     - always increases outbreak sizes
-#'     - has little/no effect on *Pseudomonas* effect when `sd_N` = 0
-#'     - when `sd_N` = 50, increasing `virus_attract` also causes the effect
-#'       of *Pseudomonas* to trend more toward inhibiting outbreaks, sometimes
-#'       making it inhibiting outbreaks when it otherwise didn't
+#'     - `virus_attract` > 1 always increases outbreak sizes
+#'     - has little/no effect on the shape of the *Pseudomonas* ~ outbreak
+#'       size relationship when *Pseudomonas* starts on the virus and
+#'       when *Pseudomonas* density is low
+#'     - when `virus_attract` = 1, there is an especially large drop in the
+#'       effect of *Pseudomonas* on outbreak sizes at 90% *Pseudomonas* patches
+#'       compared to 70%, potentially resulting in lower outbreak sizes
+#'       compared to no *Pseudomonas* at all
+#'     - this is especially pronounced when `sd_N` = 50 and when
+#'       `pseudo_repel` = 1
 #' - `sd_N`:
-#'     - always decreases outbreak size overall
-#'     - always decreases the outbreak-promoting effects of *Pseudomonas*,
-#'       sometimes reversing it
+#'     - `sd_N` > 0 always decreases outbreak size overall, EXCEPT when
+#'       `virus_attract` = 5 and `pseudo_repel` = 1
+#'     - can result in negative effect of *Pseudomonas* on outbreak size,
+#'     and usually causes
+#'     - has especially strong effect at low *Pseudomonas* density
+#'       (`n_pseudo` = 1000), when `virus_attract` = 1, and especially
+#'       when `pseudo_repel` = 5
 #' - `wt_vp` (Pseudomonas location in relation to virus):
 #'     - outbreak sizes always lower when *Pseudomonas* not on starting virus
-#'     - this effect was most pronounced when `pseudo_repel` = 5.0, and
-#'       especially when both `pseudo_repel` = 5.0 and `sd_N` = 0
+#'     - this effect only occurred when `pseudo_repel` = 5.0, and
+#'       was most pronounced when `sd_N` = 0 was also true
+#'        (see description under `pseudo_repel`, too)
 #'     - because this only has effects when *Pseudomonas* is present, it
 #'       caused a reduction in outbreak sizes at low *Pseudomonas* densities,
 #'       often followed by a rebound at higher densities;
 #'       this rebound often did not reach the outbreak size for no *Pseudomonas*
 #' - `wt_pp` (Pseudomonas clustering):
-#'     - overall small effects
-#'     - clustering decreases outbreak sizes when `pseudo_repel` = 5,
-#'       and it increases outbreak sizes when `pseudo_repel` = 1.5
+#'     - no consistent effects
 #'
 #'
 #' When `type = "low"`
 #' - `pseudo_repel`:
-#'     - greater value has little overall effect (maybe slightly increases)
-#'       on the effect of *Pseudomonas* (measured by regression slope)
+#'     - has little to no effect when *Pseudomonas* does not start on virus
 #'     - when *Pseudomonas* starts on virus, greater `pseudo_repel` causes
 #'       *Pseudomonas* to have greater negative effect on outbreak size
-#'       at lower densities
+#'       at lower densities (i.e., went from linear to convex curve),
+#'       although it doesn't change the effect of *Pseudomonas* on outbreak
+#'       size when measuring between `n_pseudo` = 0 and 9000
 #' - `virus_attract`:
 #'     - greater value increases outbreak size significantly
 #'     - greater value also increases the magnitude of the effect of *Pseudomonas*
@@ -267,11 +239,12 @@ big_land_plotter(type = "high",
 #'     - does nothing
 #' - `wt_vp` (Pseudomonas location in relation to virus):
 #'     - outbreak size reduced when *Pseudomonas* starts on virus (this
-#'       only obviously happens when there is *Pseudomonas* on landscape)
-#'     - interacts with `pseudo_repel` such that when *Pseudomonas* starts on
-#'       the virus and `pseudo_repel` is high, the effect of *Pseudomonas*,
-#'       although about the same overall, happens at lower *Pseudomonas*
-#'       densities then levels off instead of being a linear effect of density
+#'       only obviously happens when there is *Pseudomonas* on landscape),
+#'       resulting in a more convex curve instead of linear
+#'     - this effect is most pronounced when `virus_attract` = 1 and
+#'       especially when `pseudo_repel` = 5
+#'     - when `pseudo_repel` = 1 and `virus_attract` = 5,
+#'       this effect is gone entirely
 #' - `wt_pp` (Pseudomonas clustering):
 #'     - little to no effect
 #'

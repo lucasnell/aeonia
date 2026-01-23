@@ -108,7 +108,7 @@ large_simmer <- function(sim_df_row) {
                  sd_N = sd_N,
                  virus_attract = virus_attract,
                  pseudo_repel = pseudo_repel,
-                 Y0 = 200,
+                 Y0 = 100,
                  K = 12.5e3,
                  pseudo_surv = 0.85,
                  n_sims = 100,
@@ -121,7 +121,7 @@ large_simmer <- function(sim_df_row) {
     } else {
         args <- list_assign(args,
                             N0 = 10,
-                            zeta = 0.37)
+                            zeta = 0.1)
     }
 
     return(do.call(big_plantscape, args))

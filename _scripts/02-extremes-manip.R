@@ -196,10 +196,13 @@ manip_plots <- c("low", "high") |>
 # manip_plots$high
 
 # for (n in names(manip_plots)) {
-#     save_plot(sprintf("_plots/extremes-manip-%s.pdf", n),
-#               manip_plots[[n]] & illustrator_theme &
-#                   theme(axis.title.x = element_markdown()),
-#               width = 6.5, height = 4)
+#     save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
+#               manip_plots[[n]],
+#               width = 8, height = 5)
+#     # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
+#     #           manip_plots[[n]] & illustrator_theme &
+#     #               theme(axis.title.x = element_markdown()),
+#     #           width = 6.5, height = 4)
 # }; rm(n)
 
 
