@@ -24,8 +24,9 @@ big_plantscape(
 )
 }
 \arguments{
-\item{landscape}{Integer matrix of size 100 x 100 (or 100 x 100 x 1 array)
-with the types of each plant in each landscape.
+\item{landscape}{Integer 100 x 100 matrix,
+100 x 100 x \code{n_sims} array, or 100 x 100 x \code{n_sims} array.
+It should contain the types of each plant in each landscape.
 It's assumed that rows are x the dimension and
 columns are the y dimension.
 Values in each cell give the state of the plant:
