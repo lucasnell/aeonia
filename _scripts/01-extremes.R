@@ -7,7 +7,9 @@
 
 source("_scripts/00-preamble.R")
 
+.overwrite <- FALSE
 
+if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 # ============================================================================*
 # Larger sims ----
@@ -18,10 +20,10 @@ source("_scripts/00-preamble.R")
 #' parameter sets behave over many simulations.
 #'
 
-if (!file.exists(rds_files$extreme_large)) {
+if (!file.exists(rds_files$extreme_large) || .overwrite) {
 
     # Takes very little time, but I'm saving RDS to use output in other scripts.
-    set.seed(259619622)
+    set.seed(259619623)
     large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
                            n_pseudo = c(0L, 3L)) |>
         mutate(outbreak_size = map2(type, n_pseudo, \(type, n_pseudo) {
@@ -42,10 +44,10 @@ large_sims |>
 # # A tibble: 4 × 3
 #   type  n_pseudo outbreak_size
 #   <fct>    <int>     <num:.3!>
-# 1 low          0         6.938
-# 2 low          3         4.946
-# 3 high         0         2.970
-# 4 high         3         4.966
+# 1 low          0         4.986
+# 2 low          3         3.200
+# 3 high         0         3.020
+# 4 high         3         4.863
 
 large_sims |>
     mutate(outbreak_size = map_dbl(outbreak_size, mean)) |>
@@ -56,8 +58,8 @@ large_sims |>
 # # A tibble: 2 × 2
 #   type  outbreak_size
 #   <fct>     <num:.3!>
-# 1 low          -1.992
-# 2 high          1.996
+# 1 low          -1.786
+# 2 high          1.843
 
 
 
@@ -85,7 +87,8 @@ low_high_sims <- large_sims |>
             filter(is.na(x)) |>
             group_by(rep) |>
             summarize(outbreak_size = max(virus)) |>
-            filter(abs(outbreak_size - target) == min(abs(outbreak_size - target))) |>
+            filter(abs(outbreak_size - target) ==
+                       min(abs(outbreak_size - target))) |>
             getElement("rep")
         stopifnot(length(.rep) > 0)
         sims |>
@@ -121,18 +124,20 @@ tot_low_high_p_list <- low_high_sims |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             ggplot(aes(time, alates)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_line(aes(color = n_pseudo), linewidth = 1) +
+            geom_line(aes(linetype = n_pseudo), linewidth = 1, color = "black") +
             geom_blank(data = tot_empty_data) +
-            scale_color_manual(values = np_pal)
+            scale_linetype_manual(values = np_linetypes)
     })
 
 wrap_plots(tot_low_high_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
-
-# for (n in names(tot_low_high_p_list)) {
-#     save_plot(sprintf("_plots/extremes-timeseries-total-alates-%s.pdf", n),
-#               tot_low_high_p_list[[n]] + illustrator_theme, width = 2.5, height = 1.5)
-# }; rm(n)
+if (.overwrite) {
+    for (n in names(tot_low_high_p_list)) {
+        save_plot(sprintf("_plots/extremes/timeseries-total-alates-%s.pdf", n),
+                  tot_low_high_p_list[[n]] + illustrator_theme,
+                  width = 2.5, height = 1.5)
+    }; rm(n)
+}
 
 
 
@@ -155,10 +160,11 @@ empty_data <- low_high_sims |>
            density = ifelse(species == "aphids", density,
                             max(density[species != "aphids"])))
 
-# Object `dens_maxes` depends on the following `empty_data` values:
-stopifnot(max(empty_data$density) > 1000 && max(empty_data$density) < 1100)
-stopifnot(min(empty_data$density) > 44 && min(empty_data$density) < 45)
-dens_maxes <- list(aphids = 1000, alates = 45, wasps = 45)
+dens_maxes <- list(aphids = (max(empty_data$density) %/% 100L) * 100.0,
+                   alates = ceiling(min(empty_data$density)),
+                   wasps = ceiling(min(empty_data$density)))
+
+
 
 
 low_high_p_list <- low_high_sims |>
@@ -246,12 +252,14 @@ low_high_p_list <- low_high_sims |>
 
 wrap_plots(low_high_p_list, nrow = 2, guides = "collect", axis_titles = "collect")
 
+if (.overwrite) {
+    for (n in names(low_high_p_list)) {
+        save_plot(sprintf("_plots/extremes/timeseries-%s.pdf", n),
+                  low_high_p_list[[n]] & illustrator_theme,
+                  width = 5, height = 2.5)
+    }; rm(n)
+}
 
-# for (n in names(low_high_p_list)) {
-#     save_plot(sprintf("_plots/extremes-timeseries-%s.pdf", n),
-#               low_high_p_list[[n]] & illustrator_theme,
-#               width = 5, height = 2.5)
-# }; rm(n)
 
 
 
@@ -281,18 +289,20 @@ z_pa_p_list <- low_high_sims |>
             ggplot(aes(z, ap)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_line(linewidth = 1) +
-            geom_point(data = dd, aes(color = n_pseudo), size = 3) +
-            scale_color_manual(values = np_pal) +
+            geom_point(data = dd, aes(shape = n_pseudo), size = 4) +
+            scale_shape_manual(values = np_shapes) +
             scale_x_continuous(breaks = c(0, 500, 1000))
     })
 
 wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
+if (.overwrite) {
+    for (n in names(low_high_p_list)) {
+        save_plot(sprintf("_plots/extremes/z-p_alates-%s.pdf", n),
+                  z_pa_p_list[[n]] & illustrator_theme, width = 1.5, height = 1.5)
+    }; rm(n)
+}
 
-# for (n in names(low_high_p_list)) {
-#     save_plot(sprintf("_plots/extremes-z-p_alates-%s.pdf", n),
-#               z_pa_p_list[[n]] & illustrator_theme, width = 1.5, height = 1.5)
-# }; rm(n)
 
 
 
@@ -303,8 +313,11 @@ z_pa_curve <- tibble(z = 1:3e3, ap = alate_prop(z)) |>
     geom_line(linewidth = 1) +
     scale_x_continuous(breaks = 0:3*1000)
 
-# save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
-#           width = 2, height = 2)
+if (.overwrite) {
+    save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
+              width = 2, height = 2)
+}
+
 
 
 
@@ -322,43 +335,81 @@ low_high_hist_list <- levels(large_sims$type) |>
         # tp = "low"
         # rm(tp, d, dd, dd_means)
         d  <- large_sims |>
-            filter(type == tp)
+            filter(type == tp)|>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            unnest(outbreak_size) |>
+            filter(outbreak_size > 1)
         dd <- d |>
-            mutate(n_pseudo = factor(n_pseudo)) |>
-            unnest(outbreak_size) |>
-            mutate(outbreak_size = factor(outbreak_size, levels = 1:9)) |>
+            mutate(outbreak_size = factor(outbreak_size, levels = 2:9)) |>
             group_by(n_pseudo, outbreak_size) |>
-            count(name = "perc", .drop = FALSE) |>
-            ungroup() |>
-            mutate(outbreak_size = as.integer(paste(outbreak_size)),
-                   perc = 100 * perc / 1000)
-        dd_means <- d |>
-            mutate(n_pseudo = factor(n_pseudo)) |>
-            unnest(outbreak_size) |>
+            count(name = "n_obs", .drop = FALSE) |>
             group_by(n_pseudo) |>
-            summarize(# boot = list(boot_ci(outbreak_size)),
-                      outbreak_size = mean(outbreak_size),
-                      .groups = "drop") |>
-            # unnest(boot) |>
-            mutate(perc = max(dd$perc) * 0.95)
+            mutate(perc = 100 * n_obs / sum(n_obs)) |>
+            ungroup() |>
+            mutate(outbreak_size = as.integer(paste(outbreak_size)))
+        dd_means <- d |>
+            group_by(n_pseudo) |>
+            summarize(outbreak_size = mean(outbreak_size),
+                      .groups = "drop")
         dd |>
-            ggplot(aes(outbreak_size, perc, color = n_pseudo)) +
+            ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_point(size = 2) +
-            geom_line(linewidth = 1) +
+            geom_point(aes(shape = n_pseudo), size = 2) +
+            geom_line(aes(linetype = n_pseudo), linewidth = 1) +
             # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
             #                 linewidth = 1.5, size = 0.75, shape = 1) +
-            geom_point(data = dd_means, size = 4) +
-            scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
+            geom_vline(data = dd_means,
+                       aes(xintercept = outbreak_size, linetype = n_pseudo),
+                       linewidth = 1) +
+            scale_shape_manual(values = np_shapes) +
+            scale_linetype_manual(values = np_linetypes) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
 
 wrap_plots(low_high_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
+if (.overwrite) {
+    for (n in names(low_high_hist_list)) {
+        save_plot(sprintf("_plots/extremes/histograms-%s.pdf", n),
+                  low_high_hist_list[[n]] + illustrator_theme,
+                  width = 2.5, height = 1.5)
+    }; rm(n)
+}
 
-# for (n in names(low_high_hist_list)) {
-#     save_plot(sprintf("_plots/extremes-histograms-%s.pdf", n),
-#               low_high_hist_list[[n]] + illustrator_theme, width = 4.5, height = 1.5)
-# }; rm(n)
+
+
+
+
+# ============================================================================*
+# Pr(emergence) bar graphs ----
+# ============================================================================*
+
+
+low_high_bar_list <- levels(large_sims$type) |>
+    set_names() |>
+    map(\(tp) {
+        large_sims |>
+            filter(type == tp)|>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            mutate(p_emerge = map_dbl(outbreak_size, \(x) mean(x > 1))) |>
+            select(-outbreak_size) |>
+            ggplot(aes(p_emerge, n_pseudo)) +
+            geom_vline(xintercept = 0, color = "gray70") +
+            geom_col(fill = "black", width = 0.45) +
+            labs(x = "Prob. of emergence", y = "Number of Pseudo. patches") +
+            coord_cartesian(xlim  = c(0, 1)) +
+            theme(axis.text.y = element_markdown(color = NA))
+    })
+
+wrap_plots(low_high_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
+
+if (.overwrite) {
+    for (n in names(low_high_bar_list)) {
+        save_plot(sprintf("_plots/extremes/barplots-%s.pdf", n),
+                  low_high_bar_list[[n]] + illustrator_theme,
+                  width = 1.75, height = 1.5)
+    }; rm(n)
+}
+
 

@@ -6,6 +6,8 @@ suppressPackageStartupMessages({
     library(patchwork)
     library(ggtext)
     library(scico)
+    library(viridisLite)
+    library(RColorBrewer)
 })
 
 # RDS files with simulation output:
@@ -49,13 +51,14 @@ color_pal <- c("#999999", "#0046D2", "#FF64FF",
     set_names(c("no_pseudo", "pseudo", "virus", "aphids", "alates", "wasps"))
 # scales::show_col(color_pal, labels = FALSE)
 
-
-
-
 # for numbers of pseudomonas patches:
 np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
 # scales::show_col(np_pal, labels = FALSE)
+
+np_shapes <- c(`0` = 1, `3` = 19)
+np_linetypes <- c(`0` = "22", `3` = "solid")
+
 
 serify <- function(prefix, x, suffix) {
     xx <- paste0("<span style=\"font-family: serif\">", x, "</span>")
@@ -117,6 +120,7 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  infect_time_Inf = "percent where ≥ 5 plants were infected",
                  outbreak_size = "outbreak size",
                  sd_outbreak_size = "outbreak size SD",
+                 p_emerge = "prob. emergence",
                  p_outbreak = "outbreak probability",
                  p_alates = "mean alate proportion",
                  log_aphids = "mean log aphid abundance",
@@ -149,8 +153,12 @@ spat_config_abbrevs <- c("random" = "rnd+v",
 illustrator_theme <- theme(plot.title = element_blank(),
                            legend.position = "none",
                            axis.title.y = element_blank(),
+                           axis.title.y.right = element_blank(),
+                           axis.title.y.left = element_blank(),
                            axis.title.x = element_blank(),
                            strip.text = element_blank(),
+                           strip.text.x = element_blank(),
+                           strip.text.y = element_blank(),
                            panel.background = element_rect(fill="transparent", color=NA),
                            plot.background = element_rect(fill="transparent", color=NA),
                            strip.background = element_blank())
@@ -182,11 +190,10 @@ run_sim_combos <- function(type,
     stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
     stopifnot(length(large_sims) == 1L && is.logical(large_sims))
 
-    shared_args <- list(Y0 = 2,
-                        sd_N = 0,
+    shared_args <- list(sd_N = 0,
                         K = 12.5e3,
                         virus_attract = 1,
-                        pseudo_repel = 1.5,
+                        pseudo_repel = 1,
                         pseudo_surv = 0.85,
                         n_pseudo = n_pseudo,
                         spat_config = "diagonal")
@@ -199,10 +206,12 @@ run_sim_combos <- function(type,
 
     if (type == "low") {
         args <- list_assign(size_args,
+                            Y0 = 3,
                             N0 = 110,
                             zeta = 1)
     } else {
         args <- list_assign(size_args,
+                            Y0 = 2,
                             N0 = 10,
                             zeta = 0.37)
     }
