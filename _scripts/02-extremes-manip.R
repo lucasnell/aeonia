@@ -9,10 +9,13 @@
 
 source("_scripts/00-preamble.R")
 
+.overwrite <- FALSE
+
 
 # 1000 sims for each type of scenario:
 extreme_sims <- read_rds(rds_files$extreme_large) |>
-    mutate(outbreak_size = map_dbl(outbreak_size, mean))
+    mutate(p_emerge = map_dbl(outbreak_size, \(x) mean(x > 1)),
+           outbreak_size = map_dbl(outbreak_size, \(x) mean(x[x > 1])))
 
 
 # ============================================================================*
@@ -114,61 +117,90 @@ if (!file.exists(rds_files$extreme_manip)) {
 # --------------------------------------*
 
 
-one_manip_plotter <- function(type, par_name, .point = TRUE, .vline = TRUE) {
-        # type = "low"; par_name = "spat_config"
-        # rm(type, par_name, dd, dd_og, ..LINES, x_lvl_labs, dd_max_diff, p)
-        dd <- manip_sims |>
-            filter(type == .env$type, par_name == .env$par_name) |>
-            mutate(n_pseudo = factor(n_pseudo)) |>
-            group_by(n_pseudo, par_val) |>
-            summarize(outbreak_size = mean(outbreak_size),
-                      .groups = "drop")
-        dd_og <- extreme_sims |>
-            filter(type == .env$type) |>
-            mutate(par_val = run_sim_combos(type = .env$type, n_pseudo = 0,
-                                            return_args = TRUE) |>
-                       getElement(par_name)) |>
-            mutate(n_pseudo = factor(n_pseudo))
-        ..LINES <- geom_line()
-        if (par_name == "spat_config") {
-            # x_lvl_labs <- spat_config_abbrevs
-            x_lvl_labs <- tolower(as.roman(1:length(spat_config_lvls)))
-            dd$par_val <- map_chr(dd$par_val, \(i) spat_config_lvls[[i]]) |>
-                factor(levels = spat_config_lvls,
-                       labels = x_lvl_labs)
-            dd_og$par_val <- factor(dd_og$par_val, levels = spat_config_lvls,
-                                    labels = x_lvl_labs)
-            ..LINES <- theme(legend.position = "none")
-        }
-        dd_max_diff <- dd |>
-            group_by(par_val) |>
-            summarize(dos = outbreak_size[n_pseudo == 0L] -
-                          outbreak_size[n_pseudo != 0L],
-                      .groups = "drop") |>
-            filter(abs(dos) == max(abs(dos))) |>
-            getElement("par_val")
-        p <- dd |>
-            ggplot(aes(par_val, outbreak_size, color = n_pseudo)) +
-            geom_hline(yintercept = c(1, 9), color = "gray70") +
-            geom_point() +
-            ..LINES
-        if (.point) p <- p + geom_point(data = dd_og, size = 3, shape = 8)
-        if (.vline) {
-            p <- p +
-                geom_vline(xintercept = dd_max_diff, color = "gray70",
-                           linetype = "22")
-        }
-        p +
-            labs(x = pretty_params(par_name) |> first_cap(),
-                 y = "Outbreak size") +
-            scale_y_continuous(breaks = c(1, 5, 9)) +
-            coord_cartesian(ylim = c(1, 9)) +
-            scale_color_manual("Number of<br>*Pseudomonas*<br>patches",
-                               values = np_pal) +
-            guides(color = guide_legend(override.aes = list(shape = 19)))
+one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) {
+    # type = "low"; par_name = "Y0"; .og_vals = TRUE; .md_vals = TRUE
+    # rm(type, par_name, .og_vals, .md_vals, dd, dd_og, yvar_pal, ..LINES)
+    # rm(x_lvl_labs, x_scale, dd_md, p)
+    dd <- manip_sims |>
+        filter(type == .env$type, par_name == .env$par_name) |>
+        mutate(n_pseudo = factor(n_pseudo)) |>
+        group_by(n_pseudo, par_val) |>
+        # p_emerge * 7 + 2  below is to have them on the same scale for plotting
+        # axes labels will show differences properly
+        summarize(p_emerge = mean(outbreak_size > 1) * 7 + 2,
+                  outbreak_size = mean(outbreak_size[outbreak_size > 1]),
+                  .groups = "drop") |>
+        pivot_longer(p_emerge:outbreak_size, names_to = "outcome")
+    dd_og <- run_sim_combos(type = type, n_pseudo = 0, return_args = TRUE) |>
+        getElement(par_name) |>
+        as_tibble() |>
+        set_names("par_val")
+
+    yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
+        set_names("p_emerge", "outbreak_size")
+
+    if (par_name != "spat_config") {
+        ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
+                        scale_linetype_manual(values = np_linetypes))
+        x_lvl_labs <- NULL
+        x_scale <- scale_x_continuous()
+    } else {
+        ..LINES <- theme(legend.position = "none")
+        x_lvl_labs <- tolower(as.roman(1:length(spat_config_lvls)))
+        dd$par_val <- map_chr(dd$par_val, \(i) spat_config_lvls[[i]]) |>
+            factor(levels = spat_config_lvls) |>
+            as.integer()
+        dd_og$par_val <- factor(dd_og$par_val, levels = spat_config_lvls) |>
+            as.integer()
+        x_scale <- scale_x_continuous(breaks = 1:6, labels = x_lvl_labs)
+    }
+    dd_md <- dd |>
+        group_by(outcome, par_val) |>
+        summarize(value0 = value[n_pseudo == 0L],
+                  value = value[n_pseudo != 0L],
+                  .groups = "drop_last") |>
+        mutate(max_diff = abs(value0 - value) == max(abs(value0 - value),
+                                                     na.rm = TRUE)) |>
+        ungroup() |>
+        filter(max_diff)
+
+    p <- dd |>
+        filter(!is.na(value)) |>
+        ggplot(aes(par_val, value, color = outcome)) +
+        geom_hline(yintercept = c(2,9), color = "gray70")
+    if (.og_vals) p <- p + geom_vline(data = dd_og[1,], aes(xintercept = par_val),
+                                    color = "gray70", linewidth = 0.75)
+    if (.md_vals) p <- p +
+        geom_linerange(data = dd_md,
+                      aes(x = par_val, ymin = value0, ymax = value),
+                      linetype = "21", linewidth = 1)
+    p +
+        geom_point(aes(shape = n_pseudo)) +
+        ..LINES +
+        labs(x = pretty_params(par_name) |> first_cap(),
+             y = yvar_desc[["outbreak_size"]] |> first_cap()) +
+        x_scale +
+        scale_y_continuous(breaks = c(3,6,9),
+                           sec.axis = sec_axis(\(x) (x - 2) / 7,
+                                               yvar_desc[["p_emerge"]] |>
+                                                   first_cap(),
+                                               breaks = 0:2/2)) +
+        coord_cartesian(ylim = c(2, 9)) +
+        scale_color_manual(values = yvar_pal, guide = "none") +
+        scale_shape_manual(values = np_shapes) +
+        guides(shape = guide_legend(override.aes = list(color = "black"))) +
+        theme(axis.title.y.right = element_text(color = yvar_pal[["p_emerge"]]),
+              axis.text.y.right = element_text(color = yvar_pal[["p_emerge"]]),
+              axis.ticks.y.right = element_line(color = yvar_pal[["p_emerge"]]),
+              axis.title.y.left = element_text(color = yvar_pal[["outbreak_size"]]),
+              axis.text.y.left = element_text(color = yvar_pal[["outbreak_size"]]),
+              axis.ticks.y.left = element_line(color = yvar_pal[["outbreak_size"]]))
 }
 
 
+
+
+one_manip_plotter("high", "Y0", TRUE, FALSE)
 
 
 manip_plots <- c("low", "high") |>
@@ -184,7 +216,6 @@ manip_plots <- c("low", "high") |>
         plot_list <- levels(manip_sims$par_name) |>
             map(\(x) one_manip_plotter(type, x))
 
-
         plot_list |>
             do.call(what = wrap_plots) +
             plot_layout(guides = "collect", axes = "collect") +
@@ -195,15 +226,17 @@ manip_plots <- c("low", "high") |>
 # manip_plots$low
 # manip_plots$high
 
-# for (n in names(manip_plots)) {
-#     save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
-#               manip_plots[[n]],
-#               width = 8, height = 5)
-#     # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
-#     #           manip_plots[[n]] & illustrator_theme &
-#     #               theme(axis.title.x = element_markdown()),
-#     #           width = 6.5, height = 4)
-# }; rm(n)
+if (.overwrite) {
+    for (n in names(manip_plots)) {
+        save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
+                  manip_plots[[n]],
+                  width = 8, height = 5)
+        # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
+        #           manip_plots[[n]] & illustrator_theme &
+        #               theme(axis.title.x = element_markdown()),
+        #           width = 6.5, height = 4)
+    }; rm(n)
+}
 
 
 
@@ -248,7 +281,7 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
     par_name_a <- paste(par_name_a)
     par_name_b <- paste(par_name_b)
 
-    args <- list(type = type, n_pseudo = 3L, large_sims = TRUE)
+    args <- list(type = type, large_sims = TRUE)
     args[[par_name_a]] <- par_val_a
     args[[par_name_b]] <- par_val_b
     # spat_config takes a character, but needs to be numeric to be compatible
@@ -256,16 +289,18 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
     if (par_name_a == "spat_config") args[[par_name_a]] <- spat_config_lvls[[par_val_a]]
     if (par_name_b == "spat_config") args[[par_name_b]] <- spat_config_lvls[[par_val_b]]
 
-    sims_p <- do.call(run_sim_combos, args) |>
-        select(-rep) |>
-        summarize(across(everything(), mean)) |>
-        mutate(n_pseudo = 3L)
-    sims_np <- do.call(run_sim_combos, list_assign(args, n_pseudo = 0L)) |>
-        select(-rep) |>
-        summarize(across(everything(), mean)) |>
-        mutate(n_pseudo = 0L)
-
-    out <- bind_rows(sims_p, sims_np) |>
+    out <- c(3L, 0L) |>
+        map(\(np) {
+            .np <- as.integer(np)
+            do.call(run_sim_combos, list_assign(args, n_pseudo = .np)) |>
+                select(-rep) |>
+                rename(n_infected = outbreak_size) |>
+                mutate(p_emerge = as.integer(n_infected > 1),
+                       outbreak_size = ifelse(n_infected > 1, n_infected, NA)) |>
+                summarize(across(everything(), \(x) mean(x, na.rm = TRUE))) |>
+                mutate(n_pseudo = .np)
+        }) |>
+        list_rbind() |>
         mutate(type = .env$type,
                par_name_a = factor(.env$par_name_a, levels = names(manip_pars)),
                par_name_b = factor(.env$par_name_b, levels = names(manip_pars)),
@@ -319,7 +354,12 @@ if (!file.exists(rds_files$extreme_manip2)) {
 
 # function to generate objects par_name_a, par_name_b, dd, pars_og, and .title,
 # used for all heatmaps:
-heatmaps_make_objs <- function(type, par_name_a, par_name_b, .add_title, env) {
+heatmaps_make_objs <- function(yvar,
+                               type,
+                               par_name_a,
+                               par_name_b,
+                               .add_title,
+                               env) {
 
     # In case these are factors:
     par_name_a <- paste(par_name_a)
@@ -333,7 +373,7 @@ heatmaps_make_objs <- function(type, par_name_a, par_name_b, .add_title, env) {
         stop("\nCombination of type, par_name_a, and par_name_b not found!")
     }
     dd <- dd |>
-        select(n_pseudo, starts_with("par_val_"), outbreak_size) |>
+        select(n_pseudo, starts_with("par_val_"), all_of(yvar)) |>
         mutate(n_pseudo = factor(n_pseudo))
 
     pars_og <- run_sim_combos(type = type, n_pseudo = 0,
@@ -363,7 +403,7 @@ heatmaps_make_objs <- function(type, par_name_a, par_name_b, .add_title, env) {
 
 
 # function to add shared plot parts for heatmaps:
-heatmaps_shared <- function(d, pars_og, par_name_a, par_name_b, .contour_args,
+heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_args,
                             ..tag = waiver(), ..title = waiver(),
                             .shorten_K = FALSE) {
 
@@ -385,18 +425,28 @@ heatmaps_shared <- function(d, pars_og, par_name_a, par_name_b, .contour_args,
 
     pp <- d |>
         ggplot(aes(par_val_a, par_val_b)) +
-        geom_raster(aes(fill = outbreak_size))
+        geom_raster(aes(fill = .data[[yvar]]), na.rm = TRUE)
     if (!isTRUE(is.na(.contour_args))) {
-        .contour_args$mapping <- aes(z = outbreak_size)
+        .contour_args$mapping <- aes(z = .data[[yvar]])
         if (!"color" %in% names(.contour_args)) .contour_args$color <- "white"
-        pp <- pp + do.call(geom_contour, .contour_args)
+        if (!"na.rm" %in% names(.contour_args)) .contour_args$na.rm <- TRUE
+        # check for whether values in `d[[yvar]]` overlap >= 1 break
+        do_contours <- TRUE
+        if ("breaks" %in% names(.contour_args)) {
+            z_breaks <- .contour_args$breaks
+            min_d <- min(d[[yvar]], na.rm = TRUE)
+            max_d <- max(d[[yvar]], na.rm = TRUE)
+            do_contours <- sum(z_breaks <= max_d & z_breaks >= min_d) >= 1
+        }
+        # If this is the case (or if no breaks provided), add contours:
+        if (do_contours) pp <- pp + do.call(geom_contour, .contour_args)
     }
     pp <- pp +
         # geom_vline(xintercept = pars_og[[par_name_a]], linetype = "22",
         #            color = "white", linewidth = 1) +
         # geom_hline(yintercept = pars_og[[par_name_b]], linetype = "22",
         #            color = "white", linewidth = 1) +
-        geom_point(data = pars_og, size = 3, shape = 8, color = "white") +
+        geom_point(data = pars_og, size = 3, shape = 8, color = "black") +
         labs(x = x_lab, y = y_lab, tag = ..tag, title = ..title)
 
     spat_scale_fun <- NULL
@@ -414,15 +464,33 @@ heatmaps_shared <- function(d, pars_og, par_name_a, par_name_b, .contour_args,
 
 
 
-# z is outbreak size, facets by n_pseudo:
-outbreak_heatmap <- function(type, par_name_a, par_name_b,
-                             .contour_args = list(), .tag = waiver(), .add_title = FALSE,
-                             .n_pseudo = NA, .shorten_K = FALSE) {
+# z is outbreak size or Pr(emerge), facets by n_pseudo:
+outbreak_heatmap <- function(yvar, type, par_name_a, par_name_b,
+                             .contour_args = list(),
+                             .tag = waiver(),
+                             .add_title = FALSE,
+                             .n_pseudo = NA,
+                             .shorten_K = FALSE) {
+
+    # yvar = "p_emerge"; type = "low"; par_name_a = "Y0"; par_name_b = "N0"
+    # .contour_args = list(); .tag = waiver(); .add_title = FALSE
+    # .n_pseudo = NA; .shorten_K = FALSE
+    # rm(yvar, type, par_name_a, par_name_b, .contour_args, .tag, .add_title)
+    # rm(.n_pseudo, .shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, p)
 
     # generate objects par_name_a, par_name_b, dd, pars_og, and .title
-    heatmaps_make_objs(type, par_name_a, par_name_b, .add_title, environment())
+    heatmaps_make_objs(yvar, type, par_name_a, par_name_b, .add_title,
+                       environment())
 
-    z_breaks <- 0:4 * 2 + 1
+    if (yvar == "outbreak_size") {
+        z_lab <- "Outbreak<br>size"
+        z_breaks <- 1:4 * 2 + 1
+        z_lims <- c(2, 9)
+    } else if (yvar == "p_emerge") {
+        z_lab <- "Emergence<br>prob."
+        z_breaks <- 0:4 * 0.25
+        z_lims <- c(0, 1)
+    } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
     if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
         .contour_args$breaks <- z_breaks
     }
@@ -432,50 +500,68 @@ outbreak_heatmap <- function(type, par_name_a, par_name_b,
             mutate(n_pseudo = factor(paste(n_pseudo), levels = levels(n_pseudo),
                                      labels = sprintf("n<sub>P</sub> = %s",
                                                       levels(n_pseudo)))) |>
-            heatmaps_shared(pars_og, par_name_a, par_name_b,
+            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
                             .contour_args = .contour_args,
                             ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
             facet_wrap(~ n_pseudo, nrow = 1)
     } else {
         p <- dd |>
             filter(n_pseudo == .n_pseudo) |>
-            heatmaps_shared(pars_og, par_name_a, par_name_b,
+            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
                             .contour_args = .contour_args,
                             ..tag = .tag, ..title = .title, .shorten_K = .shorten_K)
     }
     p <- p +
-        scale_fill_scico("Outbreak<br>size", limits = c(1,9), breaks = z_breaks,
+        scale_fill_scico(z_lab, limits = z_lims, breaks = z_breaks,
                          palette = "tokyo", direction = -1)
 
     return(p)
 }
 
 
-
-# z is effect of n_pseudo on outbreak size:
-pseudo_eff_heatmap <- function(type, par_name_a, par_name_b,
+# z is effect of n_pseudo on outbreak size or Pr(emerge):
+pseudo_eff_heatmap <- function(yvar, type, par_name_a, par_name_b,
                                .contour_args = list(), .tag = waiver(),
                                .add_title = FALSE, .shorten_K = FALSE) {
 
-    # generate objects par_name_a, par_name_b, dd, pars_og, and .title
-    heatmaps_make_objs(type, par_name_a, par_name_b, .add_title, environment())
+    # yvar = "outbreak_size"; type = "low"; par_name_a = "Y0"; par_name_b = "N0"
+    # .contour_args = list(); .tag = waiver(); .add_title = FALSE
+    # .n_pseudo = NA; .shorten_K = FALSE
+    # rm(yvar, type, par_name_a, par_name_b, .contour_args, .tag, .add_title)
+    # rm(.n_pseudo, .shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, y_summ)
 
-    z_breaks <- seq(-5, 5, 2.5)
+    # generate objects par_name_a, par_name_b, dd, pars_og, and .title
+    heatmaps_make_objs(yvar, type, par_name_a, par_name_b, .add_title,
+                       environment())
+
+    if (yvar == "outbreak_size") {
+        z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
+        z_breaks <- -2:2 * 2
+        z_lim <- c(-4.2, 4.2)
+        z_pal = "vik"
+        z_dir = 1
+    } else if (yvar == "p_emerge") {
+        z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
+        z_breaks <- -2:2 / 2
+        # to make breaks the same proportion as for outbreak_size:
+        z_lim <- c(-1.05, 1.05)
+        z_pal = "bam"
+        z_dir = -1
+    } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
     if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
         .contour_args$breaks <- z_breaks
     }
 
+    y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
     dd |>
         group_by(across(starts_with("par_val")))  |>
-        summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
-                      outbreak_size[n_pseudo == "0"],
+        summarize(across(all_of(yvar), \(y) y_summ(y, np = n_pseudo)),
                   .groups = "drop") |>
-        mutate(outbreak_size = round(outbreak_size, 3)) |>
-        heatmaps_shared(pars_og, par_name_a, par_name_b, .contour_args = .contour_args,
+        heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
+                        .contour_args = .contour_args,
                         ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
-        scale_fill_scico("Effect of<br>*Pseudomonas* on<br>outbreak size",
-                         palette = "vik", midpoint = 0,
-                         breaks = z_breaks, limits = c(-5, 5))
+        scale_fill_scico(z_lab, palette = z_pal, midpoint = 0,
+                         direction = z_dir, breaks = z_breaks, limits = z_lim)
 }
 
 
@@ -501,6 +587,20 @@ one_manip2_plotter <- function(type, par_name_a, par_name_b,
 }
 
 
+manip2_sims |>
+    group_by(type, par_name_a, par_name_b, par_val_a, par_val_b) |>
+    summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
+                  outbreak_size[n_pseudo == "0"],
+              p_emerge = p_emerge[n_pseudo != "0"] -
+                  p_emerge[n_pseudo == "0"],
+              .groups = "drop") |>
+    summarize(os_min = min(outbreak_size, na.rm = TRUE),
+              os_max = max(outbreak_size, na.rm = TRUE),
+              pe_min = min(p_emerge),
+              pe_max = max(p_emerge))
+
+
+
 
 
 
@@ -517,14 +617,17 @@ one_manip2_plotter <- function(type, par_name_a, par_name_b,
 manip2_full_plots <- c("low", "high") |>
     set_names() |>
     map(\(type) {
-        # type = "high"
-        # rm(type, .title, plot_list)
+        # type = "low"
+        # rm(type, yvar, .title, plot_list)
+        yvar = "outbreak_size"
         .title <- sprintf("*Pseudomonas* %s outbreaks",
                           ifelse(type == "low", "inhibits", "promotes"))
         plot_list <- manip2_pars |>
             filter(par_name_a != "spat_config", par_name_b != "spat_config") |>
             pmap(\(par_name_a, par_name_b) {
-                pseudo_eff_heatmap(type, par_name_a, par_name_b,
+                # par_name_a = "Y0"; par_name_b = "N0"
+
+                pseudo_eff_heatmap(yvar, type, par_name_a, par_name_b,
                                    .shorten_K = TRUE) +
                     labs(x = ifelse(par_name_a == "K",
                                     serify("", "K &divide; 1000", ""),
@@ -554,7 +657,8 @@ manip2_full_plots <- c("low", "high") |>
 
 
 # outbreak_heatmap("high", "Y0", "N0")
-# pseudo_eff_heatmap("low", "Y0", "N0")
+# pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0")
+# pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0")
 
 
 
@@ -581,15 +685,19 @@ manip2_full_plots <- c("low", "high") |>
 if (!dir.exists("_plots/extremes-manip-subs")) dir.create("_plots/extremes-manip-subs")
 
 for (.t in c("low", "high")) {
-    .f <- sprintf("_plots/extremes-manip-subs/heatmap-%s-Y0-N0.pdf", .t)
-    .p <- pseudo_eff_heatmap(.t, "Y0", "N0", .contour_args = NA)
-    save_plot(.f, .p + illustrator_theme, 2.5, 2.5)
+    for (.v in c("outbreak_size", "p_emerge")) {
+        .f <- sprintf("_plots/extremes-manip-subs/heatmap-%s-%s-Y0-N0.pdf",
+                      list(outbreak_size = "obs", p_emerge = "pem")[[.v]], .t)
+        .p <- pseudo_eff_heatmap(.v, .t, "Y0", "N0", .contour_args = NA)
+        save_plot(.f, .p + illustrator_theme, 2, 2)
+    }
     for (.v in c("K", "pseudo_surv", "zeta")) {
         .f <- sprintf("_plots/extremes-manip-subs/lines-%s-%s.pdf", .t, .v)
         .p <- one_manip_plotter(.t, .v, TRUE, FALSE)
         save_plot(.f, .p + illustrator_theme, 2.5, 1.25)
     }
 }; rm(.t, .f, .p, .v)
+
 
 
 
