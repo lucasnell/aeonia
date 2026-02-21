@@ -59,7 +59,9 @@ large_simmer <- function(sim_df_row) {
                  Y0 = 100,
                  K = 12.5e3,
                  pseudo_surv = 0.85,
-                 n_sims = 100,
+                 p_load_alate = 0.075,
+                 p_load_plant = 0.075,
+                 n_sims = 100L,
                  summ = "all")
 
     if (type == "low") {
@@ -69,7 +71,7 @@ large_simmer <- function(sim_df_row) {
     } else {
         args <- list_assign(args,
                             N0 = 10,
-                            zeta = 0.1)
+                            zeta = 0.14)
     }
 
     return(do.call(big_plantscape, args))
@@ -79,7 +81,7 @@ large_simmer <- function(sim_df_row) {
 
 
 
-# Took ~ min with 50 threads and no nested parallelism
+# Took ~70 min with 50 threads and no nested parallelism
 
 cat("Starting simulations...\n")
 t0 <- Sys.time()
