@@ -19,7 +19,7 @@ rds_files <- list(extreme_large = "extremes-large-sims.rds",
 
 
 # Set threads for simulations:
-options("mc.cores" = max(1L, parallel::detectCores()-2))
+options("mc.cores" = max(1L, parallel::detectCores()-2L))
 
 # For purrr progress bar:
 .prog_args <- list(clear = FALSE,
@@ -119,6 +119,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
 yvar_desc <- list(infect_time = "days to 5 plants infected",
                  infect_time_Inf = "percent where ≥ 5 plants were infected",
                  outbreak_size = "outbreak size",
+                 log_outbreak_size = "log10(outbreak size)",
                  sd_outbreak_size = "outbreak size SD",
                  p_emerge = "prob. emergence",
                  p_outbreak = "outbreak probability",

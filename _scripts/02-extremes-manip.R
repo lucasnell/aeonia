@@ -141,7 +141,8 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 
     if (par_name != "spat_config") {
         ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
-                        scale_linetype_manual(values = np_linetypes))
+                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>patches",
+                                              values = np_linetypes))
         x_lvl_labs <- NULL
         x_scale <- scale_x_continuous()
     } else {
@@ -187,7 +188,8 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
                                                breaks = 0:2/2)) +
         coord_cartesian(ylim = c(2, 9)) +
         scale_color_manual(values = yvar_pal, guide = "none") +
-        scale_shape_manual(values = np_shapes) +
+        scale_shape_manual("Number of<br>*Pseudomonas*<br>patches",
+                           values = np_shapes) +
         guides(shape = guide_legend(override.aes = list(color = "black"))) +
         theme(axis.title.y.right = element_text(color = yvar_pal[["p_emerge"]]),
               axis.text.y.right = element_text(color = yvar_pal[["p_emerge"]]),
@@ -200,7 +202,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 
 
 
-one_manip_plotter("high", "Y0", TRUE, FALSE)
+# one_manip_plotter("high", "Y0", TRUE, FALSE)
 
 
 manip_plots <- c("low", "high") |>
