@@ -15,8 +15,7 @@
 #' Larger landscape simulations
 #'
 
-#' I first moved the sensitivity preamble and this script over to bioHPC
-#' using the following:
+#' I first moved this script over to bioHPC using the following:
 #'
 #' cd ~/GitHub/Cornell/aeonia/_scripts \
 #'     && scp 03-large-plantscapes.sh lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
@@ -38,62 +37,11 @@
 
 Rscript - << EOF
 
-.libPaths("/home/lan68/R/x86_64-pc-linux-gnu-library/4.5")
-
-##> NOTE: Running multiple simulations at a time (and multithreading
-##> per simulation) via the future package took longer than just using
-##> 50 threads per simulation.
-
-suppressPackageStartupMessages({
-    library(tidyverse)
-    library(aeonia)
-})
-
-n_threads <- suppressWarnings(as.integer("${SLURM_CPUS_PER_TASK}"))
-if (is.na(n_threads)) stop("SLURM_CPUS_PER_TASK must be an integer")
-options("mc.cores" = n_threads)
+source("03-large-preamble.R")
 
 
 # --------------*
 # Create dataframe of possible landscapes and parameter values:
-
-cat("Creating simulation inputs...\n")
-
-# Note: creating landscapes first like this bc I want to use the exact same 13
-# landscapes over and over, to reduce dependency on exact landscape
-# configurations.
-
-set.seed(727577311)
-sim_df <- crossing(n_pseudo = c(1e3, 3e3, 5e3, 7e3, 9e3),
-                   wt_vp = c(1e-6, 100),
-                   wt_pp = c(1, 3)) |>
-    mutate(landscape = pmap(
-        across(everything()),
-        \(n_pseudo, wt_vp, wt_pp) {
-            if (wt_vp < 1) {
-                .pseudo_starts <- cbind(100, 100)
-            } else .pseudo_starts <- cbind(1, 1)
-            sim_plant_types(n_x = 100,
-                            n_y = 100,
-                            n_lands = 1,
-                            n_virus = 1,
-                            n_pseudo = n_pseudo,
-                            wt_vp = wt_vp,
-                            wt_pp = wt_pp,
-                            virus_starts = cbind(1, 1),
-                            pseudo_starts = .pseudo_starts)
-        })) |>
-    # add row for without *Pseudomonas*
-    add_row(n_pseudo = 0, wt_vp = NA, wt_pp = NA,
-            landscape = list(array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L)))) |>
-    # add other parameters:
-    crossing(crossing(type = c("low", "high"),
-                      sd_N = c(0, 50),
-                      virus_attract = c(1, 5),
-                      pseudo_repel = c(1, 5))) |>
-    # placeholder for simulation output:
-    mutate(sim = rep(list(NA), n()))
-
 
 
 large_simmer <- function(sim_df_row) {
