@@ -21,7 +21,7 @@ lil_plantscape(
   p_load_alate = 0.5,
   p_load_plant = 0.5,
   spat_config = "random",
-  force_N_distr = TRUE,
+  force_N_distr = FALSE,
   ...
 )
 }
