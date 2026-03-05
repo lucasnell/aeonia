@@ -26,9 +26,8 @@ if (!file.exists(rds_files$extreme_large) || .overwrite) {
     set.seed(259619623)
     large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
                            n_pseudo = c(0L, 3L)) |>
-        mutate(outbreak_size = map2(type, n_pseudo, \(type, n_pseudo) {
-            run_sim_combos(type, n_pseudo, TRUE) |>
-                getElement("outbreak_size")
+        mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
+            run_sim_combos(type, n_pseudo, TRUE)
         }))
 
     write_rds(large_sims, rds_files$extreme_large, compress = "gz")
@@ -40,7 +39,8 @@ if (!file.exists(rds_files$extreme_large) || .overwrite) {
 }
 
 large_sims |>
-    mutate(outbreak_size = num(map_dbl(outbreak_size, mean), digits = 3))
+    mutate(outbreak_size = num(map_dbl(sims, \(x) mean(x$outbreak_size)), digits = 3)) |>
+    select(-sims)
 # # A tibble: 4 × 3
 #   type  n_pseudo outbreak_size
 #   <fct>    <int>     <num:.3!>
@@ -50,7 +50,7 @@ large_sims |>
 # 4 high         3         4.863
 
 large_sims |>
-    mutate(outbreak_size = map_dbl(outbreak_size, mean)) |>
+    mutate(outbreak_size = map_dbl(sims, \(x) mean(x$outbreak_size))) |>
     group_by(type) |>
     summarize(outbreak_size = outbreak_size[n_pseudo != 0] -
                   outbreak_size[n_pseudo == 0]) |>
@@ -63,9 +63,6 @@ large_sims |>
 
 
 
-
-
-
 # ============================================================================*
 # Time series ----
 # ============================================================================*
@@ -73,15 +70,15 @@ large_sims |>
 
 set.seed(1001450726)
 low_high_sims <- large_sims |>
-    select(-outbreak_size) |>
+    select(-sims) |>
     mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
         # type = "low"; n_pseudo = 3
         # rm(type, n_pseudo, sims, target, .rep)
-        sims <- run_sim_combos(type, n_pseudo, n_sims = 100L)
+        sims <- run_sim_combos(type, n_pseudo, n_sims = 100L, out_stages = TRUE)
         target <- large_sims |>
             filter(type == .env$type, n_pseudo == .env$n_pseudo) |>
-            getElement("outbreak_size") |>
-            map_dbl(mean)
+            getElement("sims") |>
+            map_dbl(\(x) mean(x$outbreak_size))
         # Choose a representative simulation:
         .rep <- sims |>
             filter(is.na(x)) |>
@@ -94,10 +91,13 @@ low_high_sims <- large_sims |>
         sims |>
             filter(rep == .rep[1]) |>
             mutate(plant = interaction(y, x),
-                   aphids = aphids + parasitized) |>
-            select(plant, time, virus, aphids, alates, wasps)
+                   alates = alates_juv + alates_adu,
+                   aphids = aphids_juv + aphids_adu + parasitized) |>
+            select(plant, time, virus, aphids, alates, wasps,
+                   aphids_juv, aphids_adu, alates_juv, alates_adu)
     })) |>
     unnest(sims)
+
 
 
 
@@ -150,7 +150,7 @@ if (.overwrite) {
 # This is used to get the same axis max values across plots:
 empty_data <- low_high_sims |>
     filter(!is.na(plant)) |>
-    select(-virus) |>
+    select(-virus, -ends_with("_juv"), -ends_with("_adu")) |>
     pivot_longer(aphids:wasps, names_to = "species",
                  values_to = "density") |>
     group_by(species) |>
@@ -324,7 +324,7 @@ if (.overwrite) {
 
 
 # ============================================================================*
-# Histograms ----
+# Outbreak sizes - freq. polygons ----
 # ============================================================================*
 
 
@@ -337,6 +337,8 @@ low_high_hist_list <- levels(large_sims$type) |>
         d  <- large_sims |>
             filter(type == tp)|>
             mutate(n_pseudo = factor(n_pseudo)) |>
+            mutate(outbreak_size = map(sims, \(x) x$outbreak_size)) |>
+            select(-sims) |>
             unnest(outbreak_size) |>
             filter(outbreak_size > 1)
         dd <- d |>
@@ -392,17 +394,19 @@ low_high_bar_list <- levels(large_sims$type) |>
         large_sims |>
             filter(type == tp)|>
             mutate(n_pseudo = factor(n_pseudo)) |>
-            mutate(p_emerge = map_dbl(outbreak_size, \(x) mean(x > 1))) |>
+            mutate(p_emerge = map_dbl(sims, \(x) mean(x$outbreak_size > 1))) |>
             select(-outbreak_size) |>
             ggplot(aes(p_emerge, n_pseudo)) +
             geom_vline(xintercept = 0, color = "gray70") +
-            geom_col(fill = "black", width = 0.45) +
+            geom_col(aes(fill = n_pseudo), color = "black", width = 0.45,
+                     linewidth = 0.75, linejoin = "mitre") +
             labs(x = "Prob. of emergence", y = "Number of Pseudo. patches") +
             coord_cartesian(xlim  = c(0, 1)) +
+            scale_fill_manual(values = c(`0` = "white", `3` = "black")) +
             theme(axis.text.y = element_markdown(color = NA))
     })
 
-wrap_plots(low_high_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(low_high_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
     for (n in names(low_high_bar_list)) {
