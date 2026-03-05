@@ -21,6 +21,16 @@ single_integer <- function(x, par, .min = NULL, .max = NULL) {
     }
     invisible(NULL)
 }
+single_string <- function(x, par) {
+    all_good <- comparable(x) && is.character(x) && length(x) == 1
+    if (!all_good) err_msg(par, "a single string")
+    invisible(NULL)
+}
+single_logical <- function(x, par) {
+    all_good <- comparable(x) && is.logical(x) && length(x) == 1
+    if (!all_good) err_msg(par, "a single logical")
+    invisible(NULL)
+}
 # Check for a single number, perhaps in range
 single_number <- function(x, par, .min = NULL, .max = NULL) {
     all_good <- TRUE

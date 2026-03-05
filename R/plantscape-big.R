@@ -86,6 +86,21 @@ big_plantscape <- function(n_sims,
     }
     is_landscape_array(landscape, "landscape", c(n_x, n_y, n_sims))
 
+    # Provide useful error message if requesting dispersal output by time
+    # (which will use all memory and give unhelpful "kill: 9" error)
+    other_args <- list(...)
+    if ("out_dispersals" %in% names(other_args)) {
+        single_logical(other_args[["out_dispersals"]])
+        out_disp <- isTRUE(other_args[["out_dispersals"]])
+        not_summ_all <- ! "summ" %in% names(other_args) ||
+            isTRUE(other_args[["summ"]] != "all")
+        if (out_disp && not_summ_all) {
+            stop("\nIf `out_dispersals` is `TRUE`, `summ` must be \"all\".\n",
+                 "Otherwise, a memory-limit error will crash your computer.",
+                 call. = FALSE)
+        }
+    }
+
 
     out <- plantscape_shared(n_x = n_x,
                              n_y = n_y,
