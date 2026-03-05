@@ -12,10 +12,6 @@ source("_scripts/00-preamble.R")
 .overwrite <- FALSE
 
 
-# 1000 sims for each type of scenario:
-extreme_sims <- read_rds(rds_files$extreme_large) |>
-    mutate(p_emerge = map_dbl(outbreak_size, \(x) mean(x > 1)),
-           outbreak_size = map_dbl(outbreak_size, \(x) mean(x[x > 1])))
 
 
 # ============================================================================*
