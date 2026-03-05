@@ -121,10 +121,10 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         filter(type == .env$type, par_name == .env$par_name) |>
         mutate(n_pseudo = factor(n_pseudo)) |>
         group_by(n_pseudo, par_val) |>
-        # p_emerge * 7 + 2  below is to have them on the same scale for plotting
-        # axes labels will show differences properly
-        summarize(p_emerge = mean(outbreak_size > 1) * 7 + 2,
-                  outbreak_size = mean(outbreak_size[outbreak_size > 1]),
+        # (outbreak_size - 2) / 7  below is to have them on the same scale for
+        # plotting. Axes labels will show differences properly
+        summarize(p_emerge = mean(outbreak_size > 1),
+                  outbreak_size = (mean(outbreak_size[outbreak_size > 1]) - 2) / 7,
                   .groups = "drop") |>
         pivot_longer(p_emerge:outbreak_size, names_to = "outcome")
     dd_og <- run_sim_combos(type = type, n_pseudo = 0, return_args = TRUE) |>
@@ -133,15 +133,9 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         set_names("par_val")
 
     yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
-        set_names("p_emerge", "outbreak_size")
+        set_names("outbreak_size", "p_emerge")
 
-    if (par_name != "spat_config") {
-        ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
-                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>patches",
-                                              values = np_linetypes))
-        x_lvl_labs <- NULL
-        x_scale <- scale_x_continuous()
-    } else {
+    if (par_name == "spat_config") {
         ..LINES <- theme(legend.position = "none")
         x_lvl_labs <- tolower(as.roman(1:length(spat_config_lvls)))
         dd$par_val <- map_chr(dd$par_val, \(i) spat_config_lvls[[i]]) |>
@@ -150,6 +144,12 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         dd_og$par_val <- factor(dd_og$par_val, levels = spat_config_lvls) |>
             as.integer()
         x_scale <- scale_x_continuous(breaks = 1:6, labels = x_lvl_labs)
+    } else {
+        ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
+                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>patches",
+                                              values = np_linetypes))
+        x_lvl_labs <- NULL
+        x_scale <- scale_x_continuous()
     }
     dd_md <- dd |>
         group_by(outcome, par_val) |>
@@ -164,7 +164,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
     p <- dd |>
         filter(!is.na(value)) |>
         ggplot(aes(par_val, value, color = outcome)) +
-        geom_hline(yintercept = c(2,9), color = "gray70")
+        geom_hline(yintercept = c(0, 1), color = "gray70")
     if (.og_vals) p <- p + geom_vline(data = dd_og[1,], aes(xintercept = par_val),
                                     color = "gray70", linewidth = 0.75)
     if (.md_vals) p <- p +
@@ -175,24 +175,24 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         geom_point(aes(shape = n_pseudo)) +
         ..LINES +
         labs(x = pretty_params(par_name) |> first_cap(),
-             y = yvar_desc[["outbreak_size"]] |> first_cap()) +
+             y = yvar_desc[["p_emerge"]] |> first_cap()) +
         x_scale +
-        scale_y_continuous(breaks = c(3,6,9),
-                           sec.axis = sec_axis(\(x) (x - 2) / 7,
-                                               yvar_desc[["p_emerge"]] |>
-                                                   first_cap(),
-                                               breaks = 0:2/2)) +
-        coord_cartesian(ylim = c(2, 9)) +
+        scale_y_continuous(breaks = 0:2/2,
+                           sec.axis = sec_axis(\(x) 7 * x + 2,
+                                               paste("Mean",
+                                                     yvar_desc[["outbreak_size"]]),
+                                               breaks = c(3,6,9))) +
+        coord_cartesian(ylim = c(0, 1)) +
         scale_color_manual(values = yvar_pal, guide = "none") +
         scale_shape_manual("Number of<br>*Pseudomonas*<br>patches",
                            values = np_shapes) +
         guides(shape = guide_legend(override.aes = list(color = "black"))) +
-        theme(axis.title.y.right = element_text(color = yvar_pal[["p_emerge"]]),
-              axis.text.y.right = element_text(color = yvar_pal[["p_emerge"]]),
-              axis.ticks.y.right = element_line(color = yvar_pal[["p_emerge"]]),
-              axis.title.y.left = element_text(color = yvar_pal[["outbreak_size"]]),
-              axis.text.y.left = element_text(color = yvar_pal[["outbreak_size"]]),
-              axis.ticks.y.left = element_line(color = yvar_pal[["outbreak_size"]]))
+        theme(axis.title.y.left = element_text(color = yvar_pal[["p_emerge"]]),
+              axis.text.y.left = element_text(color = yvar_pal[["p_emerge"]]),
+              axis.ticks.y.left = element_line(color = yvar_pal[["p_emerge"]]),
+              axis.title.y.right = element_text(color = yvar_pal[["outbreak_size"]]),
+              axis.text.y.right = element_text(color = yvar_pal[["outbreak_size"]]),
+              axis.ticks.y.right = element_line(color = yvar_pal[["outbreak_size"]]))
 }
 
 
@@ -212,11 +212,12 @@ manip_plots <- c("low", "high") |>
                           ifelse(type == "low", "inhibits", "promotes"))
 
         plot_list <- levels(manip_sims$par_name) |>
+            discard(\(x) x == "spat_config") |>
             map(\(x) one_manip_plotter(type, x))
 
         plot_list |>
             do.call(what = wrap_plots) +
-            plot_layout(guides = "collect", axes = "collect") +
+            plot_layout(nrow = 4, guides = "collect", axes = "collect") +
             plot_annotation(title = .title)
     })
 
@@ -228,7 +229,7 @@ if (.overwrite) {
     for (n in names(manip_plots)) {
         save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
                   manip_plots[[n]],
-                  width = 8, height = 5)
+                  width = 6.5, height = 6)
         # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
         #           manip_plots[[n]] & illustrator_theme &
         #               theme(axis.title.x = element_markdown()),
@@ -313,9 +314,9 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
 
 
 
-if (!file.exists(rds_files$extreme_manip2)) {
+if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
-    # Takes ~1 hr
+    # Takes ~5 hrs!
     set.seed(2025929231)
     manip2_sims <- manip2_pars |>
         mutate(type = list(c("low", "high"))) |>
@@ -339,6 +340,7 @@ if (!file.exists(rds_files$extreme_manip2)) {
     manip2_sims <- read_rds(rds_files$extreme_manip2)
 
 }
+
 
 
 
@@ -535,14 +537,13 @@ pseudo_eff_heatmap <- function(yvar, type, par_name_a, par_name_b,
     if (yvar == "outbreak_size") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
         z_breaks <- -2:2 * 2
-        z_lim <- c(-4.2, 4.2)
+        z_lim <- c(-1, 1) * 4.9
         z_pal = "vik"
         z_dir = 1
     } else if (yvar == "p_emerge") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
         z_breaks <- -2:2 / 2
-        # to make breaks the same proportion as for outbreak_size:
-        z_lim <- c(-1.05, 1.05)
+        z_lim <- c(-1, 1) * 1.225
         z_pal = "bam"
         z_dir = -1
     } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
