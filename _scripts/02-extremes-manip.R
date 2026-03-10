@@ -658,6 +658,45 @@ manip2_full_plots <- c("low", "high") |>
 # outbreak_heatmap("high", "Y0", "N0")
 # pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0")
 # pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0")
+#
+#
+
+
+# ============================================================================*
+# ============================================================================*
+# Histograms of 2D diffs
+# ============================================================================*
+# ============================================================================*
+
+yvar <- "p_emerge"
+
+c("low", "high") |>
+    set_names() |>
+    map(\(type) {
+        manip2_sims |>
+            filter(par_name_a == "Y0", par_name_b == "N0", type == .env$type) |>
+            rename(Y0 = par_val_a, N0 = par_val_b) |>
+            group_by(type, Y0, N0) |>
+            summarize(diff = y_summ(.data[[yvar]], np = n_pseudo), .groups = "drop")
+    }) |>
+    list_rbind() |>
+    filter(!is.na(diff)) |>
+    (\(x) {
+        x |>
+            group_by(type) |>
+            summarize(min = min(diff),
+                      mean = mean(diff),
+                      med = median(diff),
+                      max = max(diff)) |>
+            print()
+        return(x)
+    })() |>
+    ggplot(aes(diff, after_stat(density))) +
+    geom_vline(xintercept = 0, linetype = "22", color = "gray70", linewidth = 1) +
+    geom_freqpoly(aes(color = type), bins = 25, linewidth = 1) +
+    scale_color_manual(values = c(low = "firebrick4", high = "dodgerblue")) +
+    labs(x = paste("Effect of <i>Pseudomonas</i> on", yvar_desc[[yvar]]))
+
 
 
 
@@ -699,4 +738,8 @@ for (.t in c("low", "high")) {
 
 
 
-
+# for (.v in c("outbreak_size", "p_emerge")) {
+#     cowplot::get_legend(pseudo_eff_heatmap(.v, "low", "Y0", "N0",
+#                                            .contour_args = NA)) |>
+#         save_plot(filename = sprintf("~/Desktop/legend-%s.pdf", .v), width = 1, height = 8)
+# }
