@@ -17,7 +17,8 @@ source("_scripts/00-preamble.R")
 # read_rds("_scripts/interm-data/large-plantscapes.rds") |>
 #     select(n_pseudo:wt_pp, landscape) |>
 #     filter(!is.na(wt_pp)) |>
-#     # Predicted number of instances of both Pseudomonas and virus:
+#     # Predicted number of instances of both Pseudomonas and virus
+#     # across 100 sims:
 #     mutate(n_both_pred = ifelse(wt_vp < 1, 0L, 100L)) |>
 #     # Observed:
 #     mutate(n_both_obs = map_int(landscape, \(x) sum(x == 3L))) |>
@@ -80,13 +81,14 @@ big_land_plotter <- function(yvar,
                              y_breaks = waiver(),
                              y_max = NULL) {
 
-    # yvar = "log_outbreak_size"; type = "low"; col_fct = "pseudo_repel"
-    # x_facet_fct = "virus_attract"; y_facet_fct = "wt_vp"; shp_lty_fct = NULL
+    # yvar = "outbreak_size"; type = "low"; col_fct = "pseudo_repel"
+    # x_facet_fct = "virus_attract"; y_facet_fct = NULL; shp_lty_fct = "wt_vp"
     # fixed = list(wt_pp = "uniform", sd_N = 0)
     # color_vals = NULL; facet_scales = "fixed"; facet_ncol = NULL
+    # y_breaks = waiver(); y_max = NULL
     # rm(yvar, type, col_fct, x_facet_fct, y_facet_fct, shp_lty_fct, fixed)
     # rm(color_vals, facet_scales, facet_ncol, dd, facet_fct, facet_form)
-    # rm(points_lines, shp_lty_ttl, facets_coord)
+    # rm(points_lines, shp_lty_ttl, facets_coord, y_breaks, y_max)
 
     facet_scales <- match.arg(facet_scales, c("fixed", "free", "free_x", "free_y"))
 
@@ -134,6 +136,7 @@ big_land_plotter <- function(yvar,
         dd[[shp_lty_fct]] <- factor(dd[[shp_lty_fct]])
         points_lines <- list(geom_point(aes(shape = .data[[shp_lty_fct]])),
                              geom_line(aes(group = grp, linetype = .data[[shp_lty_fct]])))
+                             # geom_line(aes(group = grp, linewidth = .data[[shp_lty_fct]])))
         shp_lty_ttl <- pretty_params(shp_lty_fct, TRUE) |>
             str_replace_all("\\s+", "<br>")
     } else {
@@ -176,6 +179,7 @@ big_land_plotter <- function(yvar,
         points_lines +
         col_scale +
         scale_linetype_manual(shp_lty_ttl, values = c("solid", "22")) +
+        # scale_linewidth_manual(shp_lty_ttl, values = c(1, 0.5)) +
         scale_shape_manual(shp_lty_ttl, values = c(19, 17)) +
         scale_x_continuous(breaks = c(0, 10, 30, 50, 70, 90)) +
         scale_y_continuous(breaks = y_breaks) +
@@ -360,44 +364,28 @@ big_land_plotter <- function(yvar,
 # =============================================================================*
 
 
-p1 <- big_land_plotter("outbreak_size", type = "low",
-                 col_fct = "virus_attract",
-                 shp_lty_fct = "pseudo_repel",
-                 x_facet_fct = NULL,
-                 y_facet_fct = NULL,
-                 fixed = list(wt_pp = "uniform", sd_N = 0, wt_vp = "off virus"),
-                 color_vals = scico(2, end = 0.8, palette = "hawaii"))
-p2 <- big_land_plotter("outbreak_size", type = "low",
-                 col_fct = "virus_attract",
-                 shp_lty_fct = "pseudo_repel",
-                 x_facet_fct = NULL,
-                 y_facet_fct = NULL,
-                 fixed = list(wt_pp = "uniform", sd_N = 0, wt_vp = "on virus"),
-                 color_vals = scico(2, end = 0.8, palette = "hawaii"))
 
-p1 + p2 + plot_layout(nrow = 1, guides = "collect", axis_titles = "collect")
 
 
 
 for (.t in c("low", "high")) {
     for (.v in c("outbreak_size", "p_emerge")) {
-        # .t = "low"; .v = "outbreak_size"
-        .yb <- list(outbreak_size = 300, p_emerge = 1)[[.v]]
-        .pl <- map(levels(sim_df$wt_vp), \(.wt_vp) {
-            .ym <- NULL
-            if (.v == "outbreak_size" && (.wt_vp != "off virus" || .t == "low")) {
-                .ym <- 130
-                .yb <- 120
-            }
+        .ym <- NULL
+        .yb <- c(0, 0.5, 1)
+        if (.v == "outbreak_size") {
+            .ym <- NA
+            .yb <- waiver()
+        }
+        .pl <- map(sort(unique(sim_df$virus_attract)), \(.virus_attract) {
             big_land_plotter(yvar = .v, type = .t,
-                             col_fct = "virus_attract",
-                             shp_lty_fct = "pseudo_repel",
+                             col_fct = "pseudo_repel",
+                             shp_lty_fct = "wt_vp",
                              x_facet_fct = NULL,
                              y_facet_fct = NULL,
-                             fixed = list(wt_pp = "uniform", sd_N = 0, wt_vp = .wt_vp),
+                             fixed = list(wt_pp = "uniform", sd_N = 0,
+                                          virus_attract = .virus_attract),
                              color_vals = scico(2, end = 0.8, palette = "hawaii"),
-                             y_breaks = c(0, 0.5, 1) * .yb,
-                             y_max = .ym) +
+                             y_max = .ym, y_breaks = .yb) +
                 theme(plot.margin = margin(0, 0, 0, 0))
         })
         .p <- wrap_plots(.pl, nrow = 1, guides = "collect", axis_titles = "collect") &
@@ -405,7 +393,7 @@ for (.t in c("low", "high")) {
         .f <- sprintf("_plots/large-plantscapes-%s-%s.pdf", .t, .v)
         save_plot(.f, .p, width = 3, height = 2)
     }
-}; rm(.t, .yb, .v, .pl, .p, .f)
+}; rm(.t, .v, .ym, .yb, .pl, .p, .f)
 
 
 
