@@ -357,6 +357,96 @@ big_land_plotter <- function(yvar,
 
 
 
+# WITH VS WITHOUT VIRUS ATTRACT  ----
+
+va_eff_plots <- c("p_emerge", "outbreak_size") |>
+    set_names() |>
+    map(\(yvar) {
+        crossing(wv = c("off virus", "on virus"),
+                 tp = factor(c("low", "high"), levels = c("low", "high")),
+                 # va = c(1, 5)) |>
+                 pr = c(1, 5)) |>
+            pmap(\(tp, wv, pr) {
+
+                # yvar = "outbreak_size"; tp = "low"; wv = "off virus"; pr = 1
+                # rm(yvar, tp, wv, pr, xvar, x_lab, x_lims, y_min, y_max, .color, yvar_comp, y_lab)
+
+                xvar <- c("pseudo_percent", "min", "max")[1]
+                yvar_comp <- c("rel", "dif")[1]
+
+                x_lab <- "Percent *Pseudomonas* patches"
+                x_breaks <- c(0, 10, 30, 50, 70, 90)
+                x_lims <- NULL
+                if (xvar %in% c("min", "max")) {
+                    x_lab <- paste(first_cap(xvar), yvar_desc[[yvar]])
+                    x_breaks <- waiver()
+                    if (yvar == "p_emerge") x_lims <- c(0, 1)
+                }
+
+                y_min <- 1
+                y_max <- ifelse(yvar == "outbreak_size", 16, 9)
+                .color <- scico(2, end = 0.8, palette = "hawaii") |>
+                    base::`[[`(ifelse(pr == 1, 1, 2))
+
+                y_lab <- paste(first_cap(yvar_desc[[yvar]]),
+                               "with virus attract / without")
+                if (yvar_comp == "dif") {
+                    y_lab <- str_replace(y_lab, "/", "-")
+                    y_min <- 0
+                    y_max <- ifelse(yvar == "outbreak_size", 300, 0.6)
+                }
+
+
+                sim_df |>
+                    filter(type == tp,
+                           pseudo_repel == pr,
+                           wt_vp %in% c(NA, wv),
+                           wt_pp %in% c(NA, "uniform"),
+                           sd_N == 0) |>
+                    select(-type, -sim, -pseudo_repel, -sd_N, -wt_vp, -wt_pp) |>
+                    select(all_of(c("n_pseudo", "virus_attract", yvar))) |>
+                    pivot_wider(names_from = "virus_attract", values_from = yvar) |>
+                    mutate(rel = `5` / `1`,
+                           dif = `5` - `1`,
+                           min = pmin(`5`, `1`),
+                           max = pmax(`5`, `1`),
+                           pseudo_percent = n_pseudo / 10e3 * 100) |>
+                    ggplot(aes(.data[[xvar]], .data[[yvar_comp]])) +
+                    geom_hline(yintercept = y_min, color = "gray70") +
+                    geom_point(shape = ifelse(wv == "off virus", 19, 17),
+                               color = .color) +
+                    geom_line(linetype = ifelse(wv == "off virus", "solid", "22"),
+                              color = .color) +
+                    scale_x_continuous(breaks = x_breaks) +
+                    labs(x = x_lab,
+                         y = y_lab,
+                         title = sprintf("%s, %s, pr = %i", tp, wv, pr)) +
+                    coord_cartesian(ylim = c(y_min, y_max), xlim = x_lims)
+
+                # big_land_plotter("outbreak_size", type = tp,
+                #                  col_fct = "virus_attract",
+                #                  shp_lty_fct = NULL,
+                #                  x_facet_fct = NULL,
+                #                  y_facet_fct = NULL,
+                #                  fixed = list(wt_pp = "uniform", sd_N = 0,
+                #                               wt_vp = wv, pseudo_repel = pr),
+                #                  color_vals = scico(2, end = 0.8, palette = "hawaii"),
+                #                  y_max = NA) +
+                #     labs(title = sprintf("%s, %s", tp, wv))
+            }) |>
+            c(list(nrow = 2, guides = "collect", axis_titles = "collect")) |>
+            do.call(what = wrap_plots)
+    })
+
+
+# va_eff_plots$p_emerge
+va_eff_plots$outbreak_size
+
+
+
+
+
+
 # =============================================================================*
 # =============================================================================*
 # Save plots ----
@@ -394,6 +484,198 @@ for (.t in c("low", "high")) {
         save_plot(.f, .p, width = 3, height = 2)
     }
 }; rm(.t, .v, .ym, .yb, .pl, .p, .f)
+
+
+# =============================================================================*
+# =============================================================================*
+# Why pseudo_repel = 5 increase outbreaks when virus starts off Pseudomonas? ----
+# =============================================================================*
+# =============================================================================*
+
+large_simmer <- function(landscape, type, sd_N, virus_attract, pseudo_repel, ...) {
+
+    args <- list(landscape = landscape,
+                 sd_N = sd_N,
+                 virus_attract = virus_attract,
+                 pseudo_repel = pseudo_repel,
+                 Y0 = 100,
+                 K = 12.5e3,
+                 pseudo_surv = 0.85,
+                 p_load_alate = 0.075,
+                 p_load_plant = 0.075,
+                 n_sims = 100L,
+                 summ = "all")
+
+    if (type == "low") {
+        args <- list_assign(args,
+                            N0 = 110,
+                            zeta = 1)
+    } else {
+        args <- list_assign(args,
+                            N0 = 10,
+                            zeta = 0.14)
+    }
+
+    args <- list_assign(args, ...)
+
+    return(do.call(big_plantscape, args))
+
+}
+
+.type <- "high"
+.sd_N <- 0
+.virus_attract <- 1
+
+.landscape <- read_rds("_scripts/interm-data/large-plantscapes.rds") |>
+    filter(type == .type,
+           sd_N == .sd_N,
+           virus_attract == .virus_attract,
+           pseudo_repel == 1,
+           n_pseudo == 7000,
+           wt_pp == 1,
+           ifelse(wt_vp < 1, "off virus", "on virus") == "off virus") |>
+    getElement("landscape") |> getElement(1) |>
+    base::`[`(,,1:10)
+
+# Takes ~30 sec
+sims_p1 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
+                        pseudo_repel = 1, n_sims = 10, summ = "all",
+                        max_t = 50,
+                        out_dispersals = TRUE)
+sims_p5 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
+                        pseudo_repel = 5, n_sims = 10, summ = "all",
+                        max_t = 50,
+                        out_dispersals = TRUE)
+
+
+# In the `disps` column the column indicates the plant the alate came from,
+# and the row indicates the plant the alate dispersed to.
+#
+# Below, this is the total number of incoming alates to the initially
+# infected patch:
+sims_p1$disps |> map_int(\(x) sum(x[1,]))
+sims_p5$disps |> map_int(\(x) sum(x[1,]))
+
+
+
+
+
+# =============================================================================*
+# =============================================================================*
+# Why virus_attract has greatest effect when Pseudomonas at mid densities (at type = high)? ----
+# =============================================================================*
+# =============================================================================*
+
+.type <- "high"
+.sd_N <- 0
+.pseudo_repel <- 1
+
+.landscapes <- read_rds("_scripts/interm-data/large-plantscapes.rds") |>
+    filter(type == .type,
+           sd_N == .sd_N,
+           virus_attract == 1,
+           pseudo_repel == .pseudo_repel,
+           n_pseudo %in% c(1000, 7000, 9000),
+           wt_pp == 1,
+           ifelse(wt_vp < 1, "off virus", "on virus") == "on virus") |>
+    arrange(n_pseudo) |>
+    getElement("landscape") |>
+    set_names(c("low", "med", "high")) |>
+    map(\(x) x[,,1:10,drop=FALSE])
+
+# Takes ~1 min 45 sec
+set.seed(500860318)
+sims_va <- imap(.landscapes, \(l, n) {
+
+    sims_va1 <- large_simmer(l, .type, .sd_N, virus_attract = 1,
+                             pseudo_repel = .pseudo_repel, n_sims = dim(l)[3],
+                             summ = "all", # max_t = 50,
+                             out_dispersals = TRUE) |>
+        #
+        # In the `disps` column the column indicates the plant the alate came
+        # from, and the row indicates the plant the alate dispersed to.
+        #
+        # The first line below is the total number of incoming alates to the
+        # initially infected patch:
+        #
+        mutate(disps_in = map_int(disps, \(x) sum(x[1,])),
+               disps_out = map_int(disps, \(x) sum(x[,1]))) |>
+        select(-disps) |>
+        mutate(virus_attract = 1)
+    sims_va5 <- large_simmer(l, .type, .sd_N, virus_attract = 5,
+                             pseudo_repel = .pseudo_repel, n_sims = dim(l)[3],
+                             summ = "all", # max_t = 50,
+                             out_dispersals = TRUE) |>
+        mutate(disps_in = map_int(disps, \(x) sum(x[1,])),
+               disps_out = map_int(disps, \(x) sum(x[,1]))) |>
+        select(-disps) |>
+        mutate(virus_attract = 5)
+    bind_rows(sims_va1, sims_va5) |>
+        mutate(pseudo = factor(n, levels = c("low", "med", "high"))) |>
+        select(pseudo, virus_attract, rep, everything())
+}, .progress = .prog_args) |>
+    list_rbind()
+
+
+sims_va |>
+    group_by(pseudo, virus_attract) |>
+    summarize(across(starts_with("disps"), mean), .groups = "drop")
+# # A tibble: 6 × 4
+#   pseudo virus_attract disps_in disps_out
+#   <fct>          <dbl>    <dbl>     <dbl>
+# 1 low                1     57.1      46.4
+# 2 low                5    265.      218.
+# 3 med                1     57.5      45.8
+# 4 med                5    286.      236.
+# 5 high               1     30.1      24.9
+# 6 high               5    141.      114.
+
+
+sims_va |>
+    group_by(pseudo, virus_attract) |>
+    summarize(across(starts_with("disps"), mean), .groups = "drop") |>
+    group_by(pseudo) |>
+    summarize(across(starts_with("disps"), \(x) x[virus_attract == 5] / x[virus_attract == 1]))
+# # A tibble: 3 × 3
+#   pseudo disps_in disps_out
+#   <fct>     <dbl>     <dbl>
+# 1 low        4.65      4.69
+# 2 med        4.97      5.16
+# 3 high       4.69      4.57
+
+
+
+sims_va |>
+    group_by(pseudo, virus_attract) |>
+    summarize(across(c("alates", "log_aphids", "disps_in", "disps_out"), mean), .groups = "drop") |>
+    (\(x) {print(x); return(x)})() |>
+    group_by(pseudo) |>
+    summarize(across(everything(), \(x) x[virus_attract == 5] / x[virus_attract == 1]))
+
+
+
+st <- c("low", "med", "high") |>
+    map(\(n){
+    l <- .landscapes[[n]]
+    large_simmer(l, .type, .sd_N, virus_attract = 1,
+                 pseudo_repel = .pseudo_repel, n_sims = dim(l)[3],
+                 summ = "time") |>
+        mutate(pseudo = factor(n, levels = c("low", "med", "high"))) |>
+        select(pseudo, everything())
+    }) |>
+    list_rbind()
+
+st |>
+    filter(rep == 1) |>
+    mutate(aphids = aphids + parasitized) |>
+    select(pseudo, rep, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(id = interaction(pseudo, rep, species, drop = TRUE)) |>
+    ggplot(aes(time, density, color = pseudo)) +
+    geom_line(aes(group = id), linewidth = 0.75) +
+    scale_color_viridis_d(begin = 0.2, end = 0.9) +
+    facet_wrap(~ species, ncol = 1, scales = "free")
+
 
 
 
