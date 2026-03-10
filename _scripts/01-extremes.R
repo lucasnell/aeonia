@@ -266,6 +266,124 @@ if (.overwrite) {
 
 
 
+by_plant_plotter <- function(x) {
+    # x = low_high_sims |> filter(type == "high")
+    # rm(x, trans, itrans, vdf, dd, p)
+    # wasps / alates --> aphids
+    trans <- function(x) {
+        x * dens_maxes[["aphids"]] / dens_maxes[["wasps"]]
+    }
+    # aphids --> wasps / alates
+    itrans <- function(x) {
+        x * dens_maxes[["wasps"]] / dens_maxes[["aphids"]]
+    }
+
+    vdf <- x |>
+        filter(!is.na(plant), virus == 1) |>
+        group_by(n_pseudo, plant) |>
+        summarize(time = min(time), .groups = "drop") |>
+        mutate(density = max(empty_data$density) * 1.1,
+               n_pseudo = factor(n_pseudo))
+
+    dd <- x |>
+        filter(!is.na(plant)) |>
+        select(n_pseudo, plant, time, aphids, alates, wasps) |>
+        mutate(wasps = trans(wasps),
+               alates = trans(alates))
+
+    dd |>
+        pivot_longer(aphids:wasps, names_to = "species",
+                     values_to = "density") |>
+        mutate(n_pseudo = factor(n_pseudo),
+               species = factor(species, levels = levels(empty_data$species))) |>
+        ggplot(aes(time, density)) +
+        geom_hline(yintercept = 0, color = "gray70") +
+        geom_line(aes(color = species, linetype = n_pseudo), linewidth = 1) +
+        geom_blank(data = empty_data, aes(y = density * 1.15)) +
+        geom_point(aes(shape = n_pseudo), data = vdf, color = color_pal[["virus"]],
+                   size = 2) +
+        scale_color_manual(values = color_pal) +
+        scale_linetype_manual(values = np_linetypes) +
+        scale_shape_manual(values = c("0" = 4, "3" = 13)) +
+        labs(x = "Time (days)", y = "Density") +
+        scale_y_continuous(sec.axis = sec_axis(itrans,
+                                               "Density (wasps/alates)",
+                                               breaks = c(0, 20, 40)),
+                           breaks = c(0, 500, 1000)) +
+        scale_x_continuous(breaks = c(0, 50, 100)) +
+        facet_wrap(~ plant) +
+        guides(linetype = guide_legend(override.aes = list(color = "black"))) +
+        theme(axis.text.x = element_markdown(size = 7),
+              axis.text.y = element_markdown(size = 7),
+              plot.margin = margin(3,3,0,0))
+
+}
+
+
+
+
+
+
+
+
+
+
+A_plotter <- function(x) {
+    # x = low_high_sims |> filter(type == "high")
+    # rm(x, A_calc)
+    A_calc <- function(wasps, aphids_juv, aphids_adu, alates_juv, alates_adu) {
+        # n = 10; wasps = runif(n) * 2; aphids_juv = runif(n) * 10;
+        # aphids_adu = runif(n) * 40; alates_juv = runif(n) * 2;
+        # alates_adu = runif(n) * 6
+        # rm(n, wasps, aphids_juv, aphids_adu, alates_juv, alates_adu)
+        # rm(a, h, k, R, X, xt, A)
+        a <- pop_info$a
+        h <- pop_info$h
+        k <- pop_info$k
+        R <- pop_info$R
+        X <- cbind(aphids_juv, aphids_adu, alates_juv, alates_adu)
+        xt <- rowSums(X)
+        A <- lapply(1:nrow(X), \(i) {
+            .A <- (1 + R * a * wasps[i] / (k * (h * xt[i] + 1)))^(-k)
+            return(sum(.A * (X[i,] / xt[i])))
+        }) |>
+            do.call(what = c)
+        return(A)
+    }
+    x |>
+        filter(!is.na(plant)) |>
+        mutate(attack_surv = A_calc(wasps, aphids_juv, aphids_adu, alates_juv, alates_adu)) |>
+        mutate(n_pseudo = factor(n_pseudo)) |>
+        ggplot(aes(time, attack_surv)) +
+        geom_line(aes(linetype = n_pseudo), linewidth = 1) +
+        scale_linetype_manual(values = np_linetypes) +
+        labs(x = "Time (days)", y = "Attack survival") +
+        scale_x_continuous(breaks = c(0, 50, 100)) +
+        facet_wrap(~ plant)
+}
+
+
+#
+
+
+c(0L, 3L) |>
+    map(\(np) {
+        run_sim_combos(type = "high", n_pseudo = np, n_sims = 10L, pseudo_surv = 0.98) |>
+            mutate(n_pseudo = np)
+    }) |>
+    list_rbind() |>
+    mutate(plant = interaction(y, x),
+           aphids = aphids + parasitized) |>
+    filter(rep == sample.int(10L)) |>
+    by_plant_plotter()
+
+
+
+
+
+
+
+
 
 # ============================================================================*
 # z --> Pr(alates) ----
