@@ -13,7 +13,8 @@
 
 #include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // DimensionConverter, XY, and get_bit_bool
-#include "one-plant.hpp"        // OnePlant class
+#include "aphids.hpp"        // AphidPop class
+// #include "one-plant.hpp"        // OnePlant class
 #include "pcg.hpp"              // pcg type, runif_01 fxn
 
 
@@ -168,8 +169,8 @@ class AlateFlightInfo {
 
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
-    void sample(uint32& new_k, const uint32& k, pcg32& eng) {
-        new_k = neighbors[k][samplers[k].sample(eng)];
+    uint32 sample(const uint32& k, pcg32& eng) {
+        return neighbors[k][samplers[k].sample(eng)];
     }
 
     inline void sample_inoculation(const double& p_load_alate,
@@ -187,8 +188,8 @@ public:
 
     // virus (infectious only) and pseudomonas presence for each plant in
     // the landscape:
-    std::vector<std::vector<bool>> virus;
-    std::vector<std::vector<bool>> pseudo;
+    vMatrix<bool> virus;
+    vMatrix<bool> pseudo;
 
 
 
@@ -225,7 +226,7 @@ public:
     // update the landscape (`virus` and `land_wts`)
     // and let samplers know to update:
     void newly_infected(const uint32& x, const uint32& y) {
-        virus[x][y] = true;
+        virus(x,y) = true;
         uint32 k = dim_conv.to_1d(x, y);
         land_wts[k] *= virus_attract;
         any_changed = true;
@@ -244,8 +245,11 @@ public:
     void infest(const double& p_load_alate,
                 const double& p_load_plant,
                 std::vector<XY>& alate_plants,
-                std::vector<std::vector<OnePlant>>& plants,
-                arma::umat& n_alates,
+                vMatrix<bool>& exposed,
+                vMatrix<bool>& infectious,
+                vMatrix<uint32>& exp_days,
+                vMatrix<AphidPop>& aphids,
+                vMatrix<arma::uvec>& n_alates,
                 arma::umat& dispersals,
                 pcg32& eng);
 

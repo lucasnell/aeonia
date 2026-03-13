@@ -69,24 +69,16 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
 
 
     // Fill `virus` and `pseudo` landscapes:
-    virus.reserve(n_x);
-    pseudo.reserve(n_x);
+    virus.reserve(n_x, n_y);
+    pseudo.reserve(n_x, n_y);
     bool virus_xy, pseudo_xy;
-    std::vector<bool> virus_x;
-    std::vector<bool> pseudo_x;
-    virus_x.reserve(n_y);
-    pseudo_x.reserve(n_y);
     for (uint32 x = 0; x < n_x; x++) {
-        virus_x.clear();
-        pseudo_x.clear();
         for (uint32 y = 0; y < n_y; y++) {
             virus_xy = get_bit_bool(0U, landscape_(x, y));
             pseudo_xy = get_bit_bool(1U, landscape_(x, y));
-            virus_x.push_back(virus_xy);
-            pseudo_x.push_back(pseudo_xy);
+            virus.push_back(virus_xy);
+            pseudo.push_back(pseudo_xy);
         }
-        virus.push_back(virus_x);
-        pseudo.push_back(pseudo_x);
     }
 
 
@@ -106,8 +98,8 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
             // --------------------------
             // Set this plant's weight:
             land_wts.push_back(1.0);
-            if (virus[x][y]) land_wts.back() *= virus_attract;
-            if (pseudo[x][y]) land_wts.back() /= pseudo_repel;
+            if (virus(x,y)) land_wts.back() *= virus_attract;
+            if (pseudo(x,y)) land_wts.back() /= pseudo_repel;
             if (land_wts.back() == 0) {
                 std::string err_msg = "\nERROR: virus_attract is very low or ";
                 err_msg += "pseudo_repel is very high, ";
@@ -221,8 +213,11 @@ inline void AlateFlightInfo::sample_inoculation(const double& p_load_alate,
 void AlateFlightInfo::infest(const double& p_load_alate,
                              const double& p_load_plant,
                              std::vector<XY>& alate_plants,
-                             std::vector<std::vector<OnePlant>>& plants,
-                             arma::umat& n_alates,
+                             vMatrix<bool>& exposed,
+                             vMatrix<bool>& infectious,
+                             vMatrix<uint32>& exp_days,
+                             vMatrix<AphidPop>& aphids,
+                             vMatrix<arma::uvec>& n_alates,
                              arma::umat& dispersals,
                              pcg32& eng) {
 
@@ -268,74 +263,90 @@ void AlateFlightInfo::infest(const double& p_load_alate,
         const uint32& x0(alate_coords.x);
         const uint32& y0(alate_coords.y);
         const uint32  k0 = dim_conv.to_1d(x0, y0);
-        uint32& n_alates_xy(n_alates(x0,y0));
-        OnePlant& plant0(plants[x0][y0]);
+        const AphidPop& aphids_xy(aphids(x0, y0));
+        arma::uvec& n_alates_xy(n_alates(x0,y0));
 
-        while (n_alates_xy > 0) {
+        uint32 adult_age = aphids_xy.adult_age;
 
-            k_old = k0;
-            x_old = x0;
-            y_old = y0;
+        for (uint32 i = 0; i < n_alates_xy.n_elem; i++) {
 
-            // If it starts on an infectious plant, then sample for whether
-            // the alate is virus-bearing:
-            if (plant0.infectious) {
-                u = runif_01(eng);
-                has_virus = u < p_load_alate;
-            } else has_virus = false;
+            uint32& n_alates_xyi(n_alates_xy(i));
 
-            // Sample for new location (alate always leaves first plant)
-            sample(k_new, k_old, eng);
-            dim_conv.to_2d(x_new, y_new, k_new);
-            if (update_disps) dispersals(k_new, k_old)++;
+            while (n_alates_xyi > 0) {
 
-            // Sample for whether aphid or plant is inoculated:
-            sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                               plants[x_new][y_new].infectious,
-                               plants[x_new][y_new].exposed,
-                               plants[x_new][y_new].exp_days,
-                               eng);
+                k_old = k0;
+                x_old = x0;
+                y_old = y0;
 
-            k_old = k_new;
-            x_old = x_new;
-            y_old = y_new;
+                // If it starts on an infectious plant, then sample for whether
+                // the alate is virus-bearing:
+                if (infectious(x0, y0)) {
+                    u = runif_01(eng);
+                    has_virus = u < p_load_alate;
+                } else has_virus = false;
 
-            keep_going = true;
-            t = 1;
-
-            while (t < max_fly_t && keep_going) {
-
-                // Sample for whether alate will stay to feed at this plant:
-                feed_p = w;
-                if (virus[x_old][y_old]) feed_p *= epsilon;
-                if (runif_01(eng) < feed_p) {
-                    keep_going = false;
-                    // Adding alate to winged population of plant settled on:
-                    plants[x_old][y_old].aphids.alate_adults() += 1;
-                    break;
-                }
-
-                // Sample for new location
-                sample(k_new, k_old, eng);
+                // Sample for new location (alate always leaves first plant)
+                k_new = sample(k_old, eng);
                 dim_conv.to_2d(x_new, y_new, k_new);
                 if (update_disps) dispersals(k_new, k_old)++;
 
                 // Sample for whether aphid or plant is inoculated:
                 sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                                   plants[x_new][y_new].infectious,
-                                   plants[x_new][y_new].exposed,
-                                   plants[x_new][y_new].exp_days,
+                                   (bool)infectious(x_new, y_new),
+                                   (bool)exposed(x_new, y_new),
+                                   exp_days(x_new, y_new),
                                    eng);
 
                 k_old = k_new;
                 x_old = x_new;
                 y_old = y_new;
-                t++;
+
+                keep_going = true;
+                t = 1;
+
+                while (t < max_fly_t && keep_going) {
+
+                    // Sample for whether alate will stay to feed at this plant:
+                    feed_p = w;
+                    if (virus(x_old, y_old)) feed_p *= epsilon;
+                    if (runif_01(eng) < feed_p) {
+                        keep_going = false;
+                        // Adding alate to winged population of plant settled on:
+                        AphidPop& aphids_old(aphids(x_old, y_old));
+                        aphids_old.alates.X(adult_age + i) += 1;
+                        break;
+                    }
+
+                    // Sample for new location
+                    k_new = sample(k_old, eng);
+                    dim_conv.to_2d(x_new, y_new, k_new);
+                    if (update_disps) dispersals(k_new, k_old)++;
+
+                    // Sample for whether aphid or plant is inoculated:
+                    sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
+                                       (bool)infectious(x_new, y_new),
+                                       (bool)exposed(x_new, y_new),
+                                       exp_days(x_new, y_new),
+                                       eng);
+
+                    k_old = k_new;
+                    x_old = x_new;
+                    y_old = y_new;
+                    t++;
+                }
+
+                // If reaching max fly iterations, adding alate to winged
+                // population of plant settled on:
+                if (t >= max_fly_t && keep_going) {
+                    AphidPop& aphids_old(aphids(x_old, y_old));
+                    aphids(x_old, y_old).alates.X(adult_age + i) += 1;
+                }
+
+                n_alates_xyi--;
+
             }
-
-            n_alates_xy--;
-
         }
+
 
     }
 
