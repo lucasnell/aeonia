@@ -69,7 +69,7 @@ combos <- crossing(a0 = 10^(0:2), w0 = 10^(-3:-1)) |>
     mutate(w0 = a0 * w0)
 
 
-sim_goc <- pmap(combos, \(a0, w0) {
+sims_goc <- pmap(combos, \(a0, w0) {
     run_goc(aphids0 = a0, wasps0 = w0) |>
         mutate(combo = paste(a0, w0, sep = "_"))
 }) |>
@@ -84,6 +84,13 @@ sims_aeonia <- pmap(combos, \(a0, w0) {
     list_rbind() |>
     mutate(combo = factor(combo),
            sim_type = "aeonia")
+
+# More rigorous tests:
+all.equal(sims_goc$density, sims_aeonia$density)
+# [1] TRUE
+mean(abs(sims_goc$density - sims_aeonia$density))
+# [1] 1.886628e-12
+
 
 
 sim_ts_plotter <- function(.df, .title = waiver()) {
@@ -140,7 +147,7 @@ sim_ts_plotter <- function(.df, .title = waiver()) {
 }
 
 
-comp_p <- bind_rows(sim_goc, sims_aeonia) |>
+comp_p <- bind_rows(sims_goc, sims_aeonia) |>
     sim_ts_plotter(.title = "aeonia vs gameofclones")
 
 comp_p
