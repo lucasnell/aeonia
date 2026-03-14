@@ -107,10 +107,10 @@ void ScapeSimmer::fill_output() {
                 output_ids_t(k,0) = x+1U;
                 output_ids_t(k,1) = y+1U;
 
-                output_dens_t.push_back(static_cast<double>(scape.infectious(x, y)),
-                                        scape.aphids(x, y).unparas_X(),
-                                        scape.aphids(x, y).paras.total(),
-                                        scape.mummies(x, y).total(),
+                output_dens_t.push_back(static_cast<double>(scape.infectious[x][y]),
+                                        scape.aphids[x][y].unparas_X(),
+                                        scape.aphids[x][y].paras.total(),
+                                        scape.mummies[x][y].total(),
                                         scape.Yi_mat(x,y));
                 k++;
             }
@@ -119,7 +119,7 @@ void ScapeSimmer::fill_output() {
     } else if (summ == "time" || summ == "all") {
 
         // Densities (all vectors start with length 1, values = 0):
-        output_dens.push_back(OutDensities(1, scape.aphids(0, 0).n_stages()));
+        output_dens.push_back(OutDensities(1, scape.aphids[0][0].n_stages()));
         OutDensities& output_dens_t(output_dens.back());
         // (no ids here)
 
@@ -128,10 +128,10 @@ void ScapeSimmer::fill_output() {
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
                 output_dens_t.add_to(0,
-                                     static_cast<double>(scape.infectious(x, y)),
-                                     scape.aphids(x, y).unparas_X(),
-                                     scape.aphids(x, y).paras.total(),
-                                     scape.mummies(x, y).total(),
+                                     static_cast<double>(scape.infectious[x][y]),
+                                     scape.aphids[x][y].unparas_X(),
+                                     scape.aphids[x][y].paras.total(),
+                                     scape.mummies[x][y].total(),
                                      0.0);
             }
         }
@@ -492,7 +492,7 @@ void check_plantscape_args(const arma::ucube& landscapes,
 //'     The vector can also be of length 1, in which case it's assumed that
 //'     all reps start with the same density of parasitoids.
 //' @param insect_ptr External pointer to a C++ object with insect population
-//'     information, output from function [make_insect_ptr()].
+//'     information, output from function [make_insects_ptr()].
 //' @param disease_ptr External pointer to a C++ object with disease (and
 //'     dispersal) information, output from function [make_disease_ptr()].
 //' @param wasp_plant_attract Relative attractiveness of plants to wasps.
@@ -606,7 +606,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     const DiseaseDispersal& disease(*disease_xptr);
 
     std::vector<std::vector<uint64>> seeds = mt_seeds(n_reps);
-    std::vector<ScapeSimmers> simmers;
+    std::vector<ScapeSimmer> simmers;
     simmers.reserve(n_reps);
 
     for (uint32 i = 0; i < n_reps; i++) {
@@ -619,7 +619,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
     RcppThread::ProgressBar prog_bar(n_reps * max_t, 1);
 
     if (n_threads > 1U && n_reps > 1U) {
-        auto job = [&] (ScapeSimmers& simmer) {
+        auto job = [&] (ScapeSimmer& simmer) {
             simmer.run(infect_stop, prog_bar, show_progress);
         };
         RcppThread::parallelForEach(simmers, job, n_threads);

@@ -64,20 +64,36 @@ arma::imat make_neigh_dxdy(const double& radius) {
  Fill statuses (`virus` and `pseudo`), plus `samplers` and related objects
  (notably `land_wts` and `neighbors`).
  */
-void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
-                                           const double& radius) {
-
+AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
+                                 const arma::umat& landscape_,
+                                 const double& radius,
+                                 const double& virus_attract_,
+                                 const double& pseudo_repel_,
+                                 const double& epsilon_,
+                                 const double& w_)
+    : dim_conv(landscape_.n_rows, landscape_.n_cols),
+      any_changed(false),
+      update_sampler(landscape_.n_elem, false),
+      neighbors(),
+      land_wts(),
+      samplers(),
+      virus_attract(virus_attract_),
+      pseudo_repel(pseudo_repel_),
+      epsilon(epsilon_),
+      w(w_),
+      max_fly_t(max_fly_t_),
+      n_x(landscape_.n_rows),
+      n_y(landscape_.n_cols),
+      n_plants(landscape_.n_elem),
+      n_neigh(),
+      virus(vMatSize({n_x, n_y})),
+      pseudo(vMatSize({n_x, n_y})) {
 
     // Fill `virus` and `pseudo` landscapes:
-    virus.reserve(n_x, n_y);
-    pseudo.reserve(n_x, n_y);
-    bool virus_xy, pseudo_xy;
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            virus_xy = get_bit_bool(0U, landscape_(x, y));
-            pseudo_xy = get_bit_bool(1U, landscape_(x, y));
-            virus.push_back(virus_xy);
-            pseudo.push_back(pseudo_xy);
+            virus[x][y] = get_bit_bool(0U, landscape_(x, y));
+            pseudo[x][y] = get_bit_bool(1U, landscape_(x, y));
         }
     }
 
@@ -98,8 +114,8 @@ void AlateFlightInfo::fill_status_samplers(const arma::umat& landscape_,
             // --------------------------
             // Set this plant's weight:
             land_wts.push_back(1.0);
-            if (virus(x,y)) land_wts.back() *= virus_attract;
-            if (pseudo(x,y)) land_wts.back() /= pseudo_repel;
+            if (virus[x][y]) land_wts.back() *= virus_attract;
+            if (pseudo[x][y]) land_wts.back() /= pseudo_repel;
             if (land_wts.back() == 0) {
                 std::string err_msg = "\nERROR: virus_attract is very low or ";
                 err_msg += "pseudo_repel is very high, ";
@@ -263,8 +279,8 @@ void AlateFlightInfo::infest(const double& p_load_alate,
         const uint32& x0(alate_coords.x);
         const uint32& y0(alate_coords.y);
         const uint32  k0 = dim_conv.to_1d(x0, y0);
-        const AphidPop& aphids_xy(aphids(x0, y0));
-        arma::uvec& n_alates_xy(n_alates(x0,y0));
+        const AphidPop& aphids_xy(aphids[x0][y0]);
+        arma::uvec& n_alates_xy(n_alates[x0][y0]);
 
         uint32 adult_age = aphids_xy.adult_age;
 
@@ -280,7 +296,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                 // If it starts on an infectious plant, then sample for whether
                 // the alate is virus-bearing:
-                if (infectious(x0, y0)) {
+                if (infectious[x0][y0]) {
                     u = runif_01(eng);
                     has_virus = u < p_load_alate;
                 } else has_virus = false;
@@ -292,9 +308,9 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                 // Sample for whether aphid or plant is inoculated:
                 sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                                   (bool)infectious(x_new, y_new),
-                                   (bool)exposed(x_new, y_new),
-                                   exp_days(x_new, y_new),
+                                   infectious[x_new][y_new],
+                                   exposed[x_new][y_new],
+                                   exp_days[x_new][y_new],
                                    eng);
 
                 k_old = k_new;
@@ -308,11 +324,11 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                     // Sample for whether alate will stay to feed at this plant:
                     feed_p = w;
-                    if (virus(x_old, y_old)) feed_p *= epsilon;
+                    if (virus[x_old][y_old]) feed_p *= epsilon;
                     if (runif_01(eng) < feed_p) {
                         keep_going = false;
                         // Adding alate to winged population of plant settled on:
-                        AphidPop& aphids_old(aphids(x_old, y_old));
+                        AphidPop& aphids_old(aphids[x_old][y_old]);
                         aphids_old.alates.X(adult_age + i) += 1;
                         break;
                     }
@@ -324,9 +340,9 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                     // Sample for whether aphid or plant is inoculated:
                     sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                                       (bool)infectious(x_new, y_new),
-                                       (bool)exposed(x_new, y_new),
-                                       exp_days(x_new, y_new),
+                                       infectious[x_new][y_new],
+                                       exposed[x_new][y_new],
+                                       exp_days[x_new][y_new],
                                        eng);
 
                     k_old = k_new;
@@ -338,8 +354,8 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 // If reaching max fly iterations, adding alate to winged
                 // population of plant settled on:
                 if (t >= max_fly_t && keep_going) {
-                    AphidPop& aphids_old(aphids(x_old, y_old));
-                    aphids(x_old, y_old).alates.X(adult_age + i) += 1;
+                    // AphidPop& aphids_old(aphids[x_old][y_old]);
+                    aphids[x_old][y_old].alates.X(adult_age + i) += 1;
                 }
 
                 n_alates_xyi--;

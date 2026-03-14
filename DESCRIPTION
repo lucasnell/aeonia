@@ -1,6 +1,6 @@
 Package: aeonia
 Title: Alate Effects On Nonpersistent Infection Advancement
-Version: 0.0.0.9003
+Version: 0.0.1.9000
 Description: What the package does (one paragraph).
 Authors@R: person(c("Lucas", "A."), "Nell", email = "lucnell@gmail.com",
                   role = c("cph", "aut", "cre"),
@@ -21,6 +21,7 @@ Imports:
     tibble,
     tidyr
 LinkingTo:
+    BH,
     Rcpp (>= 1.0.0),
     RcppArmadillo,
     RcppThread

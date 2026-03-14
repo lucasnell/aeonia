@@ -68,3 +68,23 @@ NumericVector sad_leslie(arma::mat L) {
     sad_leslie__(L, out);
     return wrap(out);
 }
+
+/*
+ Create Leslie matrix from aphid info
+
+ @param instar_days Integer vector of the number of stages (days) per aphid instar.
+ @param surv_juv Single numeric of daily juvenile survival.
+ @param surv_adult Numeric vector of aphid adult survivals by stage.
+ @param repro Numeric vector of aphid reproductive rates by stage.
+
+ */
+//[[Rcpp::export]]
+NumericMatrix leslie_matrix(IntegerVector instar_days, const double& surv_juv,
+                            NumericVector surv_adult, NumericVector repro) {
+    arma::mat LL;
+    leslie_matrix__(as<arma::uvec>(instar_days), surv_juv,
+                    as<arma::vec>(surv_adult),
+                    as<arma::vec>(repro),
+                    LL);
+    return wrap(LL);
+}

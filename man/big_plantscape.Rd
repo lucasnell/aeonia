@@ -88,7 +88,7 @@ virus-infectious plants.
 Values must be \verb{> 0}.}
 
 \item{fly_p}{Single numeric indicating the proportion of alates that fly
-off plants each day.}
+off plants each day. Defaults to \code{0.05}.}
 
 \item{p_load_alate}{Single numeric indicating the probability that an
 uninoculated alate is loaded with a virus if it interacts with an
@@ -99,7 +99,7 @@ uninoculated plant is loaded with a virus if it interacts with an
 inoculated alate.}
 
 \item{...}{Other parameters for functions \code{\link[=sim_plantscape]{sim_plantscape()}},
-\code{\link[=make_disease_ptr]{make_disease_ptr()}}, or \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
+\code{\link[=make_disease_ptr]{make_disease_ptr()}}, or \code{\link[=make_insects_ptr]{make_insects_ptr()}}.}
 }
 \value{
 A tibble with columns following the description in the

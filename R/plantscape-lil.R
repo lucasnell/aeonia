@@ -146,10 +146,10 @@ make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 #'     the exact values of the summary stats will differ stochastically.
 #'     Defaults to `TRUE`.
 #' @param ... Other parameters for functions [sim_plantscape()],
-#'     [make_disease_ptr()], or [make_insect_ptr()].
+#'     [make_disease_ptr()], or [make_insects_ptr()].
 #' @inheritParams sim_plantscape
 #' @inheritParams make_disease_ptr
-#' @inheritParams make_insect_ptr
+#' @inheritParams make_insects_ptr
 #'
 #' @returns A tibble with columns following the description in the
 #'     "Summarizing" section in the docs for function [sim_plantscape()].

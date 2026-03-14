@@ -80,7 +80,9 @@ is_type <- function(x, par, type, L = NULL, .min = NULL, .max = NULL) {
         if (all_good && !is.null(.max)) all_good <- all(x <= .max)
     }
     if (!all_good) {
-        err_suff <- paste("an object of type", type)
+        err_suff <- "an object of type"
+        if (is.character(type)) err_suff <- paste(err_suff, type)
+        if (is.function(type)) err_suff <- paste(err_suff, gsub("is\\.", "", paste(substitute(type))))
         if (!is.null(L)) err_suff <- paste(err_suff, "with possible length(s) =",
                                            paste(L, collapse = ", "))
         if (!is.null(.min)) err_suff <- paste0(err_suff, "; min value(s) = ", .min)

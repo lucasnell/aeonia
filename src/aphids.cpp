@@ -93,7 +93,7 @@ double AphidPop::no_disp_iterate(const arma::vec& A_surv, pcg32& eng) {
     if (z <= 0) return new_mummies;
 
     double S = 1 / (1 + z / K);
-    double S_y = 1 / (1 + z / K_y);
+    double S_y = 1 / (1 + z / K_p);
 
     arma::vec A_mumm = 1 - A_surv;
 
@@ -174,13 +174,20 @@ double AphidPop::no_disp_iterate(const arma::vec& A_surv, pcg32& eng) {
 // Adjust starting abundances
 void AphidPop::refresh_abunds(double N0, double W0) {
 
-    double X_0_sum = arma::accu(apterous.X_0_);
-    if (X_0_sum != 1) N0 /= X_0_sum;
-    apterous.X_0_ *= N0;
+    double X_0_sum;
+    if (N0 > 0) {
+        X_0_sum = arma::accu(apterous.X_0_);
+        if (X_0_sum <= 0) stop("apterous X_0 sums to <= 0");
+        if (X_0_sum != 1) N0 /= X_0_sum;
+        apterous.X_0_ *= N0;
+    } else apterous.X_0_.zeros();
 
-    X_0_sum = arma::accu(alates.X_0_);
-    if (X_0_sum != 1) W0 /= X_0_sum;
-    alates.X_0_ *= W0;
+    if (W0 > 0) {
+        X_0_sum = arma::accu(alates.X_0_);
+        if (X_0_sum <= 0) stop("alates X_0 sums to <= 0");
+        if (X_0_sum != 1) W0 /= X_0_sum;
+        alates.X_0_ *= W0;
+    } else alates.X_0_.zeros();
 
     // refresh starting conditions:
     apterous.X = apterous.X_0_;
@@ -221,6 +228,12 @@ double AphidPop::iterate(arma::uvec& n_alates,
     return new_mummies;
 
 }
+// Overloaded for not doing any dispersing (used in `test_insect_pops`)
+double AphidPop::iterate(const arma::vec& A_surv,
+                         pcg32& eng) {
+    double new_mummies = no_disp_iterate(A_surv, eng);
+    return new_mummies;
+}
 
 
 
@@ -228,7 +241,7 @@ double AphidPop::iterate(arma::uvec& n_alates,
 
 
 //[[Rcpp::export]]
-SEXP make_aphid_ptr(const double& K,
+SEXP make_aphids_ptr(const double& K,
                     const double& K_p,
                     const double& pseudo_surv,
                     const double& pred_surv,
@@ -253,7 +266,7 @@ SEXP make_aphid_ptr(const double& K,
                                            aphid_density_0, alate_b0, alate_b1,
                                            adult_age, living_days), true);
 
-    return aphid_pops_xptr;
+    return aphid_xptr;
 
 }
 
@@ -262,4 +275,32 @@ SEXP make_aphid_ptr(const double& K,
 uint32 get_aphid_n_age_stages(SEXP aphid_ptr) {
     XPtr<AphidPop> aphid_xptr(aphid_ptr);
     return aphid_xptr->n_age_stages();
+}
+
+
+
+//' Calculate the proportion of offspring that are alates.
+//'
+//' @param z Numeric vector of total aphid abundances (including non-winged,
+//'     winged, and parasitized).
+//' @inheritParams make_insects_ptr
+//'
+//' @export
+//'
+//[[Rcpp::export]]
+NumericVector alate_prop(const NumericVector& z,
+                         const double& alate_b0 = -5,
+                         const double& alate_b1 = 0.0022) {
+
+    if (is_true(any(z < 0.0))) stop("any(z < 0)");
+
+    uint32 n = z.size();
+    NumericVector out(n);
+
+    for (uint32 i = 0; i < n; i++) {
+        out[i] = alate_prop_cpp(z[i], alate_b0, alate_b1);
+    }
+
+    return out;
+
 }

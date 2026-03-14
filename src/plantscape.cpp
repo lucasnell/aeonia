@@ -73,13 +73,14 @@ bool PlantScape::iterate(arma::umat& dispersals) {
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
 
-            AphidPop& aphids_xy(aphids(x,y));
-            MummyPop& mummies_xy(mummies(x,y));
-            bool& exposed_xy(exposed(x,y));
-            bool& infectious_xy(infectious(x,y));
-            bool& pseudo_xy(pseudo(x,y));
-            uint32& exp_days_xy(exp_days(x,y));
+            AphidPop& aphids_xy(aphids[x][y]);
+            MummyPop& mummies_xy(mummies[x][y]);
+            bool& exposed_xy(exposed[x][y]);
+            bool& infectious_xy(infectious[x][y]);
+            bool& pseudo_xy(pseudo[x][y]);
+            uint32& exp_days_xy(exp_days[x][y]);
             const double& Yi(Yi_mat(x,y));
+            arma::uvec& n_alates_xy(n_alates[x][y]);
 
 
             infectious0 = infectious_xy;
@@ -89,7 +90,7 @@ bool PlantScape::iterate(arma::umat& dispersals) {
             wasps.A_mats(A_surv, aphids_xy.attack_surv, Yi, x_xy);
 
             // Now iterate aphids, then mummies
-            new_M = aphids_xy.iterate(n_alates(x,y), A_surv, eng);
+            new_M = aphids_xy.iterate(n_alates_xy, A_surv, eng);
             new_Y += mummies_xy.iterate(new_M); // also update new adult parasitoids
 
             if (exposed_xy) {
@@ -101,7 +102,7 @@ bool PlantScape::iterate(arma::umat& dispersals) {
                 }
             }
 
-            if (arma::accu(n_alates(x,y)) > 0U) alate_plants.push_back(XY(x,y));
+            if (arma::accu(n_alates_xy) > 0U) alate_plants.push_back(XY(x,y));
 
             // If newly infectious, update landscape and let `flight` know
             // that samplers need to be updated:
@@ -124,8 +125,8 @@ bool PlantScape::iterate(arma::umat& dispersals) {
     bool all_infected = true;
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            const OnePlant& plant_xy(plants[x][y]);
-            if (!plant_xy.infectious) {
+            const bool& infectious_xy(infectious[x][y]);
+            if (!infectious_xy) {
                 all_infected = false;
                 break;
             }
@@ -164,23 +165,22 @@ PlantScape::PlantScape(const arma::umat& landscape_,
       flight(disp_dis.max_fly_t, landscape_, disp_dis.radius,
              disp_dis.virus_attract, disp_dis.pseudo_repel,
              disp_dis.epsilon, disp_dis.w),
-             wasps(insects.wasps),
-             aphids(n_x, n_y, insects.aphids),
-             mummies(n_x, n_y, insects.mummies),
-             exposed(n_x, n_y, false),
-             infectious(n_x, n_y, false),
-             pseudo(n_x, n_y, false),
-             exp_days(n_x, n_y, 0),
-             wasp_attract(wasp_attract_),
-             p_load_alate(disp_dis.p_load_alate),
-             p_load_plant(disp_dis.p_load_plant),
-             total_exp_days(disp_dis.total_exp_days),
-             n_alates(n_x, n_y, arma::vec(insects.aphids.alates.X.n_elem -
-                 insects.aphids.adult_age, arma::fill::none)),
-                 alate_plants(),
-                 eng(),
-                 z_mat(arma::size(landscape_), arma::fill::none),
-                 Yi_mat(arma::size(landscape_), arma::fill::none) {
+      wasp_attract(wasp_attract_),
+      p_load_alate(disp_dis.p_load_alate),
+      p_load_plant(disp_dis.p_load_plant),
+      total_exp_days(disp_dis.total_exp_days),
+      n_alates(vMatSize({n_x, n_y})),
+      alate_plants(),
+      eng(),
+      z_mat(arma::size(landscape_), arma::fill::none),
+      Yi_mat(arma::size(landscape_), arma::fill::none),
+      wasps(insects.wasps),
+      aphids(vMatSize({n_x, n_y})),
+      mummies(vMatSize({n_x, n_y})),
+      exposed(vMatSize({n_x, n_y})),
+      infectious(vMatSize({n_x, n_y})),
+      pseudo(vMatSize({n_x, n_y})),
+      exp_days(vMatSize({n_x, n_y})) {
 
     alate_plants.reserve(n_x * n_y);
 
@@ -193,14 +193,23 @@ PlantScape::PlantScape(const arma::umat& landscape_,
 
     seed_pcg(eng, seeds);
 
+    // for n_alates:
+    arma::uvec tmp(insects.aphids.alates.X.n_elem - insects.aphids.adult_age,
+                   arma::fill::none);
+
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            infectious(x, y) = get_bit_bool(0U, landscape_(x, y));
-            pseudo(x, y) = get_bit_bool(1U, landscape_(x, y));
-            AphidPop& aphids_xy(aphids(x, y));
-            if (!pseudo(x, y)) aphids_xy.pseudo_surv = 1.0;
+            aphids[x][y] = insects.aphids;
+            mummies[x][y] = insects.mummies;
+            exposed[x][y] = false;
+            exp_days[x][y] = 0;
+            infectious[x][y] = get_bit_bool(0U, landscape_(x, y));
+            pseudo[x][y] = get_bit_bool(1U, landscape_(x, y));
+            AphidPop& aphids_xy(aphids[x][y]);
+            if (!pseudo[x][y]) aphids_xy.pseudo_surv = 1.0;
             aphids_xy.refresh_abunds(N0(x,y), W0(x,y));
-            mummies(x, y).refresh_abunds(M0(x,y));
+            mummies[x][y].refresh_abunds(M0(x,y));
+            n_alates[x][y] = tmp;
         }
     }
 
