@@ -105,7 +105,7 @@ plantscape_shared <- function(n_x,
 
         stopifnot(!is.null(names(other_args)) && all(names(other_args) != ""))
 
-        .formals <- c(insect = make_insect_ptr, disease = make_disease_ptr,
+        .formals <- c(insect = make_insects_ptr, disease = make_disease_ptr,
                       plantscape = sim_plantscape) |>
             lapply(\(x) names(formals(x)))
         all_formals <- do.call(c, .formals) |> unname()
@@ -113,7 +113,7 @@ plantscape_shared <- function(n_x,
         if (!all(names(other_args) %in% all_formals)) {
             print(names(other_args)[!names(other_args) %in% all_formals])
             stop("\nThe names printed above (inside `...`) do not match args ",
-                 "in sim_plantscape, make_insect_ptr, or make_disease_ptr")
+                 "in sim_plantscape, make_insects_ptr, or make_disease_ptr")
         }
 
         for (x in names(.args)) {
@@ -123,7 +123,7 @@ plantscape_shared <- function(n_x,
 
     }
 
-    .args$plantscape[["insect_ptr"]] <- do.call(make_insect_ptr, .args$insect)
+    .args$plantscape[["insect_ptr"]] <- do.call(make_insects_ptr, .args$insect)
     .args$plantscape[["disease_ptr"]] <- do.call(make_disease_ptr, .args$disease)
 
     out <- do.call(sim_plantscape, .args$plantscape)

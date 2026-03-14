@@ -16,7 +16,7 @@
 #'
 #' @source \url{http://doi.wiley.com/10.1890/13-1933.1}
 #'
-"dev_times"
+"an_dev_times"
 
 
 #' Population rates and starting values for aphids and wasps.
@@ -47,8 +47,9 @@
 #'   \item{K}{
 #'     A single number representing aphid density dependence.
 #'   }
-#'   \item{K_y}{
-#'     A single number representing parasitized aphid density dependence.
+#'   \item{K_p_mult}{
+#'     A single number representing the number multiplied by `K` to get
+#'     parasitized aphid density dependence.
 #'   }
 #'   \item{s_y}{
 #'     A single number representing parasitoid adult daily survival.
@@ -56,20 +57,11 @@
 #'   \item{sex_ratio}{
 #'     A single number representing proportion of female wasps.
 #'   }
-#'   \item{aphids_0}{
-#'     A single number representing initial density of aphids.
-#'   }
-#'   \item{wasps_0}{
-#'     A single number representing initial densities of wasps.
-#'   }
-#'   \item{prop_resist}{
-#'     A single number representing proportion of resistant clones.
-#'   }
 #' }
 #'
 #' @source \url{http://doi.wiley.com/10.1890/13-1933.1}
 #'
-"populations"
+"an_populations"
 
 
 #' Wasp attack rate parameters.
@@ -104,7 +96,7 @@
 #' @source \url{http://doi.wiley.com/10.1890/13-1933.1}
 #' @source \url{http://www.journals.uchicago.edu/doi/10.1086/303269}
 #'
-"wasp_attack"
+"an_wasp_attack"
 
 
 #' Parameters associated with environmental effects and stochasticity.
@@ -115,24 +107,7 @@
 #'
 #' @format A list of length 9:
 #' \describe{
-#'   \item{harvest_surv}{
-#'       Numeric vector of length 1 for aphid survival rate at harvesting.
-#'   }
-#'   \item{disp_aphid}{
-#'       Numeric vector of length 1 for dispersal rates between fields for aphids,
-#'       adult wasps.
-#'   }
-#'   \item{disp_wasp}{
-#'       Numeric vector of length 1 for dispersal rates between fields for aphids,
-#'       adult wasps.
-#'   }
-#'   \item{pred_rate}{
-#'       Numeric vector of length 1 for predation rate for aphids and non-adult wasps.
-#'   }
-#'   \item{cycle_length}{
-#'       Numeric vector of length 1 for time between harvests (typical for alfalfa).
-#'   }
-#'   \item{field_disp_start}{
+#'   \item{disp_start}{
 #'     List of length 2, each item of which contains a 1-length numeric vector
 #'     indicating the day at which aphids begin dispersing for 20ºC  (\code{lowT})
 #'     and 27ºC (\code{highT}).
@@ -148,9 +123,13 @@
 #'   \item{rho}{
 #'     Numeric vector of length 1, indicating environmental correlation among instars.
 #'   }
+#'   \item{radius}{
+#'     Numeric vector of length 1, indicating radius of alate dispersal.
+#'     Value taken from \url{https://doi.org/10.3929/ethz-a-000909462}.
+#'   }
 #' }
 #'
 #' @source \url{http://doi.wiley.com/10.1890/13-1933.1}
 #'
-"environ"
+"an_environ"
 

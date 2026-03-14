@@ -4,34 +4,7 @@
 \alias{test_insect_pops}
 \title{Test population dynamics for insects for a set of parameters.}
 \usage{
-test_insect_pops(
-  max_t,
-  N0,
-  W0,
-  Y0,
-  pseudo_surv = 1,
-  extinct_N = 0,
-  demog_error = FALSE,
-  sigma_x = 0,
-  surv_j = NA_real_,
-  surv_a = NA_real_,
-  recruit = NA_real_,
-  fecund = NA_real_,
-  K = NA_real_,
-  K_p_mult = NA_real_,
-  s_p = NA_real_,
-  R = as.numeric(c()),
-  trans_ma = NA_real_,
-  trans_pm = NA_real_,
-  pred_surv = NA_real_,
-  alate_infl = NA_real_,
-  alate_slope = NA_real_,
-  alate_max = 1,
-  a = NA_real_,
-  h = NA_real_,
-  k = NA_real_,
-  s_y = NA_real_
-)
+test_insect_pops(max_t, N0, W0, M0, Y0, insects_ptr)
 }
 \arguments{
 \item{max_t}{Single integer giving the maximum time the simulations run.}
@@ -50,100 +23,19 @@ the array should have the same dimensions as \code{landscapes}.
 The array can also be 1x1, in which case it's assumed that all plants
 and reps start with the same density of winged aphids.}
 
+\item{M0}{Numeric 3D array indicating the starting mummy population
+density for each plant and rep.
+To indicate separate densities for each plant and/or rep,
+the array should have the same dimensions as \code{landscapes}.
+The array can also be 1x1, in which case it's assumed that all plants
+and reps start with the same density of mummies.}
+
 \item{Y0}{Numeric vector indicating the starting parasitoid population
 density for each rep.
 The vector can also be of length 1, in which case it's assumed that
 all reps start with the same density of parasitoids.}
-
-\item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
-
-\item{extinct_N}{Single numeric indicating the extinction threshold.
-Defaults to \code{0}.}
-
-\item{demog_error}{Single logical for whether to include demographic
-stochasticity. Defaults to \code{FALSE}.}
-
-\item{sigma_x}{Single numeric indicating the standard deviation
-for the lognormal distribution used to generate environmental
-stochasticity.
-Defaults to \code{0}.}
-
-\item{surv_j}{Single numeric indicating aphid juvenile survival.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{surv_a}{Single numeric indicating aphid adult survival.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{recruit}{Single numeric indicating aphid recruitment.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{fecund}{Single numeric indicating aphid fecundity.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{K}{Single numeric indicating the density dependence of the
-aphid population.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{K_p_mult}{Single numeric indicating the multiplier for parasitized
-aphid density dependence (\code{K_p = K * K_p_mult}).
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{s_p}{Single numeric indicating parasitized aphid daily survival.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{R}{Single numeric indicating
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{trans_ma}{Single numeric indicating the proportion of mummies that
-transition to adult parasitoids each day.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{trans_pm}{Single numeric indicating the proportion of parasitized
-aphids that transition to mummies each day.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{pred_surv}{Single numeric indicating aphid and mummy mortality due
-to generalist predators.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{alate_infl}{Single numeric for the inflection point for the sigmoid
-relationship between aphid density and alate offspring proportion.
-The proportion of winged offspring from apterous aphids is
-\code{1 / {1 + 10^((alate_infl - z) * alate_slope)}} where \code{z} is the total number of
-aphids on that plant.
-To turn off alate production, set this parameter to \code{Inf}.
-Note: Do NOT set both \code{alate_infl = Inf} and \code{alate_slope = 0}
-because that'll trigger an error that's put in place because
-setting these parameters in this way would result in \code{NaN} values.
-Must be > 0.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{alate_slope}{Single numeric for the slope for the sigmoid
-relationship between aphid density and alate offspring proportion.
-See \code{alate_infl} above for the equation.
-Must be > 0.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{alate_max}{Maximum proportion of offspring that are alates.
-This is provided so that you can simulate constant alate proportion
-and adjust what that alate proportion is.
-If \code{alate_slope = 0}, then alate proportion is a constant
-\code{alate_max / 2}.
-Defaults to \code{1}.}
-
-\item{a}{Single numeric indicating the parasitoid attack rate.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{h}{Single numeric indicating the parasitoid handling time.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{k}{Single numeric indicating the parasitoid aggregation parameter.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{s_y}{Single numeric indicating the adult parasitoid daily survival.
-Defaults to \code{NA}. See 'Details' for more info.}
 }
 \description{
 This function is just for one plant, so the probability that an
-alate leaves the plant (argument \code{fly_p} in \code{\link[=make_insect_ptr]{make_insect_ptr()}}) is always 1.
+alate leaves the plant (argument \code{fly_p} in \code{\link[=make_insects_ptr]{make_insects_ptr()}}) is always 1.
 }

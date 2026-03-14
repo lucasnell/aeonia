@@ -404,6 +404,8 @@ public:
      return the # newly mummified aphids
      */
     double iterate(arma::uvec& n_alates, const arma::vec& A_surv, pcg32& eng);
+    // Overloaded for not doing any dispersing (used in `test_insect_pops`)
+    double iterate(const arma::vec& A_surv, pcg32& eng);
 
     // /*
     //  Adult and juvenile numbers for alates and apterous:
@@ -423,6 +425,9 @@ public:
 
     inline arma::vec unparas_X() const {
         return arma::join_cols(apterous.X, alates.X);
+    }
+    inline arma::vec unparas_X_0() const {
+        return arma::join_cols(apterous.X_0(), alates.X_0());
     }
 
     inline uint32 n_stages() const {

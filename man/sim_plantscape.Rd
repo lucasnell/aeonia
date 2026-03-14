@@ -8,6 +8,7 @@ sim_plantscape(
   landscapes,
   N0,
   W0,
+  M0,
   Y0,
   insect_ptr,
   disease_ptr,
@@ -19,6 +20,7 @@ sim_plantscape(
   wasp_gone_thresh = 1,
   infect_stop = FALSE,
   out_pseudo = FALSE,
+  out_attack_surv = FALSE,
   out_stages = FALSE,
   out_dispersals = FALSE,
   show_progress = FALSE,
@@ -54,13 +56,20 @@ the array should have the same dimensions as \code{landscapes}.
 The array can also be 1x1, in which case it's assumed that all plants
 and reps start with the same density of winged aphids.}
 
+\item{M0}{Numeric 3D array indicating the starting mummy population
+density for each plant and rep.
+To indicate separate densities for each plant and/or rep,
+the array should have the same dimensions as \code{landscapes}.
+The array can also be 1x1, in which case it's assumed that all plants
+and reps start with the same density of mummies.}
+
 \item{Y0}{Numeric vector indicating the starting parasitoid population
 density for each rep.
 The vector can also be of length 1, in which case it's assumed that
 all reps start with the same density of parasitoids.}
 
 \item{insect_ptr}{External pointer to a C++ object with insect population
-information, output from function \code{\link[=make_insect_ptr]{make_insect_ptr()}}.}
+information, output from function \code{\link[=make_insects_ptr]{make_insects_ptr()}}.}
 
 \item{disease_ptr}{External pointer to a C++ object with disease (and
 dispersal) information, output from function \code{\link[=make_disease_ptr]{make_disease_ptr()}}.}
@@ -116,6 +125,11 @@ Defaults to \code{TRUE}.}
 
 \item{out_pseudo}{Single logical for whether to include \emph{Pseudomonas}
 presence in output. Ignored if \code{summ != "none"}.
+Defaults to \code{FALSE}.}
+
+\item{out_attack_surv}{Single logical for whether to include aphid survival
+from parasitoid attack (weighted mean by abundance for each aphid stage)
+in output. Ignored if \code{summ != "none"}.
 Defaults to \code{FALSE}.}
 
 \item{out_stages}{Single logical for whether to separate output for aphids

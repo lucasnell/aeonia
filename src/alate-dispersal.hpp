@@ -161,11 +161,7 @@ class AlateFlightInfo {
 
 
 
-    /*
-     Fill statuses (`virus` and `pseudo`), plus `samplers` and related objects
-     (notably `land_wts` and `neighbors`).
-     */
-    void fill_status_samplers(const arma::umat& landscape_, const double& radius);
+
 
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
@@ -199,34 +195,13 @@ public:
                     const double& virus_attract_,
                     const double& pseudo_repel_,
                     const double& epsilon_,
-                    const double& w_)
-        : dim_conv(landscape_.n_rows, landscape_.n_cols),
-          any_changed(false),
-          update_sampler(landscape_.n_elem, false),
-          neighbors(),
-          land_wts(),
-          samplers(),
-          virus_attract(virus_attract_),
-          pseudo_repel(pseudo_repel_),
-          epsilon(epsilon_),
-          w(w_),
-          max_fly_t(max_fly_t_),
-          n_x(landscape_.n_rows),
-          n_y(landscape_.n_cols),
-          n_plants(landscape_.n_elem),
-          n_neigh(),
-          virus(),
-          pseudo() {
-
-        fill_status_samplers(landscape_, radius);
-
-    }
+                    const double& w_);
 
     // Let this object know that a plant was newly infected so that it can
     // update the landscape (`virus` and `land_wts`)
     // and let samplers know to update:
     void newly_infected(const uint32& x, const uint32& y) {
-        virus(x,y) = true;
+        virus[x][y] = true;
         uint32 k = dim_conv.to_1d(x, y);
         land_wts[k] *= virus_attract;
         any_changed = true;

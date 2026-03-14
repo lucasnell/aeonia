@@ -101,9 +101,12 @@ public:
     }
 
     inline void refresh_abunds(double mummy_M0) {
-        double m0_sum = arma::accu(M_0);
-        if (m0_sum != 1 && m0_sum > 0) mummy_M0 /= m0_sum;
-        M_0 *= mummy_M0;
+        if (mummy_M0 > 0) {
+            double m0_sum = arma::accu(M_0);
+            if (m0_sum <= 0) stop("mummy M_0 sums to <= 0");
+            if (m0_sum != 1) mummy_M0 /= m0_sum;
+            M_0 *= mummy_M0;
+        } else M_0.zeros();
         M = M_0;
         return;
     }

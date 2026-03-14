@@ -25,6 +25,8 @@
 
 
 
+
+
 using namespace Rcpp;
 
 struct ScapeSimmer; // required to declare friendship
@@ -91,17 +93,6 @@ protected:
 
     AlateFlightInfo flight;
 
-    // Insect populations:
-    WaspPop wasps;
-    vMatrix<AphidPop> aphids;
-    vMatrix<MummyPop> mummies;
-
-    // Plant infection info:
-    vMatrix<bool> exposed;       // virus: exposed but not yet infectious?
-    vMatrix<bool> infectious;    // virus: infectious?
-    vMatrix<bool> pseudo;        // contains Pseudomonas?
-    vMatrix<uint32> exp_days;    // days since exposure (ignored if not exposed):
-
     // Attractiveness to parasitoids:
     arma::mat wasp_attract;
 
@@ -132,9 +123,18 @@ protected:
     void fill_Yi_mat();
 
 
-
-
 public:
+
+    // Insect populations:
+    WaspPop wasps;
+    vMatrix<AphidPop> aphids;
+    vMatrix<MummyPop> mummies;
+
+    // Plant infection info:
+    vMatrix<bool> exposed;       // virus: exposed but not yet infectious?
+    vMatrix<bool> infectious;    // virus: infectious?
+    vMatrix<bool> pseudo;        // contains Pseudomonas?
+    vMatrix<uint32> exp_days;    // days since exposure (ignored if not exposed):
 
 
 

@@ -34,10 +34,10 @@
 #'     See "Radius" section in the description for [lil_plantscape()] for details.
 #'     Defaults to `pop_info$radius`.
 #' @param ... Other parameters for functions [sim_plantscape()],
-#'     [make_disease_ptr()], or [make_insect_ptr()].
+#'     [make_disease_ptr()], or [make_insects_ptr()].
 #' @inheritParams sim_plantscape
 #' @inheritParams make_disease_ptr
-#' @inheritParams make_insect_ptr
+#' @inheritParams make_insects_ptr
 #'
 #' @returns A tibble with columns following the description in the
 #'     "Summarizing" section in the docs for function [sim_plantscape()].

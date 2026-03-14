@@ -91,29 +91,29 @@
 #' @param sigma_x Standard deviation of environmental stochasticity for aphids.
 #'     This argument has no effect (is changed to `0`) when
 #'     `environ_error = FALSE`.
-#'     Defaults to the internal object `environ$sigma_x`,
+#'     Defaults to the internal object `an_environ$sigma_x`,
 #'     which is from Meisner et al. (2014).
 #' @param rho Environmental correlation among instars.
 #'     This argument has no effect if used in simulations with no environmental
 #'     error (i.e., when `environ_error = FALSE`).
-#'     Defaults to `environ$rho`.
+#'     Defaults to `an_environ$rho`.
 #' @param s_y Daily survival rate of adult wasps.
-#'     Defaults to `populations$s_y`, which is from Meisner et al. (2014).
+#'     Defaults to `an_populations$s_y`, which is from Meisner et al. (2014).
 #' @param sex_ratio Sex ratio of adult wasps. Defaults to `0.5`.
 #' @param a Parasitoid attack rate. Defaults to the internal object
-#'     `wasp_attack$a`, which is from Meisner et al. (2014).
+#'     `an_wasp_attack$a`, which is from Meisner et al. (2014).
 #' @param k Aggregation parameter of the negative binomial distribution.
-#'     Defaults to the internal object `wasp_attack$k`,
+#'     Defaults to the internal object `an_wasp_attack$k`,
 #'     which is from Meisner et al. (2014).
 #' @param h Parasitoid handling time. Defaults to the internal object
-#'     `wasp_attack$h`, which is from Meisner et al. (2014).
+#'     `an_wasp_attack$h`, which is from Meisner et al. (2014).
 #' @param rel_attack Relative parasitoid attack rate among instars.
-#'     Defaults to `wasp_attack$rel_attack`, which is from
+#'     Defaults to `an_wasp_attack$rel_attack`, which is from
 #'     Meisner et al. (2014).
 #' @param sigma_y Standard deviation of environmental stochasticity for wasps.
 #'     This argument has no effect (is changed to `0`) if
 #'     `environ_error = FALSE`.
-#'     Defaults to the internal object `environ$sigma_y`,
+#'     Defaults to the internal object `an_environ$sigma_y`,
 #'     which is from Meisner et al. (2014).
 #' @param mum_smooth Proportion of mummies that will NOT take exactly 3 days
 #'     to develop. As this value approaches 2/3, it will provide greater
@@ -126,38 +126,39 @@
 #'
 #' @export
 #'
-make_insect_ptr <- function(pseudo_surv,
-                            zeta,
-                            extinct_N = 0,
-                            demog_error = FALSE,
-                            environ_error = FALSE,
-                            K = populations$K,
-                            K_p_mult = populations$K_p_mult,
-                            pred_surv = 0.9,
-                            alate_b0 = -5,
-                            alate_b1 = 0.0022,
-                            fly_p = 0.05,
-                            distr_0 = NULL,
-                            resistant = FALSE,
-                            surv_juv_apterous = NULL,
-                            surv_adult_apterous = NULL,
-                            repro_apterous = NULL,
-                            surv_juv_alates = "low",
-                            surv_adult_alates = "low",
-                            repro_alates = "low",
-                            surv_paras = "low",
-                            temp = "low",
-                            p_instar_smooth = 0.5,
-                            sigma_x = environ$sigma_x,
-                            rho = environ$rho,
-                            s_y = populations$s_y,
-                            sex_ratio = populations$sex_ratio,
-                            a = wasp_attack$a,
-                            k = wasp_attack$k,
-                            h = wasp_attack$h,
-                            rel_attack = wasp_attack$rel_attack,
-                            sigma_y = environ$sigma_y,
-                            mummy_smooth = 0.4) {
+make_insects_ptr <- function(pseudo_surv,
+                             zeta,
+                             extinct_N = 0,
+                             demog_error = FALSE,
+                             environ_error = FALSE,
+                             K = an_populations$K,
+                             K_p_mult = an_populations$K_p_mult,
+                             pred_surv = 0.9,
+                             alate_b0 = -5,
+                             alate_b1 = 0.0022,
+                             fly_p = 0.05,
+                             distr_0 = NULL,
+                             resistant = FALSE,
+                             surv_juv_apterous = NULL,
+                             surv_adult_apterous = NULL,
+                             repro_apterous = NULL,
+                             surv_juv_alates = "low",
+                             surv_adult_alates = "low",
+                             repro_alates = "low",
+                             surv_paras = "low",
+                             temp = "low",
+                             p_instar_smooth = 0.5,
+                             sigma_x = an_environ$sigma_x,
+                             rho = an_environ$rho,
+                             s_y = an_populations$s_y,
+                             sex_ratio = an_populations$sex_ratio,
+                             a = an_wasp_attack$a,
+                             k = an_wasp_attack$k,
+                             h = an_wasp_attack$h,
+                             rel_attack = an_wasp_attack$rel_attack,
+                             sigma_y = an_environ$sigma_y,
+                             mummy_smooth = 0.4) {
+
 
     single_logical(environ_error, "environ_error")
     if (!environ_error) {
@@ -165,47 +166,51 @@ make_insect_ptr <- function(pseudo_surv,
         sigma_y <- 0
     }
 
-    aphid_ptr <- aphid_pop(pseudo_surv = pseudo_surv,
-                           name = "aphid",
-                           K = K,
-                           K_p_mult = K_p_mult,
-                           pred_surv = pred_surv,
-                           alate_b0 = alate_b0,
-                           alate_b1 = alate_b1,
-                           fly_p = fly_p,
-                           distr_0 = distr_0,
-                           resistant = resistant,
-                           surv_juv_apterous = surv_juv_apterous,
-                           surv_adult_apterous = surv_adult_apterous,
-                           repro_apterous = repro_apterous,
-                           surv_juv_alates = surv_juv_alates,
-                           surv_adult_alates = surv_adult_alates,
-                           repro_alates = repro_alates,
-                           surv_paras = surv_paras,
-                           temp = temp,
-                           p_instar_smooth = p_instar_smooth,
-                           sigma_x = sigma_x,
-                           rho = rho,
-                           extinct_N = extinct_N,
-                           demog_error = demog_error)
+    single_string(temp, "temp")
+    temp <- match.arg(temp, c("low", "high"))
+    temp <- paste0(temp, "T")
 
-    wasp_ptr <- wasp_pop(zeta = zeta,
-                         s_y = s_y,
-                         sex_ratio = sex_ratio,
-                         a = a,
-                         k = k,
-                         h = h,
-                         rel_attack = rel_attack,
-                         sigma_y = sigma_y,
-                         demog_error = demog_error,
-                         temp = temp,
-                         n_aphid_age_stages = get_aphid_n_age_stages(aphid_ptr))
+    aphids_ptr <- aphid_pop(pseudo_surv = pseudo_surv,
+                            name = "aphid",
+                            K = K,
+                            K_p_mult = K_p_mult,
+                            pred_surv = pred_surv,
+                            alate_b0 = alate_b0,
+                            alate_b1 = alate_b1,
+                            fly_p = fly_p,
+                            distr_0 = distr_0,
+                            resistant = resistant,
+                            surv_juv_apterous = surv_juv_apterous,
+                            surv_adult_apterous = surv_adult_apterous,
+                            repro_apterous = repro_apterous,
+                            surv_juv_alates = surv_juv_alates,
+                            surv_adult_alates = surv_adult_alates,
+                            repro_alates = repro_alates,
+                            surv_paras = surv_paras,
+                            temp = temp,
+                            p_instar_smooth = p_instar_smooth,
+                            sigma_x = sigma_x,
+                            rho = rho,
+                            extinct_N = extinct_N,
+                            demog_error = demog_error)
 
-    mummy_ptr <- mummy_pop(pred_surv = pred_surv,
-                           mummy_smooth = mummy_smooth,
-                           extinct_N = extinct_N)
+    wasps_ptr <- wasp_pop(zeta = zeta,
+                          s_y = s_y,
+                          sex_ratio = sex_ratio,
+                          a = a,
+                          k = k,
+                          h = h,
+                          rel_attack = rel_attack,
+                          sigma_y = sigma_y,
+                          demog_error = demog_error,
+                          temp = temp,
+                          n_aphid_age_stages = get_aphid_n_age_stages(aphids_ptr))
 
-    ptr <- make_insect_ptr_cpp(aphid_ptr, wasp_ptr, mummy_ptr)
+    mummies_ptr <- mummy_pop(pred_surv = pred_surv,
+                             mummy_smooth = mummy_smooth,
+                             extinct_N = extinct_N)
+
+    ptr <- make_insects_ptr_cpp(aphids_ptr, wasps_ptr, mummies_ptr)
 
     return(ptr)
 
@@ -238,6 +243,7 @@ aphid_pop <- function(pseudo_surv,
                       extinct_N,
                       demog_error) {
 
+
     single_number(pseudo_surv, "pseudo_surv", .min = 0, .max = 1)
     single_string(name, "name")
     single_number(K, "K", .min = 0)
@@ -246,7 +252,6 @@ aphid_pop <- function(pseudo_surv,
     single_number(alate_b0, "alate_b0")
     single_number(alate_b1, "alate_b1")
     single_number(fly_p, "fly_p", .min = 0, .max = 1)
-    single_number(surv_paras, "surv_paras", .min = 0, .max = 1)
     single_string(temp, "temp")
     single_number(p_instar_smooth, "p_instar_smooth", .min = 0, .max = 1)
     single_number(sigma_x, "sigma_x", .min = 0)
@@ -255,10 +260,7 @@ aphid_pop <- function(pseudo_surv,
     single_logical(demog_error, "demog_error")
     # The remaining arguments (distr_0, resistant, surv_juv_apterous,
     # surv_adult_apterous, repro_apterous, surv_juv_alates, surv_adult_alates,
-    # repro_alates) are checked below
-
-    temp <- match.arg(temp, c("low", "high"))
-    temp <- paste0(temp, "T")
+    # repro_alates, surv_paras) are checked below
 
 
     # --------------*
@@ -272,11 +274,11 @@ aphid_pop <- function(pseudo_surv,
     # apterous/alate/parasitized.
 
     # Set with default values for Leslie matrix calculations
-    def_L_args <- list(instar_days = dev_times$instar_days[[temp]],
-                       surv_juv = mean(do.call(c, populations$surv_juv)),
+    def_L_args <- list(instar_days = an_dev_times$instar_days[[temp]],
+                       surv_juv = mean(do.call(c, an_populations$surv_juv)),
                        surv_adult = colMeans(do.call(rbind,
-                                                     populations$surv_adult)),
-                       repro = colMeans(do.call(rbind, populations$repro)))
+                                                     an_populations$surv_adult)),
+                       repro = colMeans(do.call(rbind, an_populations$repro)))
 
     # Note that we don't have values for parasitized aphid adult survival
     # or fecundity because they don't reach adulthood anyway.
@@ -298,7 +300,7 @@ aphid_pop <- function(pseudo_surv,
                 if (is.numeric(inputs[[y]])) {
                     leslie_args[[arg_name]] <- inputs[[y]]
                 } else if (inputs[[y]] %in% c("low", "high")) {
-                    leslie_args[[arg_name]] <- populations[[arg_name]][[
+                    leslie_args[[arg_name]] <- an_populations[[arg_name]][[
                         inputs[[y]]]]
                 } else {
                     msg <- paste0("\ninput argument `", y,
@@ -323,7 +325,7 @@ aphid_pop <- function(pseudo_surv,
 
     # To make 4th instars not always move to adulthood at the same time:
     if (p_instar_smooth > 0) {
-        .adult <- sum(head(dev_times$instar_days[[temp]], -1)) + 1
+        .adult <- sum(head(an_dev_times$instar_days[[temp]], -1)) + 1
         # I included `- 1` bc we don't to adjust the Leslie matrix for the
         # parasitized aphids
         for (j in 1:(dim(leslie_array)[3] - 1)) {
@@ -360,7 +362,7 @@ aphid_pop <- function(pseudo_surv,
         # calculate the proportion for each age within each instar.
         sads <- cbind(as.numeric(sad_leslie(leslie_array[,,1])),
                       as.numeric(sad_leslie(leslie_array[,,2])))
-        idays <- dev_times$instar_days[[temp]]
+        idays <- an_dev_times$instar_days[[temp]]
         d0_inds <- cbind(c(1, head(cumsum(idays), -1) + 1),
                          c(head(cumsum(idays), -1), nrow(sads)))
         for (i in 1:nrow(d0)) {
@@ -393,13 +395,13 @@ aphid_pop <- function(pseudo_surv,
         stop("`resistant` must be a single logical or a numeric vector with ",
              "all elements >= 0 and <= 1.")
     }
-    if (is.logical(resistant) && resistant) attack_surv <- wasp_attack$attack_surv
+    if (is.logical(resistant) && resistant) attack_surv <- an_wasp_attack$attack_surv
     if (is.numeric(resistant)) attack_surv <- resistant
 
     # assume only adult alates can disperse across fields:
-    field_disp_start <- sum(head(dev_times$instar_days[[temp]], -1))
+    field_disp_start <- sum(head(an_dev_times$instar_days[[temp]], -1))
 
-    living_days <- dev_times$mum_days[[1]]
+    living_days <- an_dev_times$mum_days[[1]]
 
 
     K_p <- K * K_p_mult
@@ -408,58 +410,29 @@ aphid_pop <- function(pseudo_surv,
     # Make final output
     # --------------*
 
-    aphid_ptr <- make_aphid_ptr(K = K,
-                                K_p = K_p,
-                                pseudo_surv = pseudo_surv,
-                                pred_surv = pred_surv,
-                                extinct_N = extinct_N,
-                                demog_error = demog_error,
-                                sigma_x = sigma_x,
-                                rho = rho,
-                                fly_p = fly_p,
-                                attack_surv = attack_surv,
-                                aphid_name = name,
-                                leslie_mat = leslie_array,
-                                aphid_density_0 = distr_0,
-                                alate_b0 = alate_b0,
-                                alate_b1 = alate_b1,
-                                fly_start = field_disp_start,
-                                living_days = living_days)
+    ptr <- make_aphids_ptr(K = K,
+                           K_p = K_p,
+                           pseudo_surv = pseudo_surv,
+                           pred_surv = pred_surv,
+                           extinct_N = extinct_N,
+                           demog_error = demog_error,
+                           sigma_x = sigma_x,
+                           rho = rho,
+                           fly_p = fly_p,
+                           attack_surv = attack_surv,
+                           aphid_name = name,
+                           leslie_mat = leslie_array,
+                           aphid_density_0 = distr_0,
+                           alate_b0 = alate_b0,
+                           alate_b1 = alate_b1,
+                           adult_age = field_disp_start,
+                           living_days = living_days)
 
-    return(aphid_ptr)
-
-    # output <- structure(list(name = name,
-    #                          distr_0 = distr_0,
-    #                          attack_surv = attack_surv,
-    #                          leslie = leslie_array,
-    #                          temp = temp,
-    #                          ptr = aphid_ptr),
-    #                     class =  "AphidPop")
-    #
-    # return(output)
+    return(ptr)
 
 }
 
 
-# #'
-# #' @export
-# #' @noRd
-# #'
-# print.AphidPop <- function(x, ...) {
-#
-#     cat("< Aphid clonal line >\n")
-#     cat("Name: ", x$name, "\n", sep = "")
-#     cat("Fields:\n")
-#     cat("  * name <string>\n")
-#     cat("  * distr_0 <matrix>\n")
-#     cat("  * attack_surv <vector>\n")
-#     cat("  * leslie <3D array>\n")
-#     cat("  * temp <string>\n")
-#     cat("  * ptr <externalptr>\n")
-#
-#     invisible(x)
-#
-# }
 
 
 
@@ -487,9 +460,11 @@ wasp_pop <- function(zeta,
     is_type(rel_attack, "rel_attack", is.numeric, .min = 0, L = 5L)
     single_number(sigma_y, "sigma_y", .min = 0)
     single_logical(demog_error, "demog_error")
+    single_string(temp, "temp")
+    single_integer(n_aphid_age_stages, "n_aphid_age_stages", .min = 1)
 
     rel_attack <- rel_attack / sum(rel_attack)
-    dt <- dev_times$instar_days[[temp]]
+    dt <- an_dev_times$instar_days[[temp]]
     n_adult_days <- n_aphid_age_stages - sum(head(dt, -1))
     stopifnot(n_adult_days >= 0)
     if (tail(dt, 1) != n_adult_days) dt[length(dt)] <- n_adult_days
@@ -523,7 +498,7 @@ mummy_pop <- function(pred_surv,
     single_number(mummy_smooth, "mummy_smooth", .min = 0, .max = 2/3)
     single_number(extinct_N, "extinct_N", .min = 0)
 
-    mummy_dev_time <- dev_times$mum_days[2]
+    mummy_dev_time <- an_dev_times$mum_days[2]
     single_integer(mummy_dev_time, "mummy_dev_time", .min = 1)
 
     ptr <- make_mummies_ptr(pred_surv = pred_surv,
