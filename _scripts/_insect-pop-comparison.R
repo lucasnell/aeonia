@@ -22,26 +22,12 @@ line_s <- clonal_line("susceptible",
 # Stable age distribution for this Leslie matrix:
 X0 <- gameofclones:::sad_leslie(line_s$leslie[,,1])
 
-# # Leslie matrix (for apterous, non-parasitized):
-# L0 <- clonal_line("susceptible",
-#                   density_0 = cbind(c(0,0,0,0,10), rep(0, 5)),
-#                   surv_juv_apterous = "high",
-#                   surv_adult_apterous = "high",
-#                   repro_apterous = "high",
-#                   p_instar_smooth = 0) |>
-#     getElement("leslie") |>
-#     base::`[`(,,1)
-# X0 <- gameofclones:::sad_leslie(L0)
-
 
 insects_ptr <- make_insects_ptr(pseudo_surv = 1,
-                              zeta = 0,
-                              alate_b0 = -Inf,
-                              alate_b1 = 0,
-                              distr_0 = cbind(X0, 0),
-                              surv_juv_apterous = "high",
-                              surv_adult_apterous = "high",
-                              repro_apterous = "high")
+                                zeta = 0,
+                                surv_juv_apterous = "high",
+                                surv_adult_apterous = "high",
+                                repro_apterous = "high")
 X02 <- aeonia:::get_aphid_X0(insects_ptr)
 # Should be true:
 all.equal(X0[,], X02[1:29,])
@@ -51,12 +37,10 @@ run_goc <- function(aphids0, wasps0, max_t = 100) {
 
     .line_s <- line_s
     .line_s$density_0 <- cbind(X0, 0) * aphids0
-    sim_experiments(.line_s, n_fields = 1, max_t = max_t, alate_b0 = -Inf, alate_b1 = 0,
-                    wasp_density_0 = wasps0, wasp_delay = 0, extinct_N = 0,
-                    alate_field_disp_p = 0) |>
+    sim_experiments(.line_s, n_fields = 1, max_t = max_t,
+                    wasp_density_0 = wasps0, wasp_delay = 0, extinct_N = 0) |>
         (\(sims) {
             left_join(sims$aphids |>
-                          # filter(type != "mummy", type != "parasitized") |>
                           filter(type != "mummy") |>
                           group_by(time) |>
                           summarize(aphids = sum(N)),
@@ -130,7 +114,7 @@ sim_ts_plotter <- function(.df, .title = waiver()) {
                 geom_hline(yintercept = 0, linewidth = 0.5, color = "gray60") +
                 geom_line(aes(linewidth = sim_type)) +
                 scale_linetype_manual("Model:", values = c("solid", "22")) +
-                scale_linewidth_manual("Model:", values = c(0.75, 1)) +
+                scale_linewidth_manual("Model:", values = c(0.5, 1)) +
                 scale_y_continuous("Aphid density",
                                    sec.axis = sec_axis(\(x) x / .mult,
                                                        "Wasp density")) +
