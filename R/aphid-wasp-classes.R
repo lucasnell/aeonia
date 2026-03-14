@@ -55,14 +55,14 @@
 #'     from unpublished work by Anthony Ives.
 #'     Defaults to `FALSE`.
 #' @param surv_juv_apterous A single number for the juvenile survival rate for
-#'     apterous aphids. Defaults to `NULL`, which results in estimates
-#'     from a medium-reproduction line.
+#'     apterous aphids. Defaults to `"high"`, which results in estimates
+#'     from a high-reproduction line that is susceptible to parasitoids.
 #' @param surv_adult_apterous A vector of adult survival probabilities for
-#'     apterous aphids. Defaults to `NULL`, which results in estimates
-#'     from a medium-reproduction line.
+#'     apterous aphids. Defaults to `"high"`, which results in estimates
+#'     from a high-reproduction line that is susceptible to parasitoids.
 #' @param repro_apterous A vector of fecundities for for apterous aphids.
-#'     Defaults to `NULL`, which results in estimates from a
-#'     medium-reproduction line.
+#'     Defaults to `"high"`, which results in estimates from a
+#'     high-reproduction line that is susceptible to parasitoids.
 #' @param surv_juv_alates A single number for the juvenile survival rate for
 #'     alates aphids. Defaults to `"low"`, which results in estimates
 #'     from a low-reproduction line.
@@ -139,9 +139,9 @@ make_insects_ptr <- function(pseudo_surv,
                              fly_p = 0.05,
                              distr_0 = NULL,
                              resistant = FALSE,
-                             surv_juv_apterous = NULL,
-                             surv_adult_apterous = NULL,
-                             repro_apterous = NULL,
+                             surv_juv_apterous = "high",
+                             surv_adult_apterous = "high",
+                             repro_apterous = "high",
                              surv_juv_alates = "low",
                              surv_adult_alates = "low",
                              repro_alates = "low",
