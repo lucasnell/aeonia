@@ -23,11 +23,7 @@ line_s <- clonal_line("susceptible",
 X0 <- gameofclones:::sad_leslie(line_s$leslie[,,1])
 
 
-insects_ptr <- make_insects_ptr(pseudo_surv = 1,
-                                zeta = 0,
-                                surv_juv_apterous = "high",
-                                surv_adult_apterous = "high",
-                                repro_apterous = "high")
+insects_ptr <- make_insects_ptr(pseudo_surv = 1, zeta = 0)
 X02 <- aeonia:::get_aphid_X0(insects_ptr)
 # Should be true:
 all.equal(X0[,], X02[1:29,])
