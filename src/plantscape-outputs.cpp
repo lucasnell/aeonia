@@ -186,7 +186,7 @@ std::vector<arma::span> make_spans(const bool& out_stages,
 // aphids, alates OR
 // aphids_juv, aphids_adu, alates_juv, alates_adu
 // (see construction of `spans` above)
-inline void add_aphids(const arma::vec& aphids,
+inline void push_aphids(const arma::vec& aphids,
                        const std::vector<arma::span>& spans,
                        std::vector<std::vector<double>>& tmp_list,
                        uint32& k,
@@ -200,8 +200,7 @@ inline void add_aphids(const arma::vec& aphids,
     return;
 }
 // Same as above, but without adding to `tot_aphids`
-// `add_log` is for `ps_out_all`
-inline void add_aphids(const arma::vec& aphids,
+inline void push_aphids(const arma::vec& aphids,
                        const std::vector<arma::span>& spans,
                        std::vector<std::vector<double>>& tmp_list,
                        uint32& k,
@@ -221,6 +220,23 @@ inline void add_aphids(const arma::vec& aphids,
             tmp_list[k].push_back(arma::accu(aphids(sp)));
             k++;
         }
+    }
+
+    return;
+}
+// Instead of pushing to back, it adds to each. Used in `ps_out_all`.
+inline void add_aphids(const arma::vec& aphids,
+                       const std::vector<arma::span>& spans,
+                       std::vector<std::vector<double>>& tmp_list,
+                       uint32& k) {
+
+    double ap;
+    for (const arma::span& sp : spans) {
+        ap = arma::accu(aphids(sp));
+        tmp_list[k].back() += std::log(ap + 1);
+        k++;
+        tmp_list[k].back() += ap;
+        k++;
     }
 
     return;
@@ -333,7 +349,7 @@ void ps_out_none(DataFrame& out_df,
                 tot_virus += out_dens.virus[i];
                 k++;
 
-                add_aphids(out_dens.aphids[i], spans, tmp_list, k, tot_aphids);
+                push_aphids(out_dens.aphids[i], spans, tmp_list, k, tot_aphids);
 
                 tmp_list[k+0].push_back(out_dens.parasitized[i]);
                 tmp_list[k+1].push_back(out_dens.mummies[i]);
@@ -475,7 +491,7 @@ void ps_out_time(DataFrame& out_df,
 
             k = 3;
 
-            add_aphids(out_dens.aphids[0], spans, tmp_list, k);
+            push_aphids(out_dens.aphids[0], spans, tmp_list, k);
 
             tmp_list[k+0].push_back(out_dens.parasitized[0]);   // parasitized
             tmp_list[k+1].push_back(out_dens.mummies[0]);       // mummies
@@ -580,7 +596,7 @@ void ps_out_all(DataFrame& out_df,
             tmp_list[k].back() += (alate_rt / total_aphids_rt);  // p_alates
             k++;
 
-            add_aphids(aphids, spans, tmp_list, k, true);
+            add_aphids(aphids, spans, tmp_list, k);
 
             tmp_list[k+0].back() += std::log(parasitized + 1);   // log_parasitized
             tmp_list[k+1].back() += parasitized;                 // parasitized
