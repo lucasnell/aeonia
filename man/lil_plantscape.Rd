@@ -7,7 +7,6 @@
 lil_plantscape(
   n_sims,
   n_pseudo,
-  pseudo_repel,
   pseudo_surv,
   zeta,
   N0,
@@ -15,9 +14,11 @@ lil_plantscape(
   Y0,
   W0 = 0,
   sd_W = 0,
+  M0 = 0,
+  sd_M = 0,
   radius = 1,
+  pseudo_repel = 1,
   virus_attract = 1,
-  fly_p = 0.05,
   p_load_alate = 0.5,
   p_load_plant = 0.5,
   spat_config = "random",
@@ -31,17 +32,6 @@ Must be \verb{>= 1}.}
 
 \item{n_pseudo}{Single integer giving the number of patches containing
 \emph{Pseudomonas}. Must be \verb{>= 0}.}
-
-\item{pseudo_repel}{Effect of \emph{Pseudomonas} infection on alate alighting.
-Sampling weights for \emph{Pseudomonas}-containing plants is
-\code{1 / pseudo_repel} (note difference from \code{virus_attract}, hence the
-different names!), compared to empty (no virus or \emph{Pseudomonas})
-plants whose weight is 1.
-Thus, when \code{pseudo_repel > 1}, alates are repelled by
-\emph{Pseudomonas}-containing plants,
-while \code{pseudo_repel < 1} causes them to be attracted to
-\emph{Pseudomonas}-containing plants.
-Values must be \verb{> 0}.}
 
 \item{pseudo_surv}{Single numeric indicating aphid survival from \emph{Pseudomonas}.}
 
@@ -79,9 +69,33 @@ distribution used to generate winged aphid densities per patch.
 Must be \verb{>= 0}.
 Defaults to \code{0}.}
 
+\item{M0}{If a single numeric, it gives the mean for the lognormal
+distribution used to generate mummy densities per patch.
+If a numeric matrix, it must be 3x3 and gives the abundance of mummies
+per plant that is the same across repetitions.
+If a 3D array, it must be 3x3x\code{n_sims} and gives the abundance of
+mummies per plant across repetitions.
+Defaults to \code{0}.}
+
+\item{sd_M}{Single numeric giving the standard deviation for the lognormal
+distribution used to generate mummy densities per patch.
+Must be \verb{>= 0}.
+Defaults to \code{0}.}
+
 \item{radius}{Max distance that alates will travel between plants.
 Must be >= 1.
 See "Radius" section below for details.}
+
+\item{pseudo_repel}{Effect of \emph{Pseudomonas} infection on alate alighting.
+Sampling weights for \emph{Pseudomonas}-containing plants is
+\code{1 / pseudo_repel} (note difference from \code{virus_attract}, hence the
+different names!), compared to empty (no virus or \emph{Pseudomonas})
+plants whose weight is 1.
+Thus, when \code{pseudo_repel > 1}, alates are repelled by
+\emph{Pseudomonas}-containing plants,
+while \code{pseudo_repel < 1} causes them to be attracted to
+\emph{Pseudomonas}-containing plants.
+Values must be \verb{> 0}.}
 
 \item{virus_attract}{Effect of virus infection on alate alighting.
 Sampling weights for virus-infectious plants is \code{virus_attract},
@@ -90,9 +104,6 @@ Thus, when \code{virus_attract > 1}, alates are attracted to virus-infectious
 plants, while \code{virus_attract < 1} causes them to be repelled by
 virus-infectious plants.
 Values must be \verb{> 0}.}
-
-\item{fly_p}{Single numeric indicating the proportion of alates that fly
-off plants each day. Defaults to \code{0.05}.}
 
 \item{p_load_alate}{Single numeric indicating the probability that an
 uninoculated alate is loaded with a virus if it interacts with an
