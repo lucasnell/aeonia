@@ -71,7 +71,7 @@ CharacterVector col_namer__(const std::string& summ,
         out.push_back("aphid_gone_n");
         out.push_back("wasp_gone_n");
         out.push_back("infect_time");
-        out.push_back("outbreak_size");
+        out.push_back("n_infected");
     }
 
     return out;
@@ -553,10 +553,10 @@ void ps_out_all(DataFrame& out_df,
 
 
     uint32 infect_idx = n_cols - 2U;
-    uint32 outbreak_idx = n_cols - 1U;
+    uint32 infected_idx = n_cols - 1U;
     if (out_dispersals) {
         infect_idx--;
-        outbreak_idx--;
+        infected_idx--;
     }
 
     // make spans for summing by desired stages:
@@ -573,7 +573,7 @@ void ps_out_all(DataFrame& out_df,
         for (uint32 j = 1; j < n_cols; j++) tmp_list[j].push_back(0.0);
 
         double& infect_time(tmp_list[infect_idx].back());
-        double& outbreak_size(tmp_list[outbreak_idx].back());
+        double& n_infected(tmp_list[infected_idx].back());
 
         infect_time = simmers[r].output_dens.size() + 1;
 
@@ -612,7 +612,7 @@ void ps_out_all(DataFrame& out_df,
             if (t < infect_time && (uint32)virus >= infect_time_n) {
                 infect_time = t;
             }
-            if (virus > outbreak_size) outbreak_size = virus;
+            if (virus > n_infected) n_infected = virus;
 
         }
 
@@ -629,7 +629,7 @@ void ps_out_all(DataFrame& out_df,
 
     list_to_data_frame(out_df, tmp_list, col_names);
 
-    std::vector<std::string> int_cols = {"rep", "outbreak_size"};
+    std::vector<std::string> int_cols = {"rep", "n_infected"};
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
 
 
