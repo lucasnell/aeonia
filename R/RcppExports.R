@@ -212,7 +212,7 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' 11. `log_wasps`: mean log(wasps+1)
 #' 12. `wasps`: mean wasps
 #' 13. `infect_time`: time it took to have `infect_time_n` plants infected
-#' 14. `outbreak_size`: maximum number of plants infected with virus
+#' 14. `n_infected`: maximum number of plants infected with virus
 #'
 #'
 #'

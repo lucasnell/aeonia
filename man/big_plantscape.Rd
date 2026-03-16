@@ -7,6 +7,7 @@
 big_plantscape(
   n_sims,
   landscape,
+  virus_attract,
   pseudo_repel,
   pseudo_surv,
   zeta,
@@ -15,9 +16,9 @@ big_plantscape(
   Y0,
   W0 = 0,
   sd_W = 0,
-  radius = pop_info$radius,
-  virus_attract = 1,
-  fly_p = 0.05,
+  M0 = 0,
+  sd_M = 0,
+  radius = an_environ$radius,
   p_load_alate = 0.5,
   p_load_plant = 0.5,
   ...
@@ -35,6 +36,14 @@ Values in each cell give the state of the plant:
 \code{2} indicates just \emph{Pseudomonas} on plant,
 \code{3} indicates both virus and \emph{Pseudomonas} on plant.
 Values < 0 or > 3 are not allowed.}
+
+\item{virus_attract}{Effect of virus infection on alate alighting.
+Sampling weights for virus-infectious plants is \code{virus_attract},
+compared to empty (no virus or \emph{Pseudomonas}) plants whose weight is 1.
+Thus, when \code{virus_attract > 1}, alates are attracted to virus-infectious
+plants, while \code{virus_attract < 1} causes them to be repelled by
+virus-infectious plants.
+Values must be \verb{> 0}.}
 
 \item{pseudo_repel}{Effect of \emph{Pseudomonas} infection on alate alighting.
 Sampling weights for \emph{Pseudomonas}-containing plants is
@@ -74,21 +83,17 @@ If a 3D array, it must be 100 x 100 x \code{n_sims} and gives the abundance of
 winged aphids per plant across repetitions.
 Defaults to \code{0}.}
 
+\item{M0}{Numeric 3D array indicating the starting mummy population
+density for each plant and rep.
+To indicate separate densities for each plant and/or rep,
+the array should have the same dimensions as \code{landscapes}.
+The array can also be 1x1, in which case it's assumed that all plants
+and reps start with the same density of mummies.}
+
 \item{radius}{Max distance that alates will travel between plants.
 Must be >= 1.
 See "Radius" section in the description for \code{\link[=lil_plantscape]{lil_plantscape()}} for details.
-Defaults to \code{pop_info$radius}.}
-
-\item{virus_attract}{Effect of virus infection on alate alighting.
-Sampling weights for virus-infectious plants is \code{virus_attract},
-compared to empty (no virus or \emph{Pseudomonas}) plants whose weight is 1.
-Thus, when \code{virus_attract > 1}, alates are attracted to virus-infectious
-plants, while \code{virus_attract < 1} causes them to be repelled by
-virus-infectious plants.
-Values must be \verb{> 0}.}
-
-\item{fly_p}{Single numeric indicating the proportion of alates that fly
-off plants each day. Defaults to \code{0.05}.}
+Defaults to \code{an_environ$radius}.}
 
 \item{p_load_alate}{Single numeric indicating the probability that an
 uninoculated alate is loaded with a virus if it interacts with an

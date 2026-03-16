@@ -205,7 +205,7 @@ The columns are...
 \item \code{log_wasps}: mean log(wasps+1)
 \item \code{wasps}: mean wasps
 \item \code{infect_time}: time it took to have \code{infect_time_n} plants infected
-\item \code{outbreak_size}: maximum number of plants infected with virus
+\item \code{n_infected}: maximum number of plants infected with virus
 }
 }
 
