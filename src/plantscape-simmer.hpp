@@ -55,7 +55,7 @@ struct OutDensities {
         parasitized.push_back(parasitized_);
         mummies.push_back(mummies_);
         wasps.push_back(wasps_);
-        tot_wasps += wasps_;
+        // tot_wasps += wasps_;
         return;
     }
 
@@ -75,7 +75,7 @@ struct OutDensities {
         parasitized[k] += parasitized_;
         mummies[k] += mummies_;
         wasps[k] += wasps_;
-        tot_wasps += wasps_;
+        // tot_wasps += wasps_;
     }
 
 };

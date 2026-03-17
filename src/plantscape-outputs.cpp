@@ -340,7 +340,7 @@ void ps_out_none(DataFrame& out_df,
                         } else A_surv(i+A_surv_apt.n_elem) = 1;
                     }
                     X /= x;
-                    A = arma::accu(A_surv * X); // weighted mean
+                    A = arma::accu(A_surv % X); // weighted mean
                     tmp_list[k].push_back(A);    // attack_surv
                     k++;
                 }
