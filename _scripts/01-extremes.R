@@ -25,99 +25,6 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 #'
 
 
-# # # Takes ~1.5 min
-# # test_df <- crossing(type = factor(1:2, labels = c("low", "high")),
-# #          Y0 = 1:3,
-# #          N0 = c(10, 50, 100, 200),
-# #          n_pseudo = c(0L, 3L)) |>
-# #     mutate(outbreak_size = pmap_dbl(list(type, Y0, N0, n_pseudo), \(type, Y0, N0, n_pseudo) {
-# #         run_sim_combos(type = type, n_pseudo = n_pseudo, large_sims = TRUE,
-# #                        Y0 = Y0, N0 = N0, fly_p = 0.1) |>
-# #             getElement("outbreak_size") |>
-# #             mean()
-# #     })) |>
-# #     select(Y0, N0, type, n_pseudo, everything()) |>
-# #     arrange(Y0, N0, type, n_pseudo)
-# #
-# #
-# #
-# # test_df |>
-# #     # filter((Y0 == 1 & type == "high") | (Y0 == 3 & type == "low"))
-# #     filter(type == "low")|>
-# #     group_by(Y0, N0) |>
-# #     summarize(diff = outbreak_size[n_pseudo > 0L] -
-# #                   outbreak_size[n_pseudo == 0L], .groups = "drop") |>
-# #     arrange(diff)
-#
-#
-# low_test_df <- crossing(type = "low",
-#                         Y0 = 1,
-#                         N0 = 60:70,
-#                         n_pseudo = c(0L, 3L)) |>
-#     mutate(sims = pmap(list(type, Y0, N0, n_pseudo), \(type, Y0, N0, n_pseudo) {
-#         run_sim_combos(type = type, n_pseudo = n_pseudo, large_sims = TRUE,
-#                        Y0 = Y0, N0 = N0, fly_p = 0.1)
-#     }, .progress = .prog_args)) |>
-#     mutate(outbreak_size = map_dbl(sims, \(x) mean(x$outbreak_size)),
-#            p_emerge = map_dbl(sims, \(x) mean(x$outbreak_size > 1))) |>
-#     select(Y0, N0, n_pseudo, sims, outbreak_size, p_emerge) |>
-#     arrange(Y0, N0, n_pseudo)
-#
-#
-# low_test_df |>
-#     print(n = 45)
-#
-# low_test_df |>
-#     group_by(Y0, N0) |>
-#     summarize(diff = outbreak_size[n_pseudo > 0L] -
-#                   outbreak_size[n_pseudo == 0L],
-#               max = max(outbreak_size),
-#               .groups = "drop") |>
-#     arrange(diff) |>
-#     print(n = 25)
-#
-# low_test_df |>
-#     filter(Y0 == 1, N0 == 60)
-#
-#
-#
-#
-# high_test_df <- crossing(zeta = 0.3,
-#                          N0 = 40:50,
-#                          n_pseudo = c(0L, 3L)) |>
-#     mutate(sims = pmap(list(zeta, N0, n_pseudo), \(zeta, N0, n_pseudo) {
-#         run_sim_combos(type = "high", n_pseudo = n_pseudo, large_sims = TRUE,
-#                        zeta = zeta, Y0 = 1, N0 = N0, fly_p = 0.1)
-#     }, .progress = .prog_args)) |>
-#     mutate(outbreak_size = map_dbl(sims, \(x) mean(x$outbreak_size)),
-#            p_emerge = map_dbl(sims, \(x) mean(x$outbreak_size > 1))) |>
-#     select(zeta, N0, n_pseudo, sims, outbreak_size, p_emerge) |>
-#     arrange(zeta, N0, n_pseudo)
-#
-# high_test_df |>
-#     # filter(zeta == 0.5, N0 == 50)
-#     print(n = 25)
-#
-# high_test_df |>
-#     group_by(zeta, N0) |>
-#     summarize(diff = outbreak_size[n_pseudo > 0L] -
-#                   outbreak_size[n_pseudo == 0L],
-#               max = max(outbreak_size),
-#               .groups = "drop") |>
-#     arrange(desc(diff)) |>
-#     print(n = 25)
-#
-# # goal is diff = 3.48, max = 5.41
-
-
-
-
-
-
-
-
-
-
 
 
 if (!file.exists(rds_files$extreme_large) || .overwrite) {
@@ -174,7 +81,7 @@ set.seed(1001450726)
 low_high_sims <- large_sims |>
     select(-sims) |>
     mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
-        # type = "low"; n_pseudo = 3
+        # type = "high"; n_pseudo = 3
         # rm(type, n_pseudo, sims, target, .rep)
         sims <- run_sim_combos(type, n_pseudo, n_sims = 100L, out_attack_surv = TRUE)
         target <- large_sims |>
@@ -199,6 +106,18 @@ low_high_sims <- large_sims |>
     })) |>
     unnest(sims)
 
+low_high_sims |>
+    filter(is.na(plant)) |>
+    group_by(type, n_pseudo) |>
+    summarize(n_infected = max(virus), .groups = "drop")
+# # A tibble: 4 × 3
+#   type  n_pseudo n_infected
+#   <fct>    <int>      <dbl>
+# 1 low          0          5
+# 2 low          3          2
+# 3 high         0          2
+# 4 high         3          6
+
 
 
 
@@ -209,25 +128,22 @@ low_high_sims <- large_sims |>
 # ... total alates ----
 # -------------------------------------*
 
-# This is used to get the same axis max values across plots:
-tot_empty_data <- tibble(time = 0,
-                         alates = low_high_sims |>
-                             filter(is.na(plant)) |>
-                             getElement("alates") |>
-                             max())
-
 
 tot_low_high_p_list <- low_high_sims |>
     split(~ type) |>
     map(\(x) {
+        ym <- low_high_sims |>
+            filter(is.na(plant)) |>
+            getElement("alates") |>
+            max()
         x |>
             filter(is.na(plant)) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             ggplot(aes(time, alates)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_line(aes(linetype = n_pseudo), linewidth = 1, color = "black") +
-            geom_blank(data = tot_empty_data) +
-            scale_linetype_manual(values = np_linetypes)
+            scale_linetype_manual(values = np_linetypes) +
+            coord_cartesian(ylim = c(0, ym))
     })
 
 wrap_plots(tot_low_high_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
@@ -256,233 +172,103 @@ empty_data <- low_high_sims |>
                  values_to = "density") |>
     group_by(species) |>
     summarize(density = max(density)) |>
-    mutate(time = 0,
-           # density = ifelse(species == "aphids", density,
-           #                  max(density[species != "aphids"])),
-           species = factor(species, levels = c("aphids", "wasps", "alates")))
-
-dens_maxes <- list(aphids = max((max(empty_data$density) %/% 100L) * 100.0,
-                                (empty_data$density[empty_data$species == "alates"] %/% 10L) * 100.0),
-                   # alates = ceiling(min(empty_data$density)),
-                   # wasps = ceiling(min(empty_data$density)))
-                   wasps = ceiling(empty_data$density[empty_data$species == "wasps"]))
+    mutate(time = 1,
+           species = factor(species, levels = c("aphids", "alates", "wasps")))
 
 
 
 
-low_high_p_list <- low_high_sims |>
-    mutate(grp = interaction(type, n_pseudo, sep = "-np") |>
-               factor(levels = paste(rep(c("low", "high"), each = 2),
-                                     rep(c("3", "0"), 2), sep = "-np"))) |>
-    split(~ grp) |>
-    map(\(x) {
-        # x = low_high_sims |> filter(type == "low", n_pseudo == 3)
-        # rm(x, vdf, trans, itrans, dd, p)
-        vdf <- x |>
-            filter(!is.na(plant), virus == 1) |>
-            group_by(plant) |>
-            summarize(time = min(time)) |>
-            mutate(density = max(empty_data$density) * 1.1)
-        # wasps / alates --> aphids
-        trans <- function(x) {
-            x * dens_maxes[["aphids"]] / dens_maxes[["wasps"]]
-        }
-        # aphids --> wasps / alates
-        itrans <- function(x) {
-            x * dens_maxes[["wasps"]] / dens_maxes[["aphids"]]
-        }
-        dd <- x |>
-            filter(!is.na(plant)) |>
-            select(-virus) |>
-            mutate(wasps = trans(wasps),
-                   # alates = trans(alates))
-                   alates = alates * 10)
+by_plant_plotter <- function(type, .combine = FALSE) {
+    # type == "high"
+    # .combine = FALSE
+    # rm(type, .combine, vdf, dd, breaks_fun, plant_p_list)
 
-        p <- dd |>
-            # select(-alates) |>
-            pivot_longer(aphids:wasps, names_to = "species",
-                         values_to = "density") |>
-            mutate(species = factor(species, levels = levels(empty_data$species))) |>
-            ggplot(aes(time, density)) +
-            geom_hline(yintercept = 0, color = "gray70") +
-            geom_line(aes(color = species, alpha = species),  # , linetype = species),
-                      linewidth = 1) +
-            geom_blank(data = empty_data, aes(y = density * 1.15)) +
-            geom_point(data = vdf, color = color_pal[["virus"]],
-                       shape = 8, size = 2) +
-            scale_color_manual(values = color_pal) +
-            scale_alpha_manual(values = c(1, 1, 1) |>
-                                   set_names(c("aphids", "alates", "wasps"))) +
-            # scale_linetype_manual(values = c(aphids = "solid",
-            #                                  alates = "22",
-            #                                  wasps = "33")) +
-            labs(x = "Time (days)", y = "Density",
-                 title = sprintf("n<sub>P</sub> = %i, type = %s",
-                                 x$n_pseudo[[1]], x$type[[1]])) +
-            scale_y_continuous(sec.axis = sec_axis(itrans,
-                                                   "Density (wasps/alates)",
-                                                   breaks = c(0, 30, 60)),
-                               breaks = c(0, 600, 1200)) +
-            scale_x_continuous(breaks = c(0, 50, 100)) +
-            facet_wrap(~ plant) +
-            theme(axis.text.x = element_markdown(size = 7),
-                  axis.text.y = element_markdown(size = 7),
-                  plot.margin = margin(3,3,0,0))
-        if (x$n_pseudo[[1]] == 0) {
-            p <- p + theme(axis.text.y.left = element_blank(),
-                           # axis.ticks.y.left = element_blank(),
-                           axis.title.y.left = element_blank())
-        } else {
-            p <- p + theme(axis.text.y.right = element_blank(),
-                           # axis.ticks.y.right = element_blank(),
-                           axis.title.y.right = element_blank())
-        }
-        return(p)
-    }) |>
-    # Now group by low vs high:
-    (\(x) {
-        np_vals <- rev(sort(unique(low_high_sims$n_pseudo)))
-        out <- levels(low_high_sims$type) |>
-            set_names() |>
-            map(\(tp) {
-                map(np_vals, \(np) x[[paste0(tp, "-np", np)]]) |>
-                    wrap_plots(nrow = 1, guides = "collect", design = "A#B",
-                               widths = c(1, 0.05, 1))
-            })
-        return(out)
-    })()
-
-
-
-wrap_plots(low_high_p_list, nrow = 2, guides = "collect", axis_titles = "collect")
-
-if (.overwrite) {
-    for (n in names(low_high_p_list)) {
-        save_plot(sprintf("_plots/extremes/timeseries-%s.pdf", n),
-                  low_high_p_list[[n]] & illustrator_theme,
-                  width = 5, height = 2.5)
-    }; rm(n)
-}
-
-
-
-
-
-
-
-by_plant_plotter <- function(x) {
-    # x = low_high_sims |> filter(type == "high")
-    # rm(x, trans, itrans, vdf, dd, p)
-    # wasps / alates --> aphids
-    trans <- function(x) {
-        x * dens_maxes[["aphids"]] / dens_maxes[["wasps"]]
-    }
-    # aphids --> wasps / alates
-    itrans <- function(x) {
-        x * dens_maxes[["wasps"]] / dens_maxes[["aphids"]]
-    }
-
-    vdf <- x |>
+    vdf <- low_high_sims |>
+        filter(type == .env$type) |>
         filter(!is.na(plant), virus == 1) |>
         group_by(n_pseudo, plant) |>
         summarize(time = min(time), .groups = "drop") |>
         mutate(density = max(empty_data$density) * 1.1,
-               n_pseudo = factor(n_pseudo))
+               n_pseudo = factor(n_pseudo),
+               species = sort(empty_data$species)[1])
 
-    dd <- x |>
+    dd <- low_high_sims |>
+        filter(type == .env$type) |>
         filter(!is.na(plant)) |>
-        select(n_pseudo, plant, time, aphids, alates, wasps) |>
-        mutate(wasps = trans(wasps),
-               alates = trans(alates))
+        select(n_pseudo, plant, time, aphids, alates, wasps)
 
-    dd |>
-        pivot_longer(aphids:wasps, names_to = "species",
-                     values_to = "density") |>
-        mutate(n_pseudo = factor(n_pseudo),
-               species = factor(species, levels = levels(empty_data$species))) |>
-        ggplot(aes(time, density)) +
-        geom_hline(yintercept = 0, color = "gray70") +
-        geom_line(aes(color = species, linetype = n_pseudo), linewidth = 1) +
-        geom_blank(data = empty_data, aes(y = density * 1.15)) +
-        geom_point(aes(shape = n_pseudo), data = vdf, color = color_pal[["virus"]],
-                   size = 2) +
-        scale_color_manual(values = color_pal) +
-        scale_linetype_manual(values = np_linetypes) +
-        scale_shape_manual(values = c("0" = 4, "3" = 13)) +
-        labs(x = "Time (days)", y = "Density") +
-        scale_y_continuous(sec.axis = sec_axis(itrans,
-                                               "Density (wasps/alates)",
-                                               breaks = c(0, 20, 40)),
-                           breaks = c(0, 500, 1000)) +
-        scale_x_continuous(breaks = c(0, 50, 100)) +
-        facet_wrap(~ plant) +
-        guides(linetype = guide_legend(override.aes = list(color = "black"))) +
-        theme(axis.text.x = element_markdown(size = 7),
-              axis.text.y = element_markdown(size = 7),
-              plot.margin = margin(3,3,0,0))
-
-}
-
-
-
-
-
-
-
-
-
-
-A_plotter <- function(x) {
-    # x = low_high_sims |> filter(type == "high")
-    # rm(x, A_calc)
-    A_calc <- function(wasps, aphids_juv, aphids_adu, alates_juv, alates_adu) {
-        # n = 10; wasps = runif(n) * 2; aphids_juv = runif(n) * 10;
-        # aphids_adu = runif(n) * 40; alates_juv = runif(n) * 2;
-        # alates_adu = runif(n) * 6
-        # rm(n, wasps, aphids_juv, aphids_adu, alates_juv, alates_adu)
-        # rm(a, h, k, R, X, xt, A)
-        a <- pop_info$a
-        h <- pop_info$h
-        k <- pop_info$k
-        R <- pop_info$R
-        X <- cbind(aphids_juv, aphids_adu, alates_juv, alates_adu)
-        xt <- rowSums(X)
-        A <- lapply(1:nrow(X), \(i) {
-            .A <- (1 + R * a * wasps[i] / (k * (h * xt[i] + 1)))^(-k)
-            return(sum(.A * (X[i,] / xt[i])))
-        }) |>
-            do.call(what = c)
-        return(A)
+    breaks_fun <- function(x) {
+        if (max(x) >= 1200) {
+            return(c(0, 600, 1200))
+        } else if (max(x) >= 120) {
+            return(c(0, 60, 120))
+        } else return(c(0, 30, 60))
     }
-    x |>
-        filter(!is.na(plant)) |>
-        mutate(attack_surv = A_calc(wasps, aphids_juv, aphids_adu, alates_juv, alates_adu)) |>
-        mutate(n_pseudo = factor(n_pseudo)) |>
-        ggplot(aes(time, attack_surv)) +
-        geom_line(aes(linetype = n_pseudo), linewidth = 1) +
-        scale_linetype_manual(values = np_linetypes) +
-        labs(x = "Time (days)", y = "Attack survival") +
-        scale_x_continuous(breaks = c(0, 50, 100)) +
-        facet_wrap(~ plant)
+
+    plant_p_list <- levels(dd$plant) |>
+        set_names() |>
+        map(\(plant) {
+            p <- dd |>
+                filter(plant == .env$plant) |>
+                pivot_longer(aphids:wasps, names_to = "species",
+                             values_to = "density") |>
+                mutate(n_pseudo = factor(n_pseudo),
+                       species = factor(species, levels =
+                                            levels(empty_data$species))) |>
+                ggplot(aes(time, density)) +
+                geom_hline(yintercept = 0, color = "gray70") +
+                geom_line(aes(color = species, linetype = n_pseudo,
+                              linewidth = n_pseudo)) +
+                geom_blank(data = empty_data, aes(y = density * 1.15))
+            if (plant %in% vdf$plant) {
+                p <- p +
+                    geom_point(aes(shape = n_pseudo),
+                               data = filter(vdf, plant == .env$plant),
+                               color = color_pal[["virus"]],
+                               size = 2, stroke = 1) +
+                    scale_shape_manual(values = np_shapes)
+            }
+            p +
+                scale_color_manual(values = color_pal) +
+                scale_linetype_manual(values = np_linetypes) +
+                scale_linewidth_manual(values = np_linewidths) +
+                labs(x = "Time (days)", y = "Density", tag = plant) +
+                scale_x_continuous(breaks = c(0, 50, 100)) +
+                scale_y_continuous(breaks = breaks_fun) +
+                coord_cartesian(clip = "off") +
+                facet_wrap(~ species, ncol = 1, scales = "free_y") +
+                guides(linetype = guide_legend(
+                    override.aes = list(color = "black"))) +
+                theme(axis.text.x = element_markdown(size = 7),
+                      axis.text.y = element_markdown(size = 7),
+                      strip.text.x = element_blank(),
+                      plot.margin = margin(3,3,0,0))
+        })
+
+    if (!.combine) return(plant_p_list)
+
+    wrap_plots(plant_p_list, ncol = 3, guides = "collect",
+               axis_titles = "collect")
+
 }
 
-
-#
-
-
-c(0L, 3L) |>
-    map(\(np) {
-        run_sim_combos(type = "high", n_pseudo = np, n_sims = 10L, pseudo_surv = 0.98) |>
-            mutate(n_pseudo = np)
-    }) |>
-    list_rbind() |>
-    mutate(plant = interaction(y, x),
-           aphids = aphids + parasitized) |>
-    filter(rep == sample.int(10L)) |>
-    by_plant_plotter()
+# by_plant_plotter("low", .combine = TRUE)
+# by_plant_plotter("high", .combine = TRUE)
 
 
-
+if (.overwrite) {
+    for (ty in levels(low_high_sims$type)) {
+        plot_list <- by_plant_plotter(ty)
+        for (pl in names(plot_list)) {
+            fn <- sprintf("_plots/extremes/timeseries-%s-%s.pdf", ty, pl)
+            p <- plot_list[[pl]] &
+                illustrator_theme &
+                theme(axis.text.y = element_blank(),
+                      axis.text.x = element_blank())
+            save_plot(fn, p, width = 1.5, height = 1.5)
+        }
+    }; rm(ty, plot_list, pl, fn, p)
+}
 
 
 
@@ -511,15 +297,15 @@ z_pa_p_list <- low_high_sims |>
             ggplot(aes(z, ap)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_line(linewidth = 1) +
-            geom_point(data = dd, aes(shape = n_pseudo), size = 4) +
+            geom_point(data = dd, aes(shape = n_pseudo), size = 4, stroke = 1) +
             scale_shape_manual(values = np_shapes) +
-            scale_x_continuous(breaks = c(0, 500, 1000))
+            scale_x_continuous(breaks = c(0, 500, 1000, 1500))
     })
 
 wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
-    for (n in names(low_high_p_list)) {
+    for (n in names(z_pa_p_list)) {
         save_plot(sprintf("_plots/extremes/z-p_alates-%s.pdf", n),
                   z_pa_p_list[[n]] & illustrator_theme, width = 1.5, height = 1.5)
     }; rm(n)
@@ -578,7 +364,7 @@ low_high_hist_list <- levels(large_sims$type) |>
         dd |>
             ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_point(aes(shape = n_pseudo), size = 2) +
+            geom_point(aes(shape = n_pseudo), size = 2, stroke = 1) +
             geom_line(aes(linetype = n_pseudo), linewidth = 1) +
             # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
             #                 linewidth = 1.5, size = 0.75, shape = 1) +
