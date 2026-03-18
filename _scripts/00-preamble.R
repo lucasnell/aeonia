@@ -56,8 +56,9 @@ np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
 # scales::show_col(np_pal, labels = FALSE)
 
-np_shapes <- c(`0` = 1, `3` = 19)
+np_shapes <- c(`0` = 1, `3` = 8)
 np_linetypes <- c(`0` = "22", `3` = "solid")
+np_linewidths <- c(`0` = 1, `3` = 0.75)
 
 
 serify <- function(prefix, x, suffix) {
@@ -152,6 +153,7 @@ spat_config_abbrevs <- c("random" = "rnd+v",
 #' and annotations.
 #'
 illustrator_theme <- theme(plot.title = element_blank(),
+                           plot.tag = element_blank(),
                            legend.position = "none",
                            axis.title.y = element_blank(),
                            axis.title.y.right = element_blank(),
@@ -211,7 +213,6 @@ run_sim_combos <- function(type,
                             zeta = 1)
     } else {
         args <- list_assign(size_args,
-                            Y0 = 1,
                             N0 = 45,
                             zeta = 0.3)
     }
