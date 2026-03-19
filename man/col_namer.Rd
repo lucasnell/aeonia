@@ -4,7 +4,7 @@
 \alias{col_namer}
 \title{Just create column names, for use in R.}
 \usage{
-col_namer(summ, out_pseudo, out_stages)
+col_namer(summ, out_pseudo, out_attack_surv, out_stages)
 }
 \arguments{
 \item{summ}{Single string to indicate how to summarize output.
@@ -19,6 +19,11 @@ Defaults to \code{"none"}.}
 
 \item{out_pseudo}{Single logical for whether to include \emph{Pseudomonas}
 presence in output. Ignored if \code{summ != "none"}.
+Defaults to \code{FALSE}.}
+
+\item{out_attack_surv}{Single logical for whether to include aphid survival
+from parasitoid attack (weighted mean by abundance for each aphid stage)
+in output. Ignored if \code{summ != "none"}.
 Defaults to \code{FALSE}.}
 
 \item{out_stages}{Single logical for whether to separate output for aphids

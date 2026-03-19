@@ -13,7 +13,8 @@
 
 #include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // DimensionConverter, XY, and get_bit_bool
-#include "one-plant.hpp"        // OnePlant class
+#include "aphids.hpp"        // AphidPop class
+// #include "one-plant.hpp"        // OnePlant class
 #include "pcg.hpp"              // pcg type, runif_01 fxn
 
 
@@ -160,16 +161,12 @@ class AlateFlightInfo {
 
 
 
-    /*
-     Fill statuses (`virus` and `pseudo`), plus `samplers` and related objects
-     (notably `land_wts` and `neighbors`).
-     */
-    void fill_status_samplers(const arma::umat& landscape_, const double& radius);
+
 
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
-    void sample(uint32& new_k, const uint32& k, pcg32& eng) {
-        new_k = neighbors[k][samplers[k].sample(eng)];
+    uint32 sample(const uint32& k, pcg32& eng) {
+        return neighbors[k][samplers[k].sample(eng)];
     }
 
     inline void sample_inoculation(const double& p_load_alate,
@@ -187,8 +184,8 @@ public:
 
     // virus (infectious only) and pseudomonas presence for each plant in
     // the landscape:
-    std::vector<std::vector<bool>> virus;
-    std::vector<std::vector<bool>> pseudo;
+    vMatrix<bool> virus;
+    vMatrix<bool> pseudo;
 
 
 
@@ -198,28 +195,7 @@ public:
                     const double& virus_attract_,
                     const double& pseudo_repel_,
                     const double& epsilon_,
-                    const double& w_)
-        : dim_conv(landscape_.n_rows, landscape_.n_cols),
-          any_changed(false),
-          update_sampler(landscape_.n_elem, false),
-          neighbors(),
-          land_wts(),
-          samplers(),
-          virus_attract(virus_attract_),
-          pseudo_repel(pseudo_repel_),
-          epsilon(epsilon_),
-          w(w_),
-          max_fly_t(max_fly_t_),
-          n_x(landscape_.n_rows),
-          n_y(landscape_.n_cols),
-          n_plants(landscape_.n_elem),
-          n_neigh(),
-          virus(),
-          pseudo() {
-
-        fill_status_samplers(landscape_, radius);
-
-    }
+                    const double& w_);
 
     // Let this object know that a plant was newly infected so that it can
     // update the landscape (`virus` and `land_wts`)
@@ -244,8 +220,11 @@ public:
     void infest(const double& p_load_alate,
                 const double& p_load_plant,
                 std::vector<XY>& alate_plants,
-                std::vector<std::vector<OnePlant>>& plants,
-                arma::umat& n_alates,
+                vMatrix<bool>& exposed,
+                vMatrix<bool>& infectious,
+                vMatrix<uint32>& exp_days,
+                vMatrix<AphidPop>& aphids,
+                vMatrix<arma::uvec>& n_alates,
                 arma::umat& dispersals,
                 pcg32& eng);
 

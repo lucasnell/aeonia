@@ -23,7 +23,10 @@ make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
                     land[1,1,i] <- 3L
                 }
             } else if (spat_config == "no virus") {
-                stopifnot(n_pseudo < n_plants)
+                if (n_pseudo >= n_plants) {
+                    stop("For \"no virus\" spatial configuration, n_pseudo ",
+                         "must be < # plants (9).")
+                }
                 k <- sample.int(n_plants - 1L, n_pseudo)
                 x <- k - n_x * (k %/% n_x) + 1L
                 y <- k %/% n_x + 1L
@@ -136,6 +139,17 @@ make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 #'     distribution used to generate winged aphid densities per patch.
 #'     Must be `>= 0`.
 #'     Defaults to `0`.
+#' @param M0 If a single numeric, it gives the mean for the lognormal
+#'     distribution used to generate mummy densities per patch.
+#'     If a numeric matrix, it must be 3x3 and gives the abundance of mummies
+#'     per plant that is the same across repetitions.
+#'     If a 3D array, it must be 3x3x`n_sims` and gives the abundance of
+#'     mummies per plant across repetitions.
+#'     Defaults to `0`.
+#' @param sd_M Single numeric giving the standard deviation for the lognormal
+#'     distribution used to generate mummy densities per patch.
+#'     Must be `>= 0`.
+#'     Defaults to `0`.
 #' @param spat_config A single string indicating the spatial configuration of
 #'     *Pseudomonas* inhabited patches.
 #'     See "Spatial configuration" section below for details.
@@ -146,10 +160,10 @@ make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 #'     the exact values of the summary stats will differ stochastically.
 #'     Defaults to `TRUE`.
 #' @param ... Other parameters for functions [sim_plantscape()],
-#'     [make_disease_ptr()], or [make_insect_ptr()].
+#'     [make_disease_ptr()], or [make_insects_ptr()].
 #' @inheritParams sim_plantscape
 #' @inheritParams make_disease_ptr
-#' @inheritParams make_insect_ptr
+#' @inheritParams make_insects_ptr
 #'
 #' @returns A tibble with columns following the description in the
 #'     "Summarizing" section in the docs for function [sim_plantscape()].
@@ -160,7 +174,6 @@ make_lil_lands <- function(n_x, n_y, n_sims, n_pseudo, spat_config) {
 #'
 lil_plantscape <- function(n_sims,
                            n_pseudo,
-                           pseudo_repel,
                            pseudo_surv,
                            zeta,
                            N0,
@@ -168,9 +181,11 @@ lil_plantscape <- function(n_sims,
                            Y0,
                            W0 = 0,
                            sd_W = 0,
+                           M0 = 0,
+                           sd_M = 0,
                            radius = 1,
+                           pseudo_repel = 1,
                            virus_attract = 1,
-                           fly_p = 0.05,
                            p_load_alate = 0.5,
                            p_load_plant = 0.5,
                            spat_config = "random",
@@ -183,6 +198,11 @@ lil_plantscape <- function(n_sims,
 
     spat_config <- match.arg(spat_config, c("random", "no virus", "diagonal",
                                             "near virus", "far virus", "over virus"))
+
+    if (n_pseudo != 0 && n_pseudo != 3 && spat_config %in% c("random", "no virus")) {
+        stop("Any spatial configuration other than \"random\" or \"no virus\" ",
+             "can only be used with exactly 3 Pseudomonas patches")
+    }
 
     n_x <- 3L
     n_y <- 3L
@@ -197,9 +217,10 @@ lil_plantscape <- function(n_sims,
                              sd_N = sd_N,
                              W0 = W0,
                              sd_W = sd_W,
+                             M0 = M0,
+                             sd_M = sd_M,
                              Y0 = Y0,
                              force_N_distr = force_N_distr,
-                             fly_p = fly_p,
                              radius = radius,
                              virus_attract = virus_attract,
                              pseudo_repel = pseudo_repel,

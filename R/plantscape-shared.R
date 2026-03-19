@@ -50,9 +50,10 @@ plantscape_shared <- function(n_x,
                               sd_N,
                               W0,
                               sd_W,
+                              M0,
+                              sd_M,
                               Y0,
                               force_N_distr,
-                              fly_p,
                               radius,
                               virus_attract,
                               pseudo_repel,
@@ -70,9 +71,10 @@ plantscape_shared <- function(n_x,
     single_number(sd_N, "sd_N", .min = 0)
     is_type(W0, "W0", is.numeric, .min = 0)
     single_number(sd_W, "sd_W", .min = 0)
+    is_type(M0, "M0", is.numeric, .min = 0)
+    single_number(sd_M, "sd_M", .min = 0)
     is_type(Y0, "Y0", is.numeric, L = c(1L, n_sims), .min = 0)
     is_type(force_N_distr, "force_N_distr", "logical", L = 1L)
-    single_number(fly_p, "fly_p", .min = 0, .max = 1)
     single_number(radius, "radius", .min = 1)
     single_number(virus_attract, "virus_attract", .min = 1)
     single_number(pseudo_repel, "pseudo_repel", .min = 1)
@@ -84,11 +86,13 @@ plantscape_shared <- function(n_x,
 
     N0 <- make_aphids0(N0, sd_N, n_x, n_y, n_sims, force_N_distr)
     W0 <- make_aphids0(W0, sd_W, n_x, n_y, n_sims, force_N_distr)
+    M0 <- make_aphids0(M0, sd_M, n_x, n_y, n_sims, force_N_distr)
     if (length(Y0) == 1) Y0 <- rep(Y0, n_sims)
 
-    .args <- list(insect = list(pseudo_surv = pseudo_surv,
-                                fly_p = fly_p,
-                                zeta = zeta),
+
+
+    .args <- list(insects = list(pseudo_surv = pseudo_surv,
+                                 zeta = zeta),
                   disease = list(radius = radius,
                                  virus_attract = virus_attract,
                                  pseudo_repel = pseudo_repel,
@@ -97,15 +101,18 @@ plantscape_shared <- function(n_x,
                   plantscape = list(landscapes = landscapes,
                                     N0 = N0,
                                     W0 = W0,
+                                    M0 = M0,
                                     Y0 = Y0,
                                     insect_ptr = NULL,
                                     disease_ptr = NULL))
     other_args <- list(...)
     if (length(other_args) > 0) {
 
-        stopifnot(!is.null(names(other_args)) && all(names(other_args) != ""))
+        if (is.null(names(other_args)) || any(names(other_args) == "")) {
+            stop("...  must be entirely named items")
+        }
 
-        .formals <- c(insect = make_insect_ptr, disease = make_disease_ptr,
+        .formals <- c(insects = make_insects_ptr, disease = make_disease_ptr,
                       plantscape = sim_plantscape) |>
             lapply(\(x) names(formals(x)))
         all_formals <- do.call(c, .formals) |> unname()
@@ -113,7 +120,7 @@ plantscape_shared <- function(n_x,
         if (!all(names(other_args) %in% all_formals)) {
             print(names(other_args)[!names(other_args) %in% all_formals])
             stop("\nThe names printed above (inside `...`) do not match args ",
-                 "in sim_plantscape, make_insect_ptr, or make_disease_ptr")
+                 "in sim_plantscape, make_insects_ptr, or make_disease_ptr")
         }
 
         for (x in names(.args)) {
@@ -123,7 +130,7 @@ plantscape_shared <- function(n_x,
 
     }
 
-    .args$plantscape[["insect_ptr"]] <- do.call(make_insect_ptr, .args$insect)
+    .args$plantscape[["insect_ptr"]] <- do.call(make_insects_ptr, .args$insects)
     .args$plantscape[["disease_ptr"]] <- do.call(make_disease_ptr, .args$disease)
 
     out <- do.call(sim_plantscape, .args$plantscape)

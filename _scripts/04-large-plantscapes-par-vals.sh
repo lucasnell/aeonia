@@ -18,17 +18,19 @@
 
 #' I first moved this script over to bioHPC using the following:
 #'
-#' cd ~/GitHub/Cornell/aeonia/_scripts \
-#'     && scp 04-large-plantscapes-par-vals.sh lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
+#' cd ~/GitHub/Cornell/aeonia/_scripts
+#' scp 04-large-plantscapes-par-vals.sh \
+#'     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
 #'
 #' This was then run on BioHPC in a non-interactive job started with the following:
 #'
-#' cd /home2/lan68/ \
-#'     && sbatch 04-large-plantscapes-par-vals.sh
+#' cd /home2/lan68/
+#' sbatch 04-large-plantscapes-par-vals.sh
 #'
 #' Then, when the job is done (assuming you're still in `~/GitHub/Cornell/aeonia/_scripts`):
 #'
-#' scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/large-plantscapes-par-vals.rds ./interm-data/
+#' scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/large-plantscapes-par-vals.rds \
+#'     ./interm-data/
 #'
 #'
 
