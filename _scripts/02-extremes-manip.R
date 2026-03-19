@@ -74,7 +74,7 @@ one_manip_sim <- function(type, x_name, x_val) {
 
 if (!file.exists(rds_files$extreme_manip)) {
 
-    # Takes ~50 sec
+    # Takes ~21 min
     set.seed(1531497906)
     manip_sims <- c("low", "high") |>
         map(\(type) {
@@ -114,23 +114,26 @@ if (!file.exists(rds_files$extreme_manip)) {
 
 
 one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) {
-    # type = "low"; par_name = "Y0"; .og_vals = TRUE; .md_vals = TRUE
-    # rm(type, par_name, .og_vals, .md_vals, dd, dd_og, yvar_pal, ..LINES)
+    # type = "low"; par_name = "K"; .og_vals = TRUE; .md_vals = TRUE
+    # rm(type, par_name, .og_vals, .md_vals, dd, pv_og, dd_og, yvar_pal, ..LINES)
     # rm(x_lvl_labs, x_scale, dd_md, p)
     dd <- manip_sims |>
         filter(type == .env$type, par_name == .env$par_name) |>
         mutate(n_pseudo = factor(n_pseudo)) |>
         group_by(n_pseudo, par_val) |>
-        # (outbreak_size - 2) / 7  below is to have them on the same scale for
+        # (n_infected - 2) / 7  below is to have them on the same scale for
         # plotting. Axes labels will show differences properly
-        summarize(p_emerge = mean(outbreak_size > 1),
-                  outbreak_size = (mean(outbreak_size[outbreak_size > 1]) - 2) / 7,
+        summarize(p_emerge = mean(n_infected > 1),
+                  outbreak_size = (mean(n_infected[n_infected > 1]) - 2) / 7,
                   .groups = "drop") |>
         pivot_longer(p_emerge:outbreak_size, names_to = "outcome")
-    dd_og <- run_sim_combos(type = type, n_pseudo = 0, return_args = TRUE) |>
-        getElement(par_name) |>
-        as_tibble() |>
-        set_names("par_val")
+    pv_og <- run_sim_combos(type = type, n_pseudo = 0, return_args = TRUE) |>
+        getElement(par_name)
+    if (is.null(pv_og)) pv_og <- formals(lil_plantscape)[[par_name]]
+    if (is.null(pv_og)) pv_og <- eval(formals(sim_plantscape)[[par_name]])
+    if (is.null(pv_og)) pv_og <- eval(formals(make_insects_ptr)[[par_name]])
+    if (is.null(pv_og)) pv_og <- eval(formals(make_disease_ptr)[[par_name]])
+    dd_og <- tibble(par_val = pv_og)
 
     yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
         set_names("outbreak_size", "p_emerge")
@@ -198,14 +201,14 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 
 
 
-# one_manip_plotter("high", "Y0", TRUE, FALSE)
+# one_manip_plotter("high", "zeta", TRUE, FALSE)
 
 
 manip_plots <- c("low", "high") |>
     set_names() |>
     map(\(type) {
 
-        # type = "high"
+        # type = "low"
         # rm(type, .title, plot_list)
 
         .title <- sprintf("*Pseudomonas* %s outbreaks",
@@ -259,14 +262,6 @@ if (.overwrite) {
 # --------------------------------------*
 
 
-manip2_pars <- combn(9, 2) |>
-    t() |>
-    (\(x) {colnames(x) <- paste0("par_name_", letters[1:2]); return(x)})() |>
-    as_tibble() |>
-    mutate(across(everything(), \(x) map_chr(x, \(i) names(manip_pars)[[i]]))) |>
-    mutate(across(everything(), \(x) factor(x, levels = names(manip_pars))))
-
-
 
 
 one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
@@ -275,6 +270,11 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
     # par_name_a = "Y0"; par_val_a = manip_pars[[par_name_a]][[1]]
     # par_name_b = "N0"; par_val_b = manip_pars[[par_name_b]][[1]]
     # rm(type, par_name_a, par_val_a, par_name_b, par_val_b, args, sims_p, sims_np, out)
+    #
+    # Don't accept spatial configuration:
+    if (par_name_a == "spat_config" || par_name_b == "spat_config") {
+        stop("spat_config not configured")
+    }
 
     # In case these are factors:
     par_name_a <- paste(par_name_a)
@@ -283,17 +283,12 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
     args <- list(type = type, large_sims = TRUE)
     args[[par_name_a]] <- par_val_a
     args[[par_name_b]] <- par_val_b
-    # spat_config takes a character, but needs to be numeric to be compatible
-    # with other parameter types:
-    if (par_name_a == "spat_config") args[[par_name_a]] <- spat_config_lvls[[par_val_a]]
-    if (par_name_b == "spat_config") args[[par_name_b]] <- spat_config_lvls[[par_val_b]]
 
     out <- c(3L, 0L) |>
         map(\(np) {
             .np <- as.integer(np)
             do.call(run_sim_combos, list_assign(args, n_pseudo = .np)) |>
                 select(-rep) |>
-                rename(n_infected = outbreak_size) |>
                 mutate(p_emerge = as.integer(n_infected > 1),
                        outbreak_size = ifelse(n_infected > 1, n_infected, NA)) |>
                 summarize(across(everything(), \(x) mean(x, na.rm = TRUE))) |>
@@ -316,9 +311,10 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
 
 if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
-    # Takes ~5 hrs!
+    # Takes ~50 min
     set.seed(2025929231)
-    manip2_sims <- manip2_pars |>
+    manip2_sims <- tibble(par_name_a = "Y0",
+                          par_name_b = "N0") |>
         mutate(type = list(c("low", "high"))) |>
         unnest(type) |>
         mutate(vals = map2(par_name_a, par_name_b,
@@ -446,7 +442,8 @@ heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_a
         #            color = "white", linewidth = 1) +
         # geom_hline(yintercept = pars_og[[par_name_b]], linetype = "22",
         #            color = "white", linewidth = 1) +
-        geom_point(data = pars_og, size = 3, shape = 8, color = "black") +
+        geom_point(data = pars_og, size = 2, shape = 23, color = "black",
+                   fill = "white", stroke = 1) +
         labs(x = x_lab, y = y_lab, tag = ..tag, title = ..title)
 
     spat_scale_fun <- NULL
@@ -536,14 +533,14 @@ pseudo_eff_heatmap <- function(yvar, type, par_name_a, par_name_b,
 
     if (yvar == "outbreak_size") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
-        z_breaks <- -2:2 * 2
-        z_lim <- c(-1, 1) * 4.9
+        z_breaks <- -2:2 * 1.5
+        z_lim <- c(-1, 1) * 3
         z_pal = "vik"
         z_dir = 1
     } else if (yvar == "p_emerge") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
-        z_breaks <- -2:2 / 2
-        z_lim <- c(-1, 1) * 1.225
+        z_breaks <- -2:2 * 0.4
+        z_lim <- c(-1, 1) * 0.8
         z_pal = "bam"
         z_dir = -1
     } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
@@ -599,67 +596,23 @@ manip2_sims |>
               pe_max = max(p_emerge))
 
 
+outbreak_heatmap("p_emerge", "high", "Y0", "N0") /
+    outbreak_heatmap("p_emerge", "low", "Y0", "N0") +
+    plot_layout(guides = "collect")
+
+outbreak_heatmap("outbreak_size", "high", "Y0", "N0") /
+    outbreak_heatmap("outbreak_size", "low", "Y0", "N0") +
+    plot_layout(guides = "collect")
 
 
+(pseudo_eff_heatmap("p_emerge", "high", "Y0", "N0") |
+    pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0")) +
+    plot_layout(guides = "collect")
 
+(pseudo_eff_heatmap("outbreak_size", "high", "Y0", "N0") |
+    pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0")) +
+    plot_layout(guides = "collect")
 
-
-# if (!dir.exists("_plots/extremes-manip2")) dir.create("_plots/extremes-manip2", recursive = TRUE)
-# for (x in distinct(manip2_sims, type, par_name_a, par_name_b) |>
-#      filter(par_name_a != "spat_config", par_name_b != "spat_config") |>
-#      (\(x) split(x, 1:nrow(x)))()) {
-#     p <- one_manip2_plotter(x$type, x$par_name_a, x$par_name_b)
-#     fn <- sprintf("_plots/extremes-manip2/%s-%s-%s.pdf", x$type, x$par_name_a, x$par_name_b)
-#     save_plot(fn, p, 8, 3)
-# }; rm(x, p, fn)
-
-manip2_full_plots <- c("low", "high") |>
-    set_names() |>
-    map(\(type) {
-        # type = "low"
-        # rm(type, yvar, .title, plot_list)
-        yvar = "outbreak_size"
-        .title <- sprintf("*Pseudomonas* %s outbreaks",
-                          ifelse(type == "low", "inhibits", "promotes"))
-        plot_list <- manip2_pars |>
-            filter(par_name_a != "spat_config", par_name_b != "spat_config") |>
-            pmap(\(par_name_a, par_name_b) {
-                # par_name_a = "Y0"; par_name_b = "N0"
-
-                pseudo_eff_heatmap(yvar, type, par_name_a, par_name_b,
-                                   .shorten_K = TRUE) +
-                    labs(x = ifelse(par_name_a == "K",
-                                    serify("", "K &divide; 1000", ""),
-                                    pretty_params(par_name_a, TRUE,
-                                                  serif = TRUE)),
-                         y = ifelse(par_name_b == "K",
-                                    serify("", "K &divide; 1000", ""),
-                                    pretty_params(par_name_b, TRUE,
-                                                  serif = TRUE))) +
-                    theme(legend.direction = "horizontal",
-                          legend.title.position = "top")
-            })
-        plot_list |>
-            c(list(guide_area())) |>
-            do.call(what = wrap_plots) +
-            plot_layout(guides = "collect", ncol = 6) +
-            plot_annotation(title = .title) &
-            theme(axis.title.x = element_markdown(size = 6),
-                  axis.title.y = element_markdown(size = 6),
-                  axis.text.x = element_markdown(size = 5),
-                  axis.text.y = element_markdown(size = 5))
-    })
-
-
-# manip2_full_plots$low
-# manip2_full_plots$high
-
-
-# outbreak_heatmap("high", "Y0", "N0")
-# pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0")
-# pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0")
-#
-#
 
 
 # ============================================================================*
@@ -673,6 +626,7 @@ yvar <- "p_emerge"
 c("low", "high") |>
     set_names() |>
     map(\(type) {
+        y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
         manip2_sims |>
             filter(par_name_a == "Y0", par_name_b == "N0", type == .env$type) |>
             rename(Y0 = par_val_a, N0 = par_val_b) |>

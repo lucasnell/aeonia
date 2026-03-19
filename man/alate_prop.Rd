@@ -4,36 +4,22 @@
 \alias{alate_prop}
 \title{Calculate the proportion of offspring that are alates.}
 \usage{
-alate_prop(z, alate_max = 1, alate_infl = NA_real_, alate_slope = NA_real_)
+alate_prop(z, alate_b0 = -5, alate_b1 = 0.0022)
 }
 \arguments{
 \item{z}{Numeric vector of total aphid abundances (including non-winged,
 winged, and parasitized).}
 
-\item{alate_max}{Maximum proportion of offspring that are alates.
-This is provided so that you can simulate constant alate proportion
-and adjust what that alate proportion is.
-If \code{alate_slope = 0}, then alate proportion is a constant
-\code{alate_max / 2}.
-Defaults to \code{1}.}
+\item{alate_b0}{The proportion of offspring from apterous aphids is
+\code{inv_logit(alate_b0 + alate_b1 * N)} where \code{N} is the total number of
+aphids in that field.
+Defaults to \code{-5}.}
 
-\item{alate_infl}{Single numeric for the inflection point for the sigmoid
-relationship between aphid density and alate offspring proportion.
-The proportion of winged offspring from apterous aphids is
-\code{1 / {1 + 10^((alate_infl - z) * alate_slope)}} where \code{z} is the total number of
-aphids on that plant.
-To turn off alate production, set this parameter to \code{Inf}.
-Note: Do NOT set both \code{alate_infl = Inf} and \code{alate_slope = 0}
-because that'll trigger an error that's put in place because
-setting these parameters in this way would result in \code{NaN} values.
-Must be > 0.
-Defaults to \code{NA}. See 'Details' for more info.}
-
-\item{alate_slope}{Single numeric for the slope for the sigmoid
-relationship between aphid density and alate offspring proportion.
-See \code{alate_infl} above for the equation.
-Must be > 0.
-Defaults to \code{NA}. See 'Details' for more info.}
+\item{alate_b1}{The proportion of offspring from apterous aphids is
+\code{inv_logit(alate_b0 + alate_b1 * N)} where \code{N} is the total number of
+aphids in that field.
+Defaults to \code{0.0022}, which makes alate production only mildly
+density dependent.}
 }
 \description{
 Calculate the proportion of offspring that are alates.

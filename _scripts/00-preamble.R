@@ -56,8 +56,9 @@ np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
 # scales::show_col(np_pal, labels = FALSE)
 
-np_shapes <- c(`0` = 1, `3` = 19)
+np_shapes <- c(`0` = 1, `3` = 8)
 np_linetypes <- c(`0` = "22", `3` = "solid")
+np_linewidths <- c(`0` = 1, `3` = 0.75)
 
 
 serify <- function(prefix, x, suffix) {
@@ -152,6 +153,7 @@ spat_config_abbrevs <- c("random" = "rnd+v",
 #' and annotations.
 #'
 illustrator_theme <- theme(plot.title = element_blank(),
+                           plot.tag = element_blank(),
                            legend.position = "none",
                            axis.title.y = element_blank(),
                            axis.title.y.right = element_blank(),
@@ -187,14 +189,14 @@ run_sim_combos <- function(type,
                            return_args = FALSE,
                            ...) {
 
+    # type = "low"; n_pseudo = 3L; large_sims = TRUE; return_args = FALSE
+
     stopifnot(length(type) == 1L && type %in% c("low", "high"))
     stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
     stopifnot(length(large_sims) == 1L && is.logical(large_sims))
 
     shared_args <- list(sd_N = 0,
-                        K = 12.5e3,
-                        virus_attract = 1,
-                        pseudo_repel = 1,
+                        Y0 = 1,
                         pseudo_surv = 0.85,
                         n_pseudo = n_pseudo,
                         spat_config = "diagonal")
@@ -207,14 +209,12 @@ run_sim_combos <- function(type,
 
     if (type == "low") {
         args <- list_assign(size_args,
-                            Y0 = 3,
-                            N0 = 110,
+                            N0 = 60,
                             zeta = 1)
     } else {
         args <- list_assign(size_args,
-                            Y0 = 2,
-                            N0 = 10,
-                            zeta = 0.37)
+                            N0 = 45,
+                            zeta = 0.3)
     }
 
     args <- list_assign(args, ...)

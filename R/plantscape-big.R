@@ -32,12 +32,12 @@
 #' @param radius Max distance that alates will travel between plants.
 #'     Must be >= 1.
 #'     See "Radius" section in the description for [lil_plantscape()] for details.
-#'     Defaults to `pop_info$radius`.
+#'     Defaults to `an_environ$radius`.
 #' @param ... Other parameters for functions [sim_plantscape()],
-#'     [make_disease_ptr()], or [make_insect_ptr()].
+#'     [make_disease_ptr()], or [make_insects_ptr()].
 #' @inheritParams sim_plantscape
 #' @inheritParams make_disease_ptr
-#' @inheritParams make_insect_ptr
+#' @inheritParams make_insects_ptr
 #'
 #' @returns A tibble with columns following the description in the
 #'     "Summarizing" section in the docs for function [sim_plantscape()].
@@ -48,6 +48,7 @@
 #'
 big_plantscape <- function(n_sims,
                            landscape,
+                           virus_attract,
                            pseudo_repel,
                            pseudo_surv,
                            zeta,
@@ -56,9 +57,9 @@ big_plantscape <- function(n_sims,
                            Y0,
                            W0 = 0,
                            sd_W = 0,
-                           radius = pop_info$radius,
-                           virus_attract = 1,
-                           fly_p = 0.05,
+                           M0 = 0,
+                           sd_M = 0,
+                           radius = an_environ$radius,
                            p_load_alate = 0.5,
                            p_load_plant = 0.5,
                            ...) {
@@ -109,9 +110,10 @@ big_plantscape <- function(n_sims,
                              sd_N = sd_N,
                              W0 = W0,
                              sd_W = sd_W,
+                             M0 = M0,
+                             sd_M = sd_M,
                              Y0 = Y0,
                              force_N_distr = FALSE,
-                             fly_p = fly_p,
                              radius = radius,
                              virus_attract = virus_attract,
                              pseudo_repel = pseudo_repel,

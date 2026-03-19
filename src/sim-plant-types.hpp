@@ -8,6 +8,7 @@
 #include <limits>
 #include <numeric>
 #include <pcg/pcg_random.hpp>   // pcg prng
+#include <RcppThread.h>         // multithreading
 
 
 #include "aeonia_types.hpp"

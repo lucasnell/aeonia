@@ -12,7 +12,7 @@
 #include <cstdint>
 
 
-#include <RcppThread.h>         // multithreading
+// #include <RcppThread.h>         // multithreading
 
 
 /*

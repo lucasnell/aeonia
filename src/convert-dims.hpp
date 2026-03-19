@@ -6,8 +6,20 @@
 
 #include "aeonia_types.hpp"
 
+// To avoid many warnings from BOOST
+#pragma clang diagnostic ignored "-Wlanguage-extension-token"
+#include "boost/multi_array.hpp"
+#include "boost/compute/utility/extents.hpp"
+#pragma clang diagnostic warning "-Wlanguage-extension-token"
+
 
 using namespace Rcpp;
+
+
+template <class C>
+using vMatrix = boost::multi_array<C, 2>;
+
+typedef std::vector<uint32> vMatSize;
 
 
 
@@ -68,7 +80,7 @@ class DimensionConverter {
 
 public:
 
-    DimensionConverter(const uint32& n_x_, const uint32& n_y_)
+    inline DimensionConverter(const uint32& n_x_, const uint32& n_y_)
         : neigh_x(), neigh_y(), n_x(n_x_), n_y(n_y_) {
         neigh_x.reserve(3);
         neigh_y.reserve(3);
@@ -128,6 +140,134 @@ public:
 
 
 };
+
+
+
+
+
+// // DIY Matrix class for any class:
+// template <class C>
+// class vMatrix {
+//
+//     typedef boost::multi_array<C, 2> array_type;
+//     typedef array_type::index index;
+//
+//     array_type data;
+//
+//     uint32 n_x, n_y;
+//
+//
+// public:
+//
+//     // // =============================================
+//     // // Used so that vMatrix(0,0) = true works.
+//     // // from https://stackoverflow.com/a/51503646/5016095
+//     // using value_type = C;
+//     // class Proxy {
+//     // public:
+//     //     friend class vMatrix;
+//     //     operator value_type() const {
+//     //         return v_matrix.get(m_index);
+//     //     }
+//     //     Proxy& operator=(value_type value) {
+//     //         v_matrix.set(m_index, value);
+//     //         return *this;
+//     //     }
+//     //     // value_type operator->() { return v_matrix.get(m_index); }
+//     // private:
+//     //     Proxy(vMatrix& v_matrix_, const uint32& index)
+//     //         : v_matrix(v_matrix_), m_index(index) {}
+//     //     vMatrix& v_matrix;
+//     //     uint32 m_index;
+//     // };
+//     //
+//     // value_type operator()(const uint32& x, const uint32& y) const {
+//     //     uint32 k = y * n_x + x;
+//     //     return get(k);
+//     // }
+//     // Proxy operator()(const uint32& x, const uint32& y) {
+//     //     uint32 k = y * n_x + x;
+//     //     return Proxy(*this, k);
+//     // }
+//     // value_type get(const uint32& k) const {
+//     //     if (k >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: k beyond bounds!");
+//     //     return data[k];
+//     // }
+//     // void set(const uint32& k, value_type value) {
+//     //     if (k >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: k beyond bounds!");
+//     //     data[k] = value;
+//     //     return;
+//     // }
+//     // // =============================================
+//
+//     // Constructors
+//     vMatrix() : n_x(0), n_y(0), data() {}
+//     vMatrix(const uint32& n_x_, const uint32& n_y_)
+//         : n_x(n_x_), n_y(n_y_), data(boost::extents[n_x][n_y]) {}
+//     vMatrix(const uint32& n_x_, const uint32& n_y_, const C& item)
+//         : n_x(n_x_), n_y(n_y_), data(n_x_ * n_y_, item) {}
+//
+//     void set_size(const uint32& n_x_, const uint32& n_y_) {
+//         n_x = n_x_;
+//         n_y = n_y_;
+//         data.resize(n_x_ * n_y_);
+//         return;
+//     }
+//     void set_size(const uint32& n_x_,
+//                   const uint32& n_y_,
+//                   const C& item) {
+//         n_x = n_x_;
+//         n_y = n_y_;
+//         data.reserve(n_x_ * n_y_);
+//         for (uint32 i = 0; i < (n_x_ * n_y_); i++) data.push_back(item);
+//         return;
+//     }
+//
+//     // To fill like a vector:
+//     void reserve(const uint32& n_x_,
+//                  const uint32& n_y_) {
+//         n_x = n_x_;
+//         n_y = n_y_;
+//         data.reserve(n_x_ * n_y_);
+//     }
+//     // Be careful using the function below because it doesn't adjust n_x and n_y
+//     // Only use it if you'll set n_x and n_y to the appropriate values elsewhere
+//     void push_back(const C& val) {
+//         data.push_back(val);
+//     }
+//
+//     // // Access operators (read/write)
+//     // C& operator()(const uint32& x, const uint32& y) {
+//     //     if (y * n_x + x >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: x and y beyond bounds!");
+//     //     return data[y * n_x + x];
+//     // }
+//     // // Access operator (read-only)
+//     // const C& operator()(const uint32& x, const uint32& y) const {
+//     //     if (y * n_x + x >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: x and y beyond bounds!");
+//     //     return data[y * n_x + x];
+//     // }
+//     // // Same but for a single 1D index:
+//     // C& operator()(const uint32& k) {
+//     //     if (k >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: k beyond bounds!");
+//     //     return data[k];
+//     // }
+//     // const C& operator()(const uint32& k) const {
+//     //     if (k >= data.size())
+//     //         throw std::runtime_error("INTERNAL ERROR: k beyond bounds!");
+//     //     return data[k];
+//     // }
+//
+//     // Member functions to get dimensions
+//     uint32 n_rows() const noexcept { return n_x; }
+//     uint32 n_cols() const noexcept { return n_y; }
+//     uint32 size() const noexcept { return data.size(); }
+//
+// };
 
 
 
