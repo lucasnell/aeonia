@@ -9,7 +9,6 @@
 // To avoid many warnings from BOOST
 #pragma clang diagnostic ignored "-Wlanguage-extension-token"
 #include "boost/multi_array.hpp"
-#include "boost/compute/utility/extents.hpp"
 #pragma clang diagnostic warning "-Wlanguage-extension-token"
 
 
