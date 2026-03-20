@@ -1,10 +1,5 @@
-#include <RcppArmadillo.h>      // arma namespace
-#include <vector>               // vector class
-#include <random>               // normal distribution
-#include <pcg/pcg_random.hpp>   // pcg prng
-#include "aeonia_types.hpp"     // integer types
+
 #include "aphids.hpp"           // aphid classes
-#include "pcg.hpp"              // runif_01 fxn
 
 
 

@@ -1,13 +1,14 @@
 #ifndef __AEONIA_PCG_H
 #define __AEONIA_PCG_H
 
+#include "aeonia_types.hpp"
+
 #include <RcppArmadillo.h>
 #include <vector>
 #include <string>
 #include <pcg/pcg_extras.hpp>  // pcg 128-bit integer type
 #include <pcg/pcg_random.hpp> // pcg prng
 
-#include "aeonia_types.hpp"
 
 using namespace Rcpp;
 

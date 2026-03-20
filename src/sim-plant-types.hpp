@@ -1,6 +1,9 @@
 #ifndef __AEONIA_LANDSCAPES_H
 #define __AEONIA_LANDSCAPES_H
 
+#include "aeonia_types.hpp"
+
+
 #include <RcppArmadillo.h>
 #include <vector>
 #include <deque>
@@ -11,7 +14,6 @@
 #include <RcppThread.h>         // multithreading
 
 
-#include "aeonia_types.hpp"
 #include "convert-dims.hpp"     // DimensionConverter class
 #include "pcg.hpp"              // runif_ab fxn
 

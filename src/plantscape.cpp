@@ -1,17 +1,5 @@
-#include <RcppArmadillo.h>
-#include <vector>
-#include <math.h>
-#include <algorithm>
-#include <random>
-#include <pcg/pcg_random.hpp>   // pcg prng
 
-
-#include "aeonia_types.hpp"     // integer types
-#include "plantscape.hpp"       // PlantScape class
-#include "plantscape-outputs.hpp" // Functions to create outputs
-#include "pcg.hpp"              // mt_seeds fxn
-#include "util.hpp"             // thread_check fxn
-
+#include "plantscape.hpp"
 
 
 using namespace Rcpp;

@@ -1,15 +1,19 @@
 #ifndef __AEONIA_CONVERT_DIMS_H
 #define __AEONIA_CONVERT_DIMS_H
 
+#include "aeonia_types.hpp"
+
 #include <RcppArmadillo.h>
 #include <vector>
 
-#include "aeonia_types.hpp"
 
 // To avoid many warnings from BOOST
 #pragma clang diagnostic ignored "-Wlanguage-extension-token"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include "boost/multi_array.hpp"
 #pragma clang diagnostic warning "-Wlanguage-extension-token"
+#pragma clang diagnostic warning "-Wdeprecated-declarations"
+
 
 
 using namespace Rcpp;

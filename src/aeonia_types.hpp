@@ -7,12 +7,23 @@
  Basic integer types used throughout
  ********************************************************
  */
+#ifndef CONFIG_LOADED
+#define CONFIG_LOADED
+#define ARMA_NO_DEBUG
+#define ARMA_USE_BLAS
+#endif
+
 
 #include <RcppArmadillo.h>
 #include <cstdint>
 
 
+
+
 // #include <RcppThread.h>         // multithreading
+
+
+
 
 
 /*

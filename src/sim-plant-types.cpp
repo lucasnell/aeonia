@@ -1,16 +1,6 @@
 
-#include <RcppArmadillo.h>
-#include <vector>
-#include <math.h>
-#include <algorithm>
-#include <iterator>
-#include <pcg/pcg_random.hpp>   // pcg prng
+#include "sim-plant-types.hpp"
 
-
-#include "aeonia_types.hpp"     // integer types
-#include "pcg.hpp"              // runif_01, seed_rng functions
-#include "sim-plant-types.hpp"  // DimensionConverter and LocationSampler classes
-#include "util.hpp"             // thread_check
 
 
 
