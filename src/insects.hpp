@@ -1,6 +1,8 @@
 # ifndef __AEONIA_INSECT_POPULATIONS_H
 # define __AEONIA_INSECT_POPULATIONS_H
 
+#include "aeonia_types.hpp"  // integer types
+
 
 #include <RcppArmadillo.h>      // arma namespace
 #include <vector>               // vector class
@@ -9,7 +11,7 @@
 #include <cstdint>              // integer types
 #include <algorithm>            // find
 #include <pcg/pcg_random.hpp>   // pcg prng
-#include "aeonia_types.hpp"  // integer types
+
 #include "aphids.hpp"  // aphid classes
 #include "wasps.hpp"  // wasp classes
 

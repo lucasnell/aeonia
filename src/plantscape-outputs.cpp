@@ -1,10 +1,4 @@
 
-#include <RcppArmadillo.h>
-#include <vector>
-#include <math.h>
-#include <algorithm>
-#include <random>
-#include <pcg/pcg_random.hpp>   // pcg prng
 
 #include "plantscape-outputs.hpp"
 

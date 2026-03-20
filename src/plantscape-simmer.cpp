@@ -1,18 +1,6 @@
-#include <RcppArmadillo.h>
-#include <vector>
-#include <math.h>
-#include <algorithm>
-#include <random>
-#include <pcg/pcg_random.hpp>   // pcg prng
-#include <RcppThread.h>         // multithreading
 
+#include "plantscape-simmer.hpp"
 
-#include "aeonia_types.hpp"         // integer types
-#include "plantscape.hpp"           // PlantScape class
-#include "plantscape-simmer.hpp"    // Functions to simulate plantscapes
-#include "plantscape-outputs.hpp"   // Functions to create outputs
-#include "pcg.hpp"                  // mt_seeds fxn
-#include "util.hpp"                 // thread_check fxn
 
 
 

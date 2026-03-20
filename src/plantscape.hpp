@@ -5,16 +5,17 @@
  This contains code for landscapes of plants, including
  plant disease dynamics and *Pseudomonas* presence.
  */
+#include "aeonia_types.hpp"     // integer types
+
 
 #include <RcppArmadillo.h>
 #include <vector>
-#include <array>
+#include <mdspan>
 #include <math.h>
 #include <algorithm>
 #include <random>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY and get_bit_bool
 #include "aphids.hpp"           // AphidPop class
 #include "wasps.hpp"            // WaspPop, MummyPop classes

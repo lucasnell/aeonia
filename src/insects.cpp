@@ -1,6 +1,4 @@
-#include <RcppArmadillo.h>      // arma namespace
-#include <vector>               // vector class
-#include "aeonia_types.hpp"     // integer types
+
 #include "insects.hpp"          // insect types
 
 

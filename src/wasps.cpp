@@ -1,11 +1,4 @@
-#include <RcppArmadillo.h>      // arma namespace
-#include <vector>               // vector class
-#include <cmath>                // log, exp
-#include <random>               // normal distribution
-#include <cstdint>              // integer types
-#include <algorithm>            // find
-#include <pcg/pcg_random.hpp>   // pcg prng
-#include "aeonia_types.hpp"     // integer types
+
 #include "wasps.hpp"            // wasp types
 
 

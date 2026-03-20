@@ -1,10 +1,12 @@
 #ifndef __AEONIA_PLANTSCAPE_OBSERVER_H
 #define __AEONIA_PLANTSCAPE_OBSERVER_H
 
+#include "aeonia_types.hpp"     // integer types
+
+
 #include <RcppArmadillo.h>
 #include <RcppThread.h>         // multithreading
 
-#include "aeonia_types.hpp"     // integer types
 #include "plantscape.hpp"       // PlantScape class
 #include "convert-dims.hpp"     // DimensionConverter class
 

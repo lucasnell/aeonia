@@ -2,6 +2,9 @@
 #define __AEONIA_PLANTSCAPE_OUTPUTS_H
 
 
+#include "aeonia_types.hpp"         // integer types
+
+
 #include <RcppArmadillo.h>
 #include <vector>
 #include <math.h>
@@ -10,7 +13,6 @@
 #include <pcg/pcg_random.hpp>   // pcg prng
 
 
-#include "aeonia_types.hpp"         // integer types
 #include "insects.hpp"              // InsectPops class
 #include "plantscape.hpp"           // PlantScape class
 #include "plantscape-simmer.hpp"    // ScapeSimmer class

@@ -2,12 +2,13 @@
 # define __AEONIA_MATH_H
 
 
+#include "aeonia_types.hpp"
+
 #include <RcppArmadillo.h>
 #include <cmath>
 #include <random>
 
 #include <pcg/pcg_random.hpp>   // pcg prng
-#include "aeonia_types.hpp"
 #include "pcg.hpp"              // runif_ab fxn
 
 

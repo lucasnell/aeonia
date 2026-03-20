@@ -4,6 +4,8 @@
 /*
  This contains code for alate dispersal.
  */
+#include "aeonia_types.hpp"     // integer types
+
 
 #include <RcppArmadillo.h>
 #include <vector>
@@ -11,10 +13,8 @@
 #include <algorithm>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // DimensionConverter, XY, and get_bit_bool
 #include "aphids.hpp"        // AphidPop class
-// #include "one-plant.hpp"        // OnePlant class
 #include "pcg.hpp"              // pcg type, runif_01 fxn
 
 

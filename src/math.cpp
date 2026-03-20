@@ -1,8 +1,6 @@
-#include <RcppArmadillo.h>
-#include <cmath>
 
 #include "math.hpp"
-#include "aeonia_types.hpp"
+
 
 using namespace Rcpp;
 

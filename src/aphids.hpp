@@ -5,6 +5,9 @@
  This contains code for aphid and parasitoid population dynamics in a single patch.
  */
 
+#include "aeonia_types.hpp"     // integer types
+
+
 #include <RcppArmadillo.h>
 #include <vector>
 #include <math.h>
@@ -12,7 +15,6 @@
 #include <random>
 #include <pcg/pcg_random.hpp>   // pcg prng
 
-#include "aeonia_types.hpp"     // integer types
 #include "convert-dims.hpp"     // XY
 #include "math.hpp"              // inv_logit__ and sad_leslie__ fxns
 #include "pcg.hpp"              // runif_01 fxn
