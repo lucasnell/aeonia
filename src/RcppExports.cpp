@@ -214,7 +214,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plant_types
-arma::icube sim_plant_types(const uint32& n_x, const uint32& n_y, const uint32& n_virus, const uint32& n_pseudo, const double& wt_vp, const double& wt_pv, const double& wt_vv, const double& wt_pp, const uint32& n_lands, Nullable<IntegerMatrix> virus_starts, Nullable<IntegerMatrix> pseudo_starts, const bool& show_progress, uint32 n_threads);
+arma::ucube sim_plant_types(const uint32& n_x, const uint32& n_y, const uint32& n_virus, const uint32& n_pseudo, const double& wt_vp, const double& wt_pv, const double& wt_vv, const double& wt_pp, const uint32& n_lands, Nullable<IntegerMatrix> virus_starts, Nullable<IntegerMatrix> pseudo_starts, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plant_types(SEXP n_xSEXP, SEXP n_ySEXP, SEXP n_virusSEXP, SEXP n_pseudoSEXP, SEXP wt_vpSEXP, SEXP wt_pvSEXP, SEXP wt_vvSEXP, SEXP wt_ppSEXP, SEXP n_landsSEXP, SEXP virus_startsSEXP, SEXP pseudo_startsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
