@@ -15,6 +15,7 @@
 
 
 #include "convert-dims.hpp"     // DimensionConverter class
+#include "util.hpp"             // thread_check fxn
 #include "pcg.hpp"              // runif_ab fxn
 
 
@@ -95,9 +96,9 @@ class LocationSampler {
             weights.ones();
             p_sum = weights.n_elem;
         }
-        cs_probs(0) = weights(0) / p_sum;
+        cs_probs.at(0) = weights.at(0) / p_sum;
         for (uint32 i = 1; i < n; i++) {
-            cs_probs(i) = cs_probs(i-1) + weights(i) / p_sum;
+            cs_probs.at(i) = cs_probs.at(i-1) + weights.at(i) / p_sum;
         }
         needs_recalc = false;
         return;
@@ -133,10 +134,10 @@ public:
              the weight will decrease or the weight will increase but
              hasn't already exceeded the maximum allowed value.
              */
-            not_exceeded = weights(k) < max_wt && wt_val > 1;
-            if (weights(k) > 0 && (not_exceeded || wt_val < 1)) {
-                weights(k) *= wt_val;
-                if (weights(k) > max_wt) weights(k) = max_wt;
+            not_exceeded = weights.at(k) < max_wt && wt_val > 1;
+            if (weights.at(k) > 0 && (not_exceeded || wt_val < 1)) {
+                weights.at(k) *= wt_val;
+                if (weights.at(k) > max_wt) weights.at(k) = max_wt;
                 n_changed++;
             }
         }
@@ -145,10 +146,10 @@ public:
     }
     void update_weights(const uint32& k,
                         const double& wt_val) {
-        bool not_exceeded = weights(k) < max_wt && wt_val > 1;
-        if (wt_val != 1 && weights(k) > 0 && (not_exceeded || wt_val < 1)) {
-            weights(k) *= wt_val;
-            if (weights(k) > max_wt) weights(k) = max_wt;
+        bool not_exceeded = weights.at(k) < max_wt && wt_val > 1;
+        if (wt_val != 1 && weights.at(k) > 0 && (not_exceeded || wt_val < 1)) {
+            weights.at(k) *= wt_val;
+            if (weights.at(k) > max_wt) weights.at(k) = max_wt;
             needs_recalc  = true;
         }
         return;
@@ -160,7 +161,7 @@ public:
         if (needs_recalc) calc_cumsum();
         double u = runif_01(eng);
         uint32 k = 0;
-        while (k < n && cs_probs(k) < u) k++;
+        while (k < n && cs_probs.at(k) < u) k++;
         return k;
     }
 
@@ -187,19 +188,19 @@ public:
 class OnePlantTypeSimmer {
 
     arma::mat wt_mat;
-    std::vector<uint32> n_samples;
+    arma::uvec n_samples;
     uint32 n_plants;
     uint32 x_size;
     uint32 y_size;
 
     // One location sampler for each type (virus and Pseudomonas):
-    std::vector<LocationSampler> samplers;
+    std::array<LocationSampler, 2U> samplers;
 
     // Convert coordinates between 1D and 2D:
     DimensionConverter dim_conv;
 
     // Object collecting sampled type for each plant:
-    std::vector<uint32> out_types;
+    arma::uvec out_types;
 
     // vector for neighbors:
     std::vector<uint32> neighbors;
@@ -210,7 +211,7 @@ class OnePlantTypeSimmer {
 
     // Use bit assignment to quickly assign types:
     inline void put_type(const uint32& type, const uint32& k) {
-        out_types[k] = out_types[k] | ((uint32)1 << type);
+        out_types.at(k) = out_types.at(k) | ((uint32)1 << type);
         return;
     }
 
@@ -226,8 +227,8 @@ class OnePlantTypeSimmer {
 
         // Adjust sampling probabilities:
         dim_conv.nextdoor_neighbors(neighbors, k); // fill neighbors vector
-        for (uint32 j = 0; j < n_samples.size(); j++) {
-            samplers[j].update_weights(neighbors, wt_mat(i,j));
+        for (uint32 j = 0; j < n_samples.n_elem; j++) {
+            samplers[j].update_weights(neighbors, wt_mat.at(i,j));
         }
         /*
          Note: You don't have to update `k`th prob to zero after the call
@@ -256,9 +257,9 @@ public:
       n_plants(x_size_ * y_size_),
       x_size(x_size_),
       y_size(y_size_),
-      samplers(2, LocationSampler(n_plants)),
+      samplers({LocationSampler(n_plants), LocationSampler(n_plants)}),
       dim_conv(x_size, y_size),
-      out_types(n_plants, 0U),
+      out_types(n_plants, arma::fill::zeros),
       neighbors(),
       eng() {
 
@@ -280,7 +281,7 @@ public:
                 // Add to output and adjust both sampling probs and samplers
                 out_and_adjust(i, k);
                 // Adjust # samples:
-                n_samples[i]--;
+                n_samples.at(i)--;
 
             }
         }
@@ -290,18 +291,18 @@ public:
 
     void run(RcppThread::ProgressBar& prog_bar, const bool& show_progress) {
 
-        uint32 total_samps = std::accumulate(n_samples.begin(), n_samples.end(), 0U);
+        uint32 total_samps = arma::accu(n_samples);
         // Because `put_type` is assigning individual bits, and `uint32` only
         // have 32 bits:
-        if (n_samples.size() > 32)
+        if (n_samples.n_elem > 32)
             stop("INTERNAL ERROR: Cannot bit-assign with >32 types");
 
         // Vector of vector types that will be shuffled to avoid having one
         // type always sampled first:
         std::vector<uint32> type_to_samp;
         type_to_samp.reserve(total_samps);
-        for (uint32 i = 0; i < n_samples.size(); i++) {
-            for (uint32 j = 0; j < n_samples[i]; j++) {
+        for (uint32 i = 0; i < n_samples.n_elem; i++) {
+            for (uint32 j = 0; j < n_samples.at(i); j++) {
                 type_to_samp.push_back(i);
             }
         }
@@ -338,13 +339,13 @@ public:
 
     // Fill an output cube with the matrix for this landscape's output.
     // `s` refers to the slice index for this landscape
-    void fill_output(arma::icube& out, const uint32& s) {
+    void fill_output(arma::ucube& out, const uint32& s) {
 
         uint32 x, y;
 
-        for (uint32 k = 0; k < out_types.size(); k++) {
+        for (uint32 k = 0; k < out_types.n_elem; k++) {
             dim_conv.to_2d(x, y, k);
-            out(x, y, s) = static_cast<int32>(out_types[k]);
+            out.at(x, y, s) = out_types.at(k);
         }
 
         return;

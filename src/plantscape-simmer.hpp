@@ -8,7 +8,9 @@
 #include <RcppThread.h>         // multithreading
 
 #include "plantscape.hpp"       // PlantScape class
+#include "plantscape-outputs.hpp"       // ps_out_* functions
 #include "convert-dims.hpp"     // DimensionConverter class
+#include "util.hpp"     // thread_check
 
 
 
