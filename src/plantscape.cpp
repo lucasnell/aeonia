@@ -13,12 +13,14 @@ void PlantScape::fill_Yi_mat() {
     const double& zeta(wasps.zeta);
     const double& Y(wasps.Y);
 
+    uint32 k = 0;
     double z_tot = 0;
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            const AphidPop& aphids_xy(aphids[x, y]);
+            const AphidPop& aphids_xy(aphids[k]);
             z_mat.at(x,y) = aphids_xy.total();
             z_tot += z_mat.at(x,y);
+            k++;
         }
     }
 
@@ -59,11 +61,14 @@ bool PlantScape::iterate(arma::umat& dispersals) {
     double new_M, x_xy;
     arma::vec A_surv;
     bool has_alates;
+
+    uint32 k = 0;
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
 
-            AphidPop& aphids_xy(aphids[x, y]);
-            MummyPop& mummies_xy(mummies[x, y]);
+            AphidPop& aphids_xy(aphids[k]);
+            MummyPop& mummies_xy(mummies[k]);
+            k++;
             uint16& exposed_xy(exposed.at(x, y));
             uint16& infectious_xy(infectious.at(x, y));
             uint32& exp_days_xy(exp_days.at(x, y));
@@ -164,8 +169,6 @@ PlantScape::PlantScape(const arma::umat& landscape_,
       eng(),
       z_mat(arma::size(landscape_), arma::fill::none),
       Yi_mat(arma::size(landscape_), arma::fill::none),
-      aphids_(),
-      mummies_(),
       wasps(insects.wasps),
       aphids(),
       mummies(),
@@ -186,26 +189,23 @@ PlantScape::PlantScape(const arma::umat& landscape_,
 
     seed_pcg(eng, seeds);
 
-    aphids_.reserve(n_plants);
-    mummies_.reserve(n_plants);
+    aphids.reserve(n_plants);
+    mummies.reserve(n_plants);
 
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            aphids_.emplace_back(insects.aphids);
-            mummies_.emplace_back(insects.mummies);
+            aphids.emplace_back(insects.aphids);
+            mummies.emplace_back(insects.mummies);
             exposed.at(x, y) = false;
             exp_days.at(x, y) = 0;
             infectious.at(x, y) = get_bit_bool(0U, landscape_(x, y));
             pseudo.at(x, y) = get_bit_bool(1U, landscape_(x, y));
-            AphidPop& aphids_xy(aphids_.back());
+            AphidPop& aphids_xy(aphids.back());
             if (!pseudo.at(x, y)) aphids_xy.pseudo_surv = 1.0;
             aphids_xy.refresh_abunds(N0(x, y), W0(x, y));
-            mummies_.back().refresh_abunds(M0(x, y));
+            mummies.back().refresh_abunds(M0(x, y));
         }
     }
-
-    aphids = Span2D<AphidPop>(aphids_.data(), n_x, n_y);
-    mummies = Span2D<MummyPop>(mummies_.data(), n_x, n_y);
 
     // Set initial wasp density
     wasps.refresh_abunds(Y0);

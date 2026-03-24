@@ -182,6 +182,10 @@ struct ScapeSimmer {
         return;
     }
 
+    const AphidPop& aphid_pop() const {
+        return scape.aphids[0];
+    };
+
 
 private:
 

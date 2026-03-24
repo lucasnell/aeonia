@@ -96,9 +96,9 @@ void ScapeSimmer::fill_output() {
                 output_ids_t(k,1) = y+1U;
 
                 output_dens_t.push_back(static_cast<double>(scape.infectious.at(x, y)),
-                                        scape.aphids[x, y].unparas_X(),
-                                        scape.aphids[x, y].paras.total(),
-                                        scape.mummies[x, y].total(),
+                                        scape.aphids[k].unparas_X(),
+                                        scape.aphids[k].paras.total(),
+                                        scape.mummies[k].total(),
                                         scape.Yi_mat.at(x, y));
                 k++;
             }
@@ -107,18 +107,21 @@ void ScapeSimmer::fill_output() {
     } else if (summ == "time" || summ == "all") {
 
         // Densities (all vectors start with length 1, values = 0):
-        output_dens.push_back(OutDensities(1, scape.aphids[0, 0].n_stages()));
+        const AphidPop& aphid_pop(scape.aphids[0]);
+        output_dens.emplace_back(OutDensities(1, aphid_pop.n_stages()));
         OutDensities& output_dens_t(output_dens.back());
         // (no ids here)
 
         output_dens_t.tot_wasps = scape.wasps.Y;
 
+        uint32 k = 0;
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
                 output_dens_t.add_to_front(static_cast<double>(scape.infectious.at(x, y)),
-                                           scape.aphids[x, y].unparas_X(),
-                                           scape.aphids[x, y].paras.total(),
-                                           scape.mummies[x, y].total());
+                                           scape.aphids[k].unparas_X(),
+                                           scape.aphids[k].paras.total(),
+                                           scape.mummies[k].total());
+                k++;
             }
         }
 

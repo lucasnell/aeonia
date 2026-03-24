@@ -73,9 +73,9 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
     : dim_conv(landscape_.n_rows, landscape_.n_cols),
       any_changed(false),
       update_sampler(landscape_.n_elem, false),
-      neighbors_(),
+      neighbors(),
       land_wts(landscape_.n_rows * landscape_.n_cols, arma::fill::none),
-      samplers_(),
+      samplers(),
       virus_attract(virus_attract_),
       pseudo_repel(pseudo_repel_),
       epsilon(epsilon_),
@@ -102,8 +102,8 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
     n_neigh = neigh_dxdy.n_rows; // not true for plants on edge
 
 
-    // First set `land_wts` and `neighbors_`:
-    neighbors_.reserve(n_plants);
+    // First set `land_wts` and `neighbors`:
+    neighbors.reserve(n_plants);
     uint32 ki, xi, yi;
     std::vector<uint32> neighbors_k;
     neighbors_k.reserve(n_neigh);
@@ -146,26 +146,23 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
                     neighbors_k.push_back(ki);
                 }
             }
-            neighbors_.emplace_back(neighbors_k);
+            neighbors.emplace_back(neighbors_k);
             k++;
         }
     }
 
 
     // Now go back through and populate the samplers:
-    samplers_.reserve(n_plants);
+    samplers.reserve(n_plants);
     std::vector<double> weights_k;
     weights_k.reserve(n_neigh);
     for (uint32 k = 0; k < n_plants; k++) {
         weights_k.clear();
-        for (const uint32& nk : neighbors_[k]) {
+        for (const uint32& nk : neighbors[k]) {
             weights_k.push_back(land_wts.at(nk));
         }
-        samplers_.emplace_back(weights_k);
+        samplers.emplace_back(weights_k);
     }
-
-    samplers = Span2D<AliasSampler>(samplers_.data(), n_x, n_y);
-    neighbors = Span2D<arma::uvec>(neighbors_.data(), n_x, n_y);
 
     return;
 
@@ -234,7 +231,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                              arma::Mat<uint16>& exposed,
                              arma::Mat<uint16>& infectious,
                              arma::umat& exp_days,
-                             Span2D<AphidPop>& aphids,
+                             std::vector<AphidPop>& aphids,
                              arma::ucube& n_alates,
                              arma::umat& dispersals,
                              pcg32& eng) {
@@ -251,10 +248,10 @@ void AlateFlightInfo::infest(const double& p_load_alate,
         for (uint32 k = 0; k < n_plants; k++) {
             if (update_sampler[k]) {
                 new_wts.clear();
-                for (const uint32& ki : neighbors_[k]) {
+                for (const uint32& ki : neighbors[k]) {
                     new_wts.push_back(land_wts.at(ki));
                 }
-                samplers_[k].reconstruct(new_wts);
+                samplers[k].reconstruct(new_wts);
                 update_sampler[k] = false;
             }
         }
@@ -271,7 +268,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
     }
     double feed_p, u;
     bool has_virus;
-    uint32 k_old, x_old, y_old, k_new, x_new, y_new;
+    uint32 k0, k_old, x_old, y_old, k_new, x_new, y_new;
     bool keep_going;
     uint32 t;
 
@@ -280,7 +277,8 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
         const uint32& x0(coords0[0]);
         const uint32& y0(coords0[1]);
-        const AphidPop& aphids_xy(aphids[x0, y0]);
+        k0 = dim_conv.to_1d(x0, y0);
+        const AphidPop& aphids_xy(aphids[k0]);
         arma::uvec n_alates_xy = n_alates.slice(y0).unsafe_col(x0);
 
         uint32 adult_age = aphids_xy.adult_age;
@@ -291,7 +289,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
             while (n_alates_xyi > 0) {
 
-                // k_old = k0;
+                k_old = k0;
                 x_old = x0;
                 y_old = y0;
 
@@ -303,7 +301,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 } else has_virus = false;
 
                 // Sample for new location (alate always leaves first plant)
-                k_new = sample(x_old, y_old, eng);
+                k_new = sample(k_old, eng);
                 dim_conv.to_2d(x_new, y_new, k_new);
                 if (update_disps) dispersals(k_new, k_old)++;
 
@@ -329,7 +327,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                     if (runif_01(eng) < feed_p) {
                         keep_going = false;
                         // Adding alate to winged population of plant settled on:
-                        AphidPop& aphids_old(aphids[x_old, y_old]);
+                        AphidPop& aphids_old(aphids[k_old]);
                         aphids_old.alates.X.at(adult_age + i) += 1;
                         break;
                     }
@@ -355,7 +353,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 // If reaching max fly iterations, adding alate to winged
                 // population of plant settled on:
                 if (t >= max_fly_t && keep_going) {
-                    AphidPop& aphids_old(aphids[x_old, y_old]);
+                    AphidPop& aphids_old(aphids[k_old]);
                     aphids_old.alates.X.at(adult_age + i) += 1;
                 }
 

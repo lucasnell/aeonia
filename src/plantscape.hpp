@@ -10,7 +10,6 @@
 
 #include <RcppArmadillo.h>
 #include <vector>
-#include <mdspan>
 #include <math.h>
 #include <algorithm>
 #include <random>
@@ -127,16 +126,12 @@ protected:
     // (stored in `Yi_mat`):
     void fill_Yi_mat();
 
-    // Store raw data for insect pop mdspans below:
-    std::vector<AphidPop> aphids_;
-    std::vector<MummyPop> mummies_;
-
 public:
 
     // Insect populations:
     WaspPop wasps;
-    Span2D<AphidPop> aphids;
-    Span2D<MummyPop> mummies;
+    std::vector<AphidPop> aphids;
+    std::vector<MummyPop> mummies;
 
     // Plant infection info:
     arma::Mat<uint16> exposed;    // virus: exposed but not yet infectious?
