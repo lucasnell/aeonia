@@ -30,7 +30,7 @@ Suggests:
     rmarkdown
 SystemRequirements:
     GNU make,
-    C++23
+    C++20
 NeedsCompilation: yes
 URL: https://github.com/lucasnell/aeonia
 BugReports: https://github.com/lucasnell/aeonia/issues

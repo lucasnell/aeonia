@@ -148,17 +148,13 @@ class AlateFlightInfo {
     std::vector<bool> update_sampler;
 
     // Vector of which other plants alates can travel to from each plant:
-    std::vector<arma::uvec> neighbors_;
+    std::vector<arma::uvec> neighbors;
 
     // Vector of sampling weights for each plant:
     arma::vec land_wts;
 
     // Alias sampler for each plant:
-    std::vector<AliasSampler> samplers_;
-
-    // 2D versions of neighbors and samplers:
-    Span2D<AliasSampler> samplers;
-    Span2D<arma::uvec> neighbors;
+    std::vector<AliasSampler> samplers;
 
     double virus_attract;
     double pseudo_repel;
@@ -177,11 +173,7 @@ class AlateFlightInfo {
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
     inline uint32 sample(const uint32& k, pcg32& eng) {
-        return neighbors_[k].at(samplers_[k].sample(eng));
-    }
-    // Same for x and y input coordinates:
-    inline uint32 sample(const uint32& x, const uint32& y, pcg32& eng) {
-        return neighbors[x,y].at(samplers[x,y].sample(eng));
+        return neighbors[k].at(samplers[k].sample(eng));
     }
 
     inline void sample_inoculation(const double& p_load_alate,
@@ -220,7 +212,7 @@ public:
         uint32 k = dim_conv.to_1d(x, y);
         land_wts.at(k) *= virus_attract;
         any_changed = true;
-        for (const uint32& l : neighbors_[k]) update_sampler[l] = true;
+        for (const uint32& l : neighbors[k]) update_sampler[l] = true;
         return;
     }
 
@@ -238,7 +230,7 @@ public:
                 arma::Mat<uint16>& exposed,
                 arma::Mat<uint16>& infectious,
                 arma::umat& exp_days,
-                Span2D<AphidPop>& aphids,
+                std::vector<AphidPop>& aphids,
                 arma::ucube& n_alates,
                 arma::umat& dispersals,
                 pcg32& eng);

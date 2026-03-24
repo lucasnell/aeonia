@@ -239,7 +239,7 @@ void ps_out_none(DataFrame& out_df,
                  const bool& out_attack_surv,
                  const bool& out_stages) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
+    const AphidPop& aphid_pop(simmers[0].aphid_pop());
     const WaspPop& wasp_pop(simmers[0].scape.wasps);
 
     uint32 n_reps = landscapes.n_slices;
@@ -433,7 +433,7 @@ void ps_out_time(DataFrame& out_df,
                  const uint32& max_t,
                  const bool& out_stages) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
+    const AphidPop& aphid_pop(simmers[0].aphid_pop());
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps * (max_t + (uint32)1U);
@@ -509,7 +509,7 @@ void ps_out_all(DataFrame& out_df,
                 const double& aphid_gone_thresh,
                 const double& wasp_gone_thresh) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
+    const AphidPop& aphid_pop(simmers[0].aphid_pop());
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps;

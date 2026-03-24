@@ -5,7 +5,7 @@
 
 #include <RcppArmadillo.h>
 #include <vector>
-#include <mdspan>
+// #include <mdspan>
 
 
 
@@ -14,8 +14,8 @@ using namespace Rcpp;
 
 
 
-template <class C>
-using Span2D = std::mdspan<C, std::dextents<uint32, 2>>;
+// template <class C>
+// using Span2D = std::mdspan<C, std::dextents<uint32, 2>>;
 
 
 
