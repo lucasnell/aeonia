@@ -80,11 +80,11 @@ void ScapeSimmer::fill_output() {
         // Densities (all vectors except wasps start with length 0 but
         // are reserved for length n_x * n_y,
         // wasps are a double, not a vector):
-        output_dens.push_back(OutDensities());
+        output_dens.emplace_back();
         OutDensities& output_dens_t(output_dens.back());
         output_dens_t.reserve(n_x * n_y);
         // plant x, plant y:
-        output_ids.push_back(arma::umat(n_x * n_y, 2, arma::fill::none));
+        output_ids.emplace_back(n_x * n_y, 2, arma::fill::none);
         arma::umat& output_ids_t(output_ids.back());
 
         uint32 k = 0;
@@ -95,11 +95,11 @@ void ScapeSimmer::fill_output() {
                 output_ids_t(k,0) = x+1U;
                 output_ids_t(k,1) = y+1U;
 
-                output_dens_t.push_back(static_cast<double>(scape.infectious[x][y]),
-                                        scape.aphids[x][y].unparas_X(),
-                                        scape.aphids[x][y].paras.total(),
-                                        scape.mummies[x][y].total(),
-                                        scape.Yi_mat(x,y));
+                output_dens_t.push_back(static_cast<double>(scape.infectious.at(x, y)),
+                                        scape.aphids[x, y].unparas_X(),
+                                        scape.aphids[x, y].paras.total(),
+                                        scape.mummies[x, y].total(),
+                                        scape.Yi_mat.at(x, y));
                 k++;
             }
         }
@@ -107,7 +107,7 @@ void ScapeSimmer::fill_output() {
     } else if (summ == "time" || summ == "all") {
 
         // Densities (all vectors start with length 1, values = 0):
-        output_dens.push_back(OutDensities(1, scape.aphids[0][0].n_stages()));
+        output_dens.push_back(OutDensities(1, scape.aphids[0, 0].n_stages()));
         OutDensities& output_dens_t(output_dens.back());
         // (no ids here)
 
@@ -115,12 +115,10 @@ void ScapeSimmer::fill_output() {
 
         for (uint32 x = 0; x < n_x; x++) {
             for (uint32 y = 0; y < n_y; y++) {
-                output_dens_t.add_to(0,
-                                     static_cast<double>(scape.infectious[x][y]),
-                                     scape.aphids[x][y].unparas_X(),
-                                     scape.aphids[x][y].paras.total(),
-                                     scape.mummies[x][y].total(),
-                                     0.0);
+                output_dens_t.add_to_front(static_cast<double>(scape.infectious.at(x, y)),
+                                           scape.aphids[x, y].unparas_X(),
+                                           scape.aphids[x, y].paras.total(),
+                                           scape.mummies[x, y].total());
             }
         }
 

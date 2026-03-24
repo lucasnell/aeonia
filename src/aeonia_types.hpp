@@ -33,6 +33,8 @@
 */
 
 typedef uint_fast8_t uint8;
+typedef arma::uhword uint16;
+typedef arma::shword int16;
 typedef arma::uword uint32;
 typedef arma::sword int32;
 typedef uint_fast64_t uint64;

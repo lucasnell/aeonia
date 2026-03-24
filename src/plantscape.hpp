@@ -85,12 +85,15 @@ struct DiseaseDispersal {
 
 class PlantScape {
 
-    friend class ScapeSimmer;
+    friend struct ScapeSimmer;
 
 protected:
 
     uint32 n_x;
     uint32 n_y;
+    uint32 n_plants;
+
+    DimensionConverter dim_conv;
 
     AlateFlightInfo flight;
 
@@ -107,10 +110,11 @@ protected:
     // days since exposure required to transition to infected
     uint32 total_exp_days;
 
-    // for storing numbers of alates per plant:
-    vMatrix<arma::uvec> n_alates;
-    // for storing indices of plants that have produced >=1 alate:
-    std::vector<XY> alate_plants;
+    // for storing numbers of alates per plant (rows = stages, cols/slices = x/y):
+    arma::ucube n_alates;
+    // for storing x,y indices of plants that have produced >=1 alate:
+    std::vector<std::array<uint32, 2U>> alate_plants;
+
 
     pcg32 eng;
 
@@ -123,19 +127,22 @@ protected:
     // (stored in `Yi_mat`):
     void fill_Yi_mat();
 
+    // Store raw data for insect pop mdspans below:
+    std::vector<AphidPop> aphids_;
+    std::vector<MummyPop> mummies_;
 
 public:
 
     // Insect populations:
     WaspPop wasps;
-    vMatrix<AphidPop> aphids;
-    vMatrix<MummyPop> mummies;
+    Span2D<AphidPop> aphids;
+    Span2D<MummyPop> mummies;
 
     // Plant infection info:
-    vMatrix<bool> exposed;       // virus: exposed but not yet infectious?
-    vMatrix<bool> infectious;    // virus: infectious?
-    vMatrix<bool> pseudo;        // contains Pseudomonas?
-    vMatrix<uint32> exp_days;    // days since exposure (ignored if not exposed):
+    arma::Mat<uint16> exposed;    // virus: exposed but not yet infectious?
+    arma::Mat<uint16> infectious; // virus: infectious?
+    arma::Mat<uint16> pseudo;     // contains Pseudomonas?
+    arma::umat exp_days;   // days since exposure (ignored if not exposed)
 
 
 

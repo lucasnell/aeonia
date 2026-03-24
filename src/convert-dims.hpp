@@ -5,33 +5,21 @@
 
 #include <RcppArmadillo.h>
 #include <vector>
-
-
-// To avoid many warnings from BOOST
-#pragma clang diagnostic ignored "-Wlanguage-extension-token"
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#include "boost/multi_array.hpp"
-#pragma clang diagnostic warning "-Wlanguage-extension-token"
-#pragma clang diagnostic warning "-Wdeprecated-declarations"
+#include <mdspan>
 
 
 
 using namespace Rcpp;
 
 
+
+
 template <class C>
-using vMatrix = boost::multi_array<C, 2>;
-
-typedef std::vector<uint32> vMatSize;
+using Span2D = std::mdspan<C, std::dextents<uint32, 2>>;
 
 
 
-// Simple struct for storing x and y coordinates
-struct XY {
-    uint32 x;
-    uint32 y;
-    XY(const uint32& x_, const uint32& y_) : x(x_), y(y_) {};
-};
+
 
 
 
