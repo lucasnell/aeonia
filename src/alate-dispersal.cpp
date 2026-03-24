@@ -27,21 +27,20 @@ arma::imat make_neigh_dxdy(const double& radius) {
     dxdy_vec.reserve(fl_radius * 2U + 1U);
     int32 max_dy;
     uint32 rows_x;
-    arma::imat dxdy_i;
     double radius2 = radius * radius;
     for (int32 dx = -fl_radius; dx <= fl_radius; dx++) {
         max_dy = std::floor(std::sqrt(radius2 - static_cast<double>(dx * dx)));
         rows_x = max_dy * 2U;
         if (dx != 0) rows_x++;
-        dxdy_i.set_size(rows_x, 2U);
+        dxdy_vec.emplace_back(rows_x, 2U, arma::fill::none);
+        arma::imat& dxdy_i(dxdy_vec.back());
         uint32 i = 0;
         for (int32 dy = -max_dy; dy <= max_dy; dy++) {
             if (dy == 0 && dx == 0) continue;
-            dxdy_i(i,0) = dx;
-            dxdy_i(i,1) = dy;
+            dxdy_i.at(i,0) = dx;
+            dxdy_i.at(i,1) = dy;
             i++;
         }
-        dxdy_vec.push_back(dxdy_i);
         total_rows += dxdy_i.n_rows;
     }
 
@@ -49,8 +48,8 @@ arma::imat make_neigh_dxdy(const double& radius) {
     uint32 k = 0;
     for (const arma::imat& dxdy : dxdy_vec) {
         for (uint32 j = 0; j < dxdy.n_rows; j++) {
-            neigh_dxdy(k,0) = dxdy(j,0);
-            neigh_dxdy(k,1) = dxdy(j,1);
+            neigh_dxdy.at(k,0) = dxdy.at(j,0);
+            neigh_dxdy.at(k,1) = dxdy.at(j,1);
             k++;
         }
     }
@@ -74,9 +73,9 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
     : dim_conv(landscape_.n_rows, landscape_.n_cols),
       any_changed(false),
       update_sampler(landscape_.n_elem, false),
-      neighbors(),
-      land_wts(),
-      samplers(),
+      neighbors_(),
+      land_wts(landscape_.n_rows * landscape_.n_cols, arma::fill::none),
+      samplers_(),
       virus_attract(virus_attract_),
       pseudo_repel(pseudo_repel_),
       epsilon(epsilon_),
@@ -86,14 +85,14 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
       n_y(landscape_.n_cols),
       n_plants(landscape_.n_elem),
       n_neigh(),
-      virus(vMatSize({n_x, n_y})),
-      pseudo(vMatSize({n_x, n_y})) {
+      virus(n_x, n_y, arma::fill::none),
+      pseudo(n_x, n_y, arma::fill::none) {
 
     // Fill `virus` and `pseudo` landscapes:
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
-            virus[x][y] = get_bit_bool(0U, landscape_(x, y));
-            pseudo[x][y] = get_bit_bool(1U, landscape_(x, y));
+            virus.at(x, y) = get_bit_bool(0U, landscape_.at(x, y));
+            pseudo.at(x, y) = get_bit_bool(1U, landscape_.at(x, y));
         }
     }
 
@@ -103,20 +102,20 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
     n_neigh = neigh_dxdy.n_rows; // not true for plants on edge
 
 
-    // First set `land_wts` and `neighbors`:
-    land_wts.reserve(n_plants);
-    neighbors.reserve(n_plants);
+    // First set `land_wts` and `neighbors_`:
+    neighbors_.reserve(n_plants);
     uint32 ki, xi, yi;
     std::vector<uint32> neighbors_k;
     neighbors_k.reserve(n_neigh);
+    uint32 k = 0;
     for (uint32 x = 0; x < n_x; x++) {
         for (uint32 y = 0; y < n_y; y++) {
             // --------------------------
             // Set this plant's weight:
-            land_wts.push_back(1.0);
-            if (virus[x][y]) land_wts.back() *= virus_attract;
-            if (pseudo[x][y]) land_wts.back() /= pseudo_repel;
-            if (land_wts.back() == 0) {
+            land_wts.at(k) = 1.0;
+            if (virus.at(x, y)) land_wts.at(k) *= virus_attract;
+            if (pseudo.at(x, y)) land_wts.at(k) /= pseudo_repel;
+            if (land_wts.at(k) == 0) {
                 std::string err_msg = "\nERROR: virus_attract is very low or ";
                 err_msg += "pseudo_repel is very high, ";
                 err_msg += "resulting in sampling weights equal to zero. ";
@@ -128,8 +127,8 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
             neighbors_k.clear();
             for (uint32 i = 0; i < n_neigh; i++) {
                 if (i >= neigh_dxdy.n_rows) throw std::runtime_error("Huh");
-                const int32& dx(neigh_dxdy(i,0));
-                const int32& dy(neigh_dxdy(i,1));
+                const int32& dx(neigh_dxdy.at(i,0));
+                const int32& dy(neigh_dxdy.at(i,1));
                 xi = x+dx;
                 yi = y+dy;
                 /*
@@ -147,23 +146,26 @@ AlateFlightInfo::AlateFlightInfo(const uint32& max_fly_t_,
                     neighbors_k.push_back(ki);
                 }
             }
-            neighbors.push_back(neighbors_k);
+            neighbors_.emplace_back(neighbors_k);
+            k++;
         }
     }
 
 
     // Now go back through and populate the samplers:
-    samplers.reserve(n_plants);
+    samplers_.reserve(n_plants);
     std::vector<double> weights_k;
     weights_k.reserve(n_neigh);
     for (uint32 k = 0; k < n_plants; k++) {
         weights_k.clear();
-        for (const uint32& nk : neighbors[k]) {
-            weights_k.push_back(land_wts[nk]);
+        for (const uint32& nk : neighbors_[k]) {
+            weights_k.push_back(land_wts.at(nk));
         }
-        samplers.push_back(AliasSampler(weights_k));
+        samplers_.emplace_back(weights_k);
     }
 
+    samplers = Span2D<AliasSampler>(samplers_.data(), n_x, n_y);
+    neighbors = Span2D<arma::uvec>(neighbors_.data(), n_x, n_y);
 
     return;
 
@@ -183,8 +185,8 @@ inline void AlateFlightInfo::sample_inoculation(const double& p_load_alate,
                                                 const double& p_load_plant,
                                                 double& u,
                                                 bool& has_virus,
-                                                bool& infectious,
-                                                bool& exposed,
+                                                uint16& infectious,
+                                                uint16& exposed,
                                                 uint32& exp_days,
                                                 pcg32& eng) {
 
@@ -228,12 +230,12 @@ inline void AlateFlightInfo::sample_inoculation(const double& p_load_alate,
  */
 void AlateFlightInfo::infest(const double& p_load_alate,
                              const double& p_load_plant,
-                             std::vector<XY>& alate_plants,
-                             vMatrix<bool>& exposed,
-                             vMatrix<bool>& infectious,
-                             vMatrix<uint32>& exp_days,
-                             vMatrix<AphidPop>& aphids,
-                             vMatrix<arma::uvec>& n_alates,
+                             std::vector<std::array<uint32, 2U>>& alate_plants,
+                             arma::Mat<uint16>& exposed,
+                             arma::Mat<uint16>& infectious,
+                             arma::umat& exp_days,
+                             Span2D<AphidPop>& aphids,
+                             arma::ucube& n_alates,
                              arma::umat& dispersals,
                              pcg32& eng) {
 
@@ -249,10 +251,10 @@ void AlateFlightInfo::infest(const double& p_load_alate,
         for (uint32 k = 0; k < n_plants; k++) {
             if (update_sampler[k]) {
                 new_wts.clear();
-                for (const uint32& ki : neighbors[k]) {
-                    new_wts.push_back(land_wts[ki]);
+                for (const uint32& ki : neighbors_[k]) {
+                    new_wts.push_back(land_wts.at(ki));
                 }
-                samplers[k].reconstruct(new_wts);
+                samplers_[k].reconstruct(new_wts);
                 update_sampler[k] = false;
             }
         }
@@ -274,43 +276,42 @@ void AlateFlightInfo::infest(const double& p_load_alate,
     uint32 t;
 
     // Now go through in this random order to sample virus spread:
-    for (const XY& alate_coords : alate_plants) {
+    for (const std::array<uint32, 2U>& coords0 : alate_plants) {
 
-        const uint32& x0(alate_coords.x);
-        const uint32& y0(alate_coords.y);
-        const uint32  k0 = dim_conv.to_1d(x0, y0);
-        const AphidPop& aphids_xy(aphids[x0][y0]);
-        arma::uvec& n_alates_xy(n_alates[x0][y0]);
+        const uint32& x0(coords0[0]);
+        const uint32& y0(coords0[1]);
+        const AphidPop& aphids_xy(aphids[x0, y0]);
+        arma::uvec n_alates_xy = n_alates.slice(y0).unsafe_col(x0);
 
         uint32 adult_age = aphids_xy.adult_age;
 
         for (uint32 i = 0; i < n_alates_xy.n_elem; i++) {
 
-            uint32& n_alates_xyi(n_alates_xy(i));
+            uint32& n_alates_xyi(n_alates_xy.at(i));
 
             while (n_alates_xyi > 0) {
 
-                k_old = k0;
+                // k_old = k0;
                 x_old = x0;
                 y_old = y0;
 
                 // If it starts on an infectious plant, then sample for whether
                 // the alate is virus-bearing:
-                if (infectious[x0][y0]) {
+                if (infectious.at(x0, y0)) {
                     u = runif_01(eng);
                     has_virus = u < p_load_alate;
                 } else has_virus = false;
 
                 // Sample for new location (alate always leaves first plant)
-                k_new = sample(k_old, eng);
+                k_new = sample(x_old, y_old, eng);
                 dim_conv.to_2d(x_new, y_new, k_new);
                 if (update_disps) dispersals(k_new, k_old)++;
 
                 // Sample for whether aphid or plant is inoculated:
                 sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                                   infectious[x_new][y_new],
-                                   exposed[x_new][y_new],
-                                   exp_days[x_new][y_new],
+                                   infectious.at(x_new, y_new),
+                                   exposed.at(x_new, y_new),
+                                   exp_days.at(x_new, y_new),
                                    eng);
 
                 k_old = k_new;
@@ -324,12 +325,12 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                     // Sample for whether alate will stay to feed at this plant:
                     feed_p = w;
-                    if (virus[x_old][y_old]) feed_p *= epsilon;
+                    if (virus.at(x_old, y_old)) feed_p *= epsilon;
                     if (runif_01(eng) < feed_p) {
                         keep_going = false;
                         // Adding alate to winged population of plant settled on:
-                        AphidPop& aphids_old(aphids[x_old][y_old]);
-                        aphids_old.alates.X(adult_age + i) += 1;
+                        AphidPop& aphids_old(aphids[x_old, y_old]);
+                        aphids_old.alates.X.at(adult_age + i) += 1;
                         break;
                     }
 
@@ -340,9 +341,9 @@ void AlateFlightInfo::infest(const double& p_load_alate,
 
                     // Sample for whether aphid or plant is inoculated:
                     sample_inoculation(p_load_alate, p_load_plant, u, has_virus,
-                                       infectious[x_new][y_new],
-                                       exposed[x_new][y_new],
-                                       exp_days[x_new][y_new],
+                                       infectious.at(x_new, y_new),
+                                       exposed.at(x_new, y_new),
+                                       exp_days.at(x_new, y_new),
                                        eng);
 
                     k_old = k_new;
@@ -354,8 +355,8 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 // If reaching max fly iterations, adding alate to winged
                 // population of plant settled on:
                 if (t >= max_fly_t && keep_going) {
-                    // AphidPop& aphids_old(aphids[x_old][y_old]);
-                    aphids[x_old][y_old].alates.X(adult_age + i) += 1;
+                    AphidPop& aphids_old(aphids[x_old, y_old]);
+                    aphids_old.alates.X.at(adult_age + i) += 1;
                 }
 
                 n_alates_xyi--;

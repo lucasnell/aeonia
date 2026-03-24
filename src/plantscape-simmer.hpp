@@ -27,10 +27,10 @@ struct OutDensities {
 
 
     // Don't include any values, later reserve using that method.
-    OutDensities() : virus(), aphids(), parasitized(), mummies(), wasps(), tot_wasps(0) {};
+    inline OutDensities() : virus(), aphids(), parasitized(), mummies(), wasps(), tot_wasps(0) {};
 
     // Fill zeros for vectors of length `n`.
-    OutDensities(const uint32& n, const uint32& n_stages)
+    inline OutDensities(const uint32& n, const uint32& n_stages)
         : virus(n, 0.0),
           aphids(n, arma::vec(n_stages, arma::fill::zeros)),
           parasitized(n, 0.0),
@@ -39,7 +39,7 @@ struct OutDensities {
           tot_wasps(0) {};
 
 
-    void reserve(const uint32& n) {
+    inline void reserve(const uint32& n) {
         virus.reserve(n);
         aphids.reserve(n);
         parasitized.reserve(n);
@@ -48,38 +48,41 @@ struct OutDensities {
         return;
     }
 
+    inline uint32 size() const {
+        return virus.size();
+    }
+
+    /*
+     NOTE: For both of the below functions, I'm intentionally not including
+     `tot_wasps` because that gets set from the landscape-level adult-wasp
+     population density, and is done outside this function.
+     In the second function, I'm not including `wasps` because that is not
+     even used for when summarizing by time or rep, which are the only
+     situations where that function is used.
+     */
     // Push back all values:
-    void push_back(const double& virus_,
-                   const arma::vec& aphids_,
-                   const double& parasitized_,
-                   const double& mummies_,
-                   const double& wasps_) {
+    inline void push_back(const double& virus_,
+                          const arma::vec& aphids_,
+                          const double& parasitized_,
+                          const double& mummies_,
+                          const double& wasps_) {
         virus.push_back(virus_);
         aphids.push_back(aphids_);
         parasitized.push_back(parasitized_);
         mummies.push_back(mummies_);
         wasps.push_back(wasps_);
-        // tot_wasps += wasps_;
         return;
     }
-
-
-    uint32 size() const {
-        return virus.size();
-    }
-
-    void add_to(const uint32& k,
-                const double& virus_,
-                const arma::vec& aphids_,
-                const double& parasitized_,
-                const double& mummies_,
-                const double& wasps_) {
-        virus[k] += virus_;
-        aphids[k] += aphids_;
-        parasitized[k] += parasitized_;
-        mummies[k] += mummies_;
-        wasps[k] += wasps_;
-        // tot_wasps += wasps_;
+    // Add to first value in each vector:
+    inline void add_to_front(const double& virus_,
+                             const arma::vec& aphids_,
+                             const double& parasitized_,
+                             const double& mummies_) {
+        virus[0] += virus_;
+        aphids[0] += aphids_;
+        parasitized[0] += parasitized_;
+        mummies[0] += mummies_;
+        return;
     }
 
 };

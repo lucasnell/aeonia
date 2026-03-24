@@ -405,7 +405,7 @@ public:
      Update new aphid abundances, update # alates leaving,
      return the # newly mummified aphids
      */
-    double iterate(arma::uvec& n_alates, const arma::vec& A_surv, pcg32& eng);
+    double iterate(bool& has_alates, arma::uvec& n_alates, const arma::vec& A_surv, pcg32& eng);
     // Overloaded for not doing any dispersing (used in `test_insect_pops`)
     double iterate(const arma::vec& A_surv, pcg32& eng);
 

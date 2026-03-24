@@ -69,36 +69,31 @@ DataFrame test_insect_pops(const uint32& max_t,
     insects.wasps.refresh_abunds(Y0);
 
 
-    std::vector<uint32> time;
-    std::vector<double> aphids;
-    std::vector<double> alates;
-    std::vector<double> parasitized;
-    std::vector<double> mummies;
-    std::vector<double> wasps;
-    time.reserve(max_t+1);
-    aphids.reserve(max_t+1);
-    alates.reserve(max_t+1);
-    parasitized.reserve(max_t+1);
-    mummies.reserve(max_t+1);
-    wasps.reserve(max_t+1);
-    time.push_back(0);
-    aphids.push_back(N0);
-    alates.push_back(W0);
-    parasitized.push_back(0);
-    mummies.push_back(M0);
-    wasps.push_back(Y0);
+    arma::uvec time(max_t + 1U, arma::fill::none);
+    arma::vec aphids(max_t + 1U, arma::fill::none);
+    arma::vec alates(max_t + 1U, arma::fill::none);
+    arma::vec parasitized(max_t + 1U, arma::fill::none);
+    arma::vec mummies(max_t + 1U, arma::fill::none);
+    arma::vec wasps(max_t + 1U, arma::fill::none);
+
+    time.at(0) = 0;
+    aphids.at(0) = N0;
+    alates.at(0) = W0;
+    parasitized.at(0) = 0;
+    mummies.at(0) = M0;
+    wasps.at(0) = Y0;
 
     pcg32 eng;
     seed_pcg(eng);
 
     for (uint32 t = 0; t < max_t; t++) {
         insects.iterate(eng);
-        time.push_back(t+1);
-        aphids.push_back(insects.aphids.apterous.total());
-        alates.push_back(insects.aphids.alates.total());
-        parasitized.push_back(insects.aphids.paras.total());
-        mummies.push_back(insects.mummies.total());
-        wasps.push_back(insects.wasps.Y);
+        time.at(t+1U) = t+1U;
+        aphids.at(t+1U) = insects.aphids.apterous.total();
+        alates.at(t+1U) = insects.aphids.alates.total();
+        parasitized.at(t+1U) = insects.aphids.paras.total();
+        mummies.at(t+1U) = insects.mummies.total();
+        wasps.at(t+1U) = insects.wasps.Y;
     }
 
     DataFrame out_df = DataFrame::create(_["time"] = time,

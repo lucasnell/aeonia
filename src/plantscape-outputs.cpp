@@ -197,25 +197,11 @@ inline void push_aphids(const arma::vec& aphids,
 inline void push_aphids(const arma::vec& aphids,
                        const std::vector<arma::span>& spans,
                        std::vector<std::vector<double>>& tmp_list,
-                       uint32& k,
-                       const bool& add_log = false) {
-
-    if (add_log) {
-        double ap;
-        for (const arma::span& sp : spans) {
-            ap = arma::accu(aphids(sp));
-            tmp_list[k].push_back(std::log(ap + 1));
-            k++;
-            tmp_list[k].push_back(ap);
-            k++;
-        }
-    } else {
-        for (const arma::span& sp : spans) {
-            tmp_list[k].push_back(arma::accu(aphids(sp)));
-            k++;
-        }
+                       uint32& k) {
+    for (const arma::span& sp : spans) {
+        tmp_list[k].push_back(arma::accu(aphids(sp)));
+        k++;
     }
-
     return;
 }
 // Instead of pushing to back, it adds to each. Used in `ps_out_all`.
@@ -253,7 +239,7 @@ void ps_out_none(DataFrame& out_df,
                  const bool& out_attack_surv,
                  const bool& out_stages) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0][0]);
+    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
     const WaspPop& wasp_pop(simmers[0].scape.wasps);
 
     uint32 n_reps = landscapes.n_slices;
@@ -305,14 +291,14 @@ void ps_out_none(DataFrame& out_df,
 
                 tmp_list[0].push_back(r+1);             // rep
                 tmp_list[1].push_back(t+1);             // time
-                tmp_list[2].push_back(out_ids(i,0));    // x
-                tmp_list[3].push_back(out_ids(i,1));    // y
+                tmp_list[2].push_back(out_ids.at(i,0));    // x
+                tmp_list[3].push_back(out_ids.at(i,1));    // y
 
                 k = 4;
 
                 if (out_pseudo) {
-                    const uint32& lxy = landscapes(static_cast<uint32>(out_ids(i,0)-1),
-                                                   static_cast<uint32>(out_ids(i,1)-1),
+                    const uint32& lxy = landscapes(out_ids.at(i,0)-(uint32)1,
+                                                   out_ids.at(i,1)-(uint32)1,
                                                    r);
                     tmp_list[k].push_back(get_bit_int(1U, lxy));    // pseudo
                     k++;
@@ -328,10 +314,10 @@ void ps_out_none(DataFrame& out_df,
                     if (A_surv.n_elem != (A_surv_apt.n_elem * 2U))
                         A_surv.set_size(A_surv_apt.n_elem * 2U);
                     for (uint32 i = 0; i < A_surv_apt.n_elem; i++) {
-                        A_surv(i) = A_surv_apt(i);
+                        A_surv.at(i) = A_surv_apt.at(i);
                         if (i < aphid_pop.adult_age) {
-                            A_surv(i+A_surv_apt.n_elem) = A_surv_apt(i);
-                        } else A_surv(i+A_surv_apt.n_elem) = 1;
+                            A_surv.at(i+A_surv_apt.n_elem) = A_surv_apt.at(i);
+                        } else A_surv.at(i+A_surv_apt.n_elem) = 1;
                     }
                     X /= x;
                     A = arma::accu(A_surv % X); // weighted mean
@@ -447,7 +433,7 @@ void ps_out_time(DataFrame& out_df,
                  const uint32& max_t,
                  const bool& out_stages) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0][0]);
+    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps * (max_t + (uint32)1U);
@@ -523,7 +509,7 @@ void ps_out_all(DataFrame& out_df,
                 const double& aphid_gone_thresh,
                 const double& wasp_gone_thresh) {
 
-    const AphidPop& aphid_pop(simmers[0].scape.aphids[0][0]);
+    const AphidPop& aphid_pop(simmers[0].scape.aphids[0,0]);
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps;

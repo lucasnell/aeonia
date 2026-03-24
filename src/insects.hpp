@@ -36,7 +36,6 @@ struct InsectPops {
     // Iterate aphid and wasp populations. For use in `test_insect_pops`
     void iterate(pcg32& eng) {
 
-        double new_Y = 0;  // new adult parasitoids (male and female)
         arma::vec A_surv;
 
         // Set attack survival vector:
@@ -45,7 +44,7 @@ struct InsectPops {
 
         // Now iterate aphids, then mummies
         double new_M = aphids.iterate(A_surv, eng);
-        new_Y += mummies.iterate(new_M); // also update new adult parasitoids
+        double new_Y = mummies.iterate(new_M);
 
         wasps.iterate(new_Y, eng);
 

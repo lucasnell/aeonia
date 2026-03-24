@@ -30,12 +30,17 @@ class AliasSampler {
 public:
     AliasSampler() : W0(), Prob(), Alias(), n(0) {};
     AliasSampler(const std::vector<double>& weights)
-        : W0(weights), Prob(weights.size()), Alias(weights.size()), n(weights.size()) {
+        : W0(weights),
+          Prob(weights.size(), arma::fill::none),
+          Alias(weights.size(), arma::fill::none),
+          n(weights.size()) {
         construct();
     }
-    AliasSampler(arma::vec weights)
-        : W0(arma::conv_to<std::vector<double>>::from(weights)),
-          Prob(weights.n_elem), Alias(weights.n_elem), n(weights.n_elem) {
+    AliasSampler(const arma::vec& weights)
+        : W0(weights),
+          Prob(weights.n_elem, arma::fill::none),
+          Alias(weights.n_elem, arma::fill::none),
+          n(weights.n_elem) {
         construct();
     }
     // Copy constructor
@@ -48,13 +53,20 @@ public:
         uint32 i = runif_01(eng) * n;
         // uniform in range (0,1)
         double u = runif_01(eng);
-        if (u < Prob[i]) return(i);
-        return Alias[i];
+        if (u < Prob.at(i)) return(i);
+        return Alias.at(i);
     };
 
     // Reconstruct using an entirely new vector:
     void reconstruct(const std::vector<double>& new_wts) {
         n = new_wts.size();
+        if (W0.n_elem != n) W0.set_size(n);
+        for (uint32 i = 0; i < n; i++) W0.at(i) = new_wts[i];
+        construct();
+        return;
+    }
+    void reconstruct(const arma::vec& new_wts) {
+        n = new_wts.n_elem;
         W0 = new_wts;
         construct();
         return;
@@ -63,27 +75,25 @@ public:
 
 private:
 
-    std::vector<double> W0; // weights to start
-    std::vector<double> Prob;
-    std::vector<uint32> Alias;
+    arma::vec W0; // weights to start
+    arma::vec Prob;
+    arma::uvec Alias;
     uint32 n;
 
 
     void construct() {
 
-        if (Prob.size() != n) Prob.resize(n);
-        if (Alias.size() != n) Alias.resize(n);
+        if (Prob.n_elem != n) Prob.set_size(n);
+        if (Alias.n_elem != n) Alias.set_size(n);
 
         // make sure they sum to `n`:
-        double mult = static_cast<double>(n) / std::accumulate(W0.begin(), W0.end(), 0.0);
-        std::vector<double> p;
-        p.reserve(W0.size());
-        for (double& w : W0) p.push_back(w * mult);
+        double mult = static_cast<double>(n) / arma::accu(W0);
+        arma::vec p = W0 * mult;
 
         std::deque<uint32> Small;
         std::deque<uint32> Large;
         for (uint32 i = 0; i < n; i++) {
-            if (p[i] < 1.0) {
+            if (p.at(i) < 1.0) {
                 Small.push_back(i);
             } else Large.push_back(i);
         }
@@ -94,22 +104,22 @@ private:
             Small.pop_front();
             g = Large.front();
             Large.pop_front();
-            Prob[l] = p[l];
-            Alias[l] = g;
-            p[g] = (p[g] + p[l]) - 1.0;
-            if (p[g] < 1.0) {
+            Prob.at(l) = p.at(l);
+            Alias.at(l) = g;
+            p.at(g) = (p.at(g) + p.at(l)) - 1.0;
+            if (p.at(g) < 1.0) {
                 Small.push_back(g);
             } else Large.push_back(g);
         }
         while (!Large.empty()) {
             g = Large.front();
             Large.pop_front();
-            Prob[g] = 1.0;
+            Prob.at(g) = 1.0;
         }
         while (!Small.empty()) {
             l = Small.front();
             Small.pop_front();
-            Prob[l] = 1.0;
+            Prob.at(l) = 1.0;
         }
 
         return;
@@ -138,13 +148,17 @@ class AlateFlightInfo {
     std::vector<bool> update_sampler;
 
     // Vector of which other plants alates can travel to from each plant:
-    std::vector<std::vector<uint32>> neighbors;
+    std::vector<arma::uvec> neighbors_;
 
     // Vector of sampling weights for each plant:
-    std::vector<double> land_wts;
+    arma::vec land_wts;
 
     // Alias sampler for each plant:
-    std::vector<AliasSampler> samplers;
+    std::vector<AliasSampler> samplers_;
+
+    // 2D versions of neighbors and samplers:
+    Span2D<AliasSampler> samplers;
+    Span2D<arma::uvec> neighbors;
 
     double virus_attract;
     double pseudo_repel;
@@ -160,21 +174,22 @@ class AlateFlightInfo {
     uint32 n_neigh; // Max neighbors
 
 
-
-
-
     // Sample new location if alate doesn't stay to feed.
     // Assumes that `virus` and `pseudo` fields are already set.
-    uint32 sample(const uint32& k, pcg32& eng) {
-        return neighbors[k][samplers[k].sample(eng)];
+    inline uint32 sample(const uint32& k, pcg32& eng) {
+        return neighbors_[k].at(samplers_[k].sample(eng));
+    }
+    // Same for x and y input coordinates:
+    inline uint32 sample(const uint32& x, const uint32& y, pcg32& eng) {
+        return neighbors[x,y].at(samplers[x,y].sample(eng));
     }
 
     inline void sample_inoculation(const double& p_load_alate,
                                    const double& p_load_plant,
                                    double& u,
                                    bool& has_virus,
-                                   bool& infectious,
-                                   bool& exposed,
+                                   uint16& infectious,
+                                   uint16& exposed,
                                    uint32& exp_days,
                                    pcg32& eng);
 
@@ -184,8 +199,8 @@ public:
 
     // virus (infectious only) and pseudomonas presence for each plant in
     // the landscape:
-    vMatrix<bool> virus;
-    vMatrix<bool> pseudo;
+    arma::Mat<uint16> virus;
+    arma::Mat<uint16> pseudo;
 
 
 
@@ -200,12 +215,12 @@ public:
     // Let this object know that a plant was newly infected so that it can
     // update the landscape (`virus` and `land_wts`)
     // and let samplers know to update:
-    void newly_infected(const uint32& x, const uint32& y) {
-        virus[x][y] = true;
+    inline void newly_infected(const uint32& x, const uint32& y) {
+        virus.at(x, y) = true;
         uint32 k = dim_conv.to_1d(x, y);
-        land_wts[k] *= virus_attract;
+        land_wts.at(k) *= virus_attract;
         any_changed = true;
-        for (const uint32& l : neighbors[k]) update_sampler[l] = true;
+        for (const uint32& l : neighbors_[k]) update_sampler[l] = true;
         return;
     }
 
@@ -219,21 +234,21 @@ public:
      */
     void infest(const double& p_load_alate,
                 const double& p_load_plant,
-                std::vector<XY>& alate_plants,
-                vMatrix<bool>& exposed,
-                vMatrix<bool>& infectious,
-                vMatrix<uint32>& exp_days,
-                vMatrix<AphidPop>& aphids,
-                vMatrix<arma::uvec>& n_alates,
+                std::vector<std::array<uint32, 2U>>& alate_plants,
+                arma::Mat<uint16>& exposed,
+                arma::Mat<uint16>& infectious,
+                arma::umat& exp_days,
+                Span2D<AphidPop>& aphids,
+                arma::ucube& n_alates,
                 arma::umat& dispersals,
                 pcg32& eng);
 
 
-    void to_2d(uint32& x, uint32& y, const uint32& k) const {
+    inline void to_2d(uint32& x, uint32& y, const uint32& k) const {
         dim_conv.to_2d(x, y, k);
         return;
     }
-    void to_1d(uint32& k, const uint32& x, const uint32& y) const {
+    inline void to_1d(uint32& k, const uint32& x, const uint32& y) const {
         dim_conv.to_1d(k, x, y);
         return;
     }

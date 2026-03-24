@@ -44,14 +44,14 @@ void AphidTypePop::process_error(const arma::vec& Xt,
 
     // Random numbers from distribution N(0,1)
     arma::vec E(non_zero.n_elem);
-    for (uint32 i = 0; i < E.n_elem; i++) E(i) = norm_distr(eng);
+    for (uint32 i = 0; i < E.n_elem; i++) E.at(i) = norm_distr(eng);
 
     // Making each element of E have correct variance-covariance matrix
     E = chol_decomp * E;
 
     // Plugging in errors into the X[t+1] vector
     for (uint32 i = 0; i < non_zero.n_elem; i++) {
-        X(non_zero(i)) *= std::exp(E(i));
+        X.at(non_zero.at(i)) *= std::exp(E.at(i));
     }
 
     /*
@@ -63,7 +63,7 @@ void AphidTypePop::process_error(const arma::vec& Xt,
      day t – 1.
      */
     for (uint32 i = 1; i < n_stages; i++) {
-        if (X(i) > Xt(i-1)) X(i) = Xt(i-1);
+        if (X.at(i) > Xt.at(i-1)) X.at(i) = Xt.at(i-1);
     }
 
     return;
@@ -99,8 +99,8 @@ double AphidPop::no_disp_iterate(const arma::vec& A_surv, pcg32& eng) {
         // if (i >= A_surv_ala.n_elem) RcppThread::Rcout << "i too long" << std::endl;
         // else if (i >= A_mumm_ala.n_elem) RcppThread::Rcout << "i too long 2" << std::endl;
         // else {
-        A_surv_ala[i] = 1;
-        A_mumm_ala[i] = 0;
+        A_surv_ala.at(i) = 1;
+        A_mumm_ala.at(i) = 0;
         // }
     }
 
@@ -128,10 +128,10 @@ double AphidPop::no_disp_iterate(const arma::vec& A_surv, pcg32& eng) {
     // alive but parasitized
     if (paras.X.n_elem > 1) {
         for (uint32 i = paras.X.n_elem - 1; i > 0; i--) {
-            paras.X(i) = pseudo_surv * pred_surv * paras.s(i) * S_y * paras.X(i-1);
+            paras.X.at(i) = pseudo_surv * pred_surv * paras.s.at(i) * S_y * paras.X.at(i-1);
         }
     }
-    paras.X.front() = np;
+    paras.X.at(0) = np;
 
 
     // Process error
@@ -151,15 +151,15 @@ double AphidPop::no_disp_iterate(const arma::vec& A_surv, pcg32& eng) {
 
     // # offspring from apterous aphids that are alates:
     double alate_prop = apterous.alate_prop(z);
-    double new_alates = apterous.X.front() * alate_prop;
+    double new_alates = apterous.X.at(0) * alate_prop;
 
     /*
      All offspring from alates are assumed to be apterous,
      so the only way to get new alates is from apterous aphids.
      */
-    apterous.X.front() -= new_alates;
-    apterous.X.front() += alates.X.front(); // <-- we assume alates make apterous
-    alates.X.front() = new_alates;
+    apterous.X.at(0) -= new_alates;
+    apterous.X.at(0) += alates.X.at(0); // <-- we assume alates make apterous
+    alates.X.at(0) = new_alates;
 
     return new_mummies;
 }
@@ -197,27 +197,33 @@ void AphidPop::refresh_abunds(double N0, double W0) {
  Update new aphid abundances, update # alates leaving,
  return the # newly mummified aphids
  */
-double AphidPop::iterate(arma::uvec& n_alates,
+double AphidPop::iterate(bool& has_alates,
+                         arma::uvec& n_alates,
                          const arma::vec& A_surv,
                          pcg32& eng) {
 
+    has_alates = false;
+
     double new_mummies = no_disp_iterate(A_surv, eng);
 
-    if (n_alates.n_elem != (alates.X.n_elem - adult_age))
-        n_alates.set_size(alates.X.n_elem - adult_age);
-
     if (fly_p > 0) {
+
+        // if (n_alates.n_elem != (alates.X.n_elem - adult_age))
+        //     n_alates.set_size(alates.X.n_elem - adult_age);
+
         uint32 binom_n;
         for (uint32 i = adult_age; i < alates.X.n_elem; i++) {
-            uint32& n_alates_i(n_alates(i - adult_age));
+            uint32& n_alates_i(n_alates.at(i - adult_age));
             n_alates_i = 0U;
-            binom_n = std::floor(alates.X(i));
+            binom_n = std::floor(alates.X.at(i));
             if (binom_n > 0U) {
+                has_alates = true;
                 binom.param(BinomParams(binom_n, fly_p));
                 n_alates_i = binom(eng);
-                alates.X(i) -= static_cast<double>(n_alates_i);
+                alates.X.at(i) -= static_cast<double>(n_alates_i);
             }
         }
+
     }
 
     return new_mummies;

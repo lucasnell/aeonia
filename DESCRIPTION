@@ -21,7 +21,6 @@ Imports:
     tibble,
     tidyr
 LinkingTo:
-    BH,
     Rcpp (>= 1.0.0),
     RcppArmadillo,
     RcppThread
@@ -29,7 +28,9 @@ Suggests:
     ggtext,
     knitr,
     rmarkdown
-SystemRequirements: GNU make
+SystemRequirements:
+    GNU make,
+    C++23
 NeedsCompilation: yes
 URL: https://github.com/lucasnell/aeonia
 BugReports: https://github.com/lucasnell/aeonia/issues
