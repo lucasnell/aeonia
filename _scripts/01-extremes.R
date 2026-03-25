@@ -26,36 +26,25 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 
 
+set.seed(259619623)
+large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
+                       n_pseudo = c(0L, 3L)) |>
+    mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
+        run_sim_combos(type = type, n_pseudo = n_pseudo, large_sims = TRUE,
+                       fly_p = 0.1)
+    }))
 
-if (!file.exists(rds_files$extreme_large) || .overwrite) {
 
-    # Takes very little time, but I'm saving RDS to use output in other scripts.
-    set.seed(259619623)
-    large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
-                           n_pseudo = c(0L, 3L)) |>
-        mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
-            run_sim_combos(type = type, n_pseudo = n_pseudo, large_sims = TRUE,
-                           fly_p = 0.1)
-        }))
-
-    write_rds(large_sims, rds_files$extreme_large, compress = "gz")
-
-} else {
-
-    large_sims <- read_rds(rds_files$extreme_large)
-
-}
 
 large_sims |>
     mutate(n_infected = num(map_dbl(sims, \(x) mean(x$n_infected)), digits = 3)) |>
     select(-sims)
-# # A tibble: 4 × 3
 #   type  n_pseudo n_infected
 #   <fct>    <int>  <num:.3!>
-# 1 low          0      5.480
-# 2 low          3      1.951
-# 3 high         0      2.255
-# 4 high         3      5.747
+# 1 low          0      5.399
+# 2 low          3      1.948
+# 3 high         0      2.191
+# 4 high         3      5.796
 
 
 large_sims |>
@@ -64,12 +53,10 @@ large_sims |>
     summarize(n_infected = n_infected[n_pseudo != 0] -
                   n_infected[n_pseudo == 0]) |>
     mutate(n_infected = num(n_infected, digits = 3))
-# # A tibble: 2 × 2
 #   type  n_infected
 #   <fct>  <num:.3!>
-# 1 low       -3.529
-# 2 high       3.492
-
+# 1 low       -3.451
+# 2 high       3.605
 
 
 # ============================================================================*
