@@ -11,8 +11,7 @@ suppressPackageStartupMessages({
 })
 
 # RDS files with simulation output:
-rds_files <- list(extreme_large = "extremes-large-sims.rds",
-                  extreme_manip = "extremes-manip-sims.rds",
+rds_files <- list(extreme_manip = "extremes-manip-sims.rds",
                   extreme_manip2 = "extremes-manip2-sims.rds") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
