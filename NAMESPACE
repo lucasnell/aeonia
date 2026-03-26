@@ -2,6 +2,7 @@
 
 export(alate_prop)
 export(big_plantscape)
+export(carrying_capacity)
 export(col_namer)
 export(inv_logit)
 export(lil_plantscape)

@@ -51,6 +51,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_apterous_leslie
+arma::mat get_apterous_leslie(SEXP aphid_ptr);
+RcppExport SEXP _aeonia_get_apterous_leslie(SEXP aphid_ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type aphid_ptr(aphid_ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_apterous_leslie(aphid_ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// get_carrying_capacity
+NumericVector get_carrying_capacity(const arma::mat& L, const NumericVector& K, const NumericVector& pseudo_surv, const NumericVector& pred_surv);
+RcppExport SEXP _aeonia_get_carrying_capacity(SEXP LSEXP, SEXP KSEXP, SEXP pseudo_survSEXP, SEXP pred_survSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type L(LSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type pseudo_surv(pseudo_survSEXP);
+    Rcpp::traits::input_parameter< const NumericVector& >::type pred_surv(pred_survSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_carrying_capacity(L, K, pseudo_surv, pred_surv));
+    return rcpp_result_gen;
+END_RCPP
+}
 // alate_prop
 NumericVector alate_prop(const NumericVector& z, const double& alate_b0, const double& alate_b1);
 RcppExport SEXP _aeonia_alate_prop(SEXP zSEXP, SEXP alate_b0SEXP, SEXP alate_b1SEXP) {
@@ -284,6 +309,8 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_make_aphids_ptr", (DL_FUNC) &_aeonia_make_aphids_ptr, 17},
     {"_aeonia_get_aphid_n_age_stages", (DL_FUNC) &_aeonia_get_aphid_n_age_stages, 1},
+    {"_aeonia_get_apterous_leslie", (DL_FUNC) &_aeonia_get_apterous_leslie, 1},
+    {"_aeonia_get_carrying_capacity", (DL_FUNC) &_aeonia_get_carrying_capacity, 4},
     {"_aeonia_alate_prop", (DL_FUNC) &_aeonia_alate_prop, 3},
     {"_aeonia_make_insects_ptr_cpp", (DL_FUNC) &_aeonia_make_insects_ptr_cpp, 3},
     {"_aeonia_get_aphid_X0", (DL_FUNC) &_aeonia_get_aphid_X0, 1},

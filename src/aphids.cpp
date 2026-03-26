@@ -278,6 +278,26 @@ uint32 get_aphid_n_age_stages(SEXP aphid_ptr) {
     return aphid_xptr->n_age_stages();
 }
 
+//[[Rcpp::export]]
+arma::mat get_apterous_leslie(SEXP aphid_ptr) {
+    XPtr<AphidPop> aphid_xptr(aphid_ptr);
+    return aphid_xptr->get_apterous_leslie();
+}
+
+
+//[[Rcpp::export]]
+NumericVector get_carrying_capacity(const arma::mat& L,
+                                    const NumericVector& K,
+                                    const NumericVector& pseudo_surv,
+                                    const NumericVector& pred_surv) {
+
+    arma::cx_vec eigvals = arma::eig_gen(L, "balance");
+    double lambda = arma::max(arma::abs(eigvals));
+    NumericVector cc = K * (lambda * pseudo_surv * pred_surv - 1);
+
+    return cc;
+}
+
 
 
 //' Calculate the proportion of offspring that are alates.

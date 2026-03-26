@@ -9,6 +9,14 @@ get_aphid_n_age_stages <- function(aphid_ptr) {
     .Call(`_aeonia_get_aphid_n_age_stages`, aphid_ptr)
 }
 
+get_apterous_leslie <- function(aphid_ptr) {
+    .Call(`_aeonia_get_apterous_leslie`, aphid_ptr)
+}
+
+get_carrying_capacity <- function(L, K, pseudo_surv, pred_surv) {
+    .Call(`_aeonia_get_carrying_capacity`, L, K, pseudo_surv, pred_surv)
+}
+
 #' Calculate the proportion of offspring that are alates.
 #'
 #' @param z Numeric vector of total aphid abundances (including non-winged,

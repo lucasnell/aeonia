@@ -45,6 +45,8 @@ class AphidPop;
 // Generic aphid "type" population: either apterous or alate for a particular clonal line
 class AphidTypePop {
 
+    friend class AphidPop;
+
 protected:
 
     arma::mat leslie_;       // Leslie matrix with survival and reproduction
@@ -437,6 +439,13 @@ public:
     }
     inline uint32 n_age_stages() const {
         return apterous.X.n_elem;
+    }
+
+    inline arma::mat get_apterous_leslie() const {
+        return apterous.leslie_;
+    }
+    inline arma::mat get_alate_leslie() const {
+        return alates.leslie_;
     }
 
 
