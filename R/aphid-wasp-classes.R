@@ -241,8 +241,11 @@ aphid_pop <- function(pseudo_surv,
                       sigma_x,
                       rho,
                       extinct_N,
-                      demog_error) {
+                      demog_error,
+                      .RETURN_LESLIE = FALSE) {
 
+    single_string(temp, "temp")
+    if (!grepl("T$", temp)) temp <- paste0(temp, "T")
 
     single_number(pseudo_surv, "pseudo_surv", .min = 0, .max = 1)
     single_string(name, "name")
@@ -342,6 +345,10 @@ aphid_pop <- function(pseudo_surv,
             leslie_array[.adult, .t, j] <- surv_t * p_instar_smooth
             leslie_array[.t+1, .t, j] <- surv_t * (1 - p_instar_smooth)
         }
+    }
+
+    if (.RETURN_LESLIE) {
+        return(leslie_array[,,1])
     }
 
 
@@ -513,4 +520,72 @@ mummy_pop <- function(pred_surv,
 
 
 
+#' Calculate carrying capacity
+#'
+#' @inheritParams make_insects_ptr
+#'
+#' @returns A numeric vector of carrying capacities.
+#'
+#' @export
+#'
+carrying_capacity <- function(pseudo_surv = 1.0,
+                              K = an_populations$K,
+                              pred_surv = 0.9,
+                              resistant = FALSE,
+                              surv_juv_apterous = "high",
+                              surv_adult_apterous = "high",
+                              repro_apterous = "high",
+                              surv_juv_alates = "low",
+                              surv_adult_alates = "low",
+                              repro_alates = "low",
+                              surv_paras = "low",
+                              temp = "low",
+                              p_instar_smooth = 0.5) {
 
+    is_type(pseudo_surv, "pseudo_surv", is.numeric, .min = 0, .max = 1)
+    is_type(K, "K", is.numeric, .min = 0)
+    is_type(pred_surv, "pred_surv", is.numeric, .min = 0, .max = 1)
+    # Making sure lengths are compatible
+    n <- max(sapply(list(pseudo_surv, K, pred_surv), length))
+    if (n > 1L) {
+        if (length(pseudo_surv) == 1L) pseudo_surv <- rep(pseudo_surv, n)
+        if (length(K) == 1L) K <- rep(K, n)
+        if (length(pred_surv) == 1L) pred_surv <- rep(pred_surv, n)
+        if (length(pseudo_surv) != n) stop("`pseudo_surv` must be length 1 or ", n)
+        if (length(K) != n) stop("`K` must be length 1 or ", n)
+        if (length(pred_surv) != n) stop("`pred_surv` must be length 1 or ", n)
+    }
+
+    # Create aphid Leslie matrix:
+    aphid_arg_names <- names(formals(make_insects_ptr))
+    aphid_arg_names <- aphid_arg_names[aphid_arg_names %in% names(formals(aphid_pop))]
+    aphid_args <- formals(make_insects_ptr)[aphid_arg_names]
+    # Note that I'm not setting pseudo_surv, K, and pred_surv based on
+    # the inputs above because I'm only using the aphid pointer to get
+    # its Leslie matrix, which these arguments don't change.
+    # I'm only setting pseudo_surv at all because it doesn't have a default
+    # in make_insects_ptr.
+    aphid_args[["name"]]  <- "aphid"
+    aphid_args[["pseudo_surv"]] <- 1.0
+    aphid_args[[".RETURN_LESLIE"]] <- TRUE
+    # Other arguments that do affect Leslie matrix:
+    aphid_args[["resistant"]] <- resistant
+    aphid_args[["surv_juv_apterous"]] <- surv_juv_apterous
+    aphid_args[["surv_adult_apterous"]] <- surv_adult_apterous
+    aphid_args[["repro_apterous"]] <- repro_apterous
+    aphid_args[["surv_juv_alates"]] <- surv_juv_alates
+    aphid_args[["surv_adult_alates"]] <- surv_adult_alates
+    aphid_args[["repro_alates"]] <- repro_alates
+    aphid_args[["surv_paras"]] <- surv_paras
+    aphid_args[["temp"]] <- temp
+    aphid_args[["p_instar_smooth"]] <- p_instar_smooth
+
+    aphid_args <- lapply(aphid_args, eval) # because some items refer to data
+
+    aphid_L <- do.call(aphid_pop, aphid_args)
+
+    cc <- get_carrying_capacity(aphid_L, K, pseudo_surv, pred_surv)
+
+    return(cc)
+
+}
