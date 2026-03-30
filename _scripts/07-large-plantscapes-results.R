@@ -6,6 +6,7 @@
 source("_scripts/00-preamble.R")
 
 
+.overwrite <- FALSE
 
 
 #' Because below returns an empty tibble, it shows that when we set
@@ -25,6 +26,42 @@ source("_scripts/00-preamble.R")
 #     select(n_pseudo:wt_pp, starts_with("n_both")) |>
 #     filter(n_both_pred != n_both_obs)
 
+
+
+large_simmer <- function(landscape, type, sd_N, virus_attract, pseudo_repel,
+                         outbreaks = "small", ...) {
+
+    if (outbreaks == "big") {
+        p_load <- 0.5
+        Y0 <- 150
+        N0 <- ifelse(type == "low", 150, 20)
+    } else {
+        p_load <- 0.05
+        Y0 <- ifelse(type == "low", 220, 300)
+        N0 <- ifelse(type == "low", 60, 35)
+    }
+
+    zeta <- ifelse(type == "low", 1, 0.1)
+
+    args <- list(landscape = landscape,
+                 sd_N = sd_N,
+                 virus_attract = virus_attract,
+                 pseudo_repel = pseudo_repel,
+                 Y0 = Y0,
+                 N0 = N0,
+                 zeta = zeta,
+                 p_load_alate = p_load,
+                 p_load_plant = p_load,
+                 K = 12.5e3,
+                 pseudo_surv = 0.85,
+                 n_sims = 100L,
+                 summ = "all")
+
+    args <- list_assign(args, ...)
+
+    return(do.call(big_plantscape, args))
+
+}
 
 
 
@@ -49,6 +86,23 @@ sim_df <- list.files("_scripts/interm-data", "large-plantscapes-.?.?.rds",
            type = factor(type, levels = c("low", "high")))
 
 
+sim_w1_df <- list.files("_scripts/interm-data", "large-plantscapes-w1-.?.?.rds",
+                     full.names = TRUE) |>
+    map(\(x) {
+        read_rds(x) |>
+            # Remove this vector immediately bc it's >1 GB
+            select(-landscape)
+    }) |>
+    list_rbind() |>
+    mutate(outbreak_size = map_dbl(sim, \(x) mean(x$n_infected[x$n_infected > 1])),
+           log_outbreak_size = map_dbl(sim, \(x) mean(log10(x$n_infected[x$n_infected > 1]))),
+           p_emerge = map_dbl(sim, \(x) mean(x$n_infected > 1))) |>
+    mutate(wt_vp = ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") |>
+               factor(levels = c("off *Pseudo.*", "on *Pseudo.*")),
+           wt_pp = ifelse(wt_pp > 1, "clustered", "uniform") |>
+               factor(levels = c("uniform", "clustered")),
+           type = factor(type, levels = c("low", "high")))
+
 
 
 
@@ -61,7 +115,16 @@ sim_df |>
                     n_pseudo == 0)) |>
     select(type, outbreaks, n_pseudo, outbreak_size) |>
     arrange(type, outbreaks, n_pseudo)
-
+#   type  outbreaks n_pseudo outbreak_size
+#   <fct> <fct>        <dbl>         <dbl>
+# 1 low   small            0          4.73
+# 2 low   small         7000          2.6
+# 3 low   big              0       7604.
+# 4 low   big           7000       2736.
+# 5 high  small            0          2.58
+# 6 high  small         7000          5.18
+# 7 high  big              0       2015.
+# 8 high  big           7000       7745.
 
 
 #
@@ -95,7 +158,7 @@ add_no_pseudo_points <- function(data_df) {
 
 big_land_plotter <- function(yvar,
                              type,
-                             outbreaks,
+                             outbreaks = "small",
                              col_fct = "sd_N",
                              x_facet_fct = "land_type",
                              y_facet_fct = c("virus_attract", "pseudo_repel"),
@@ -105,16 +168,18 @@ big_land_plotter <- function(yvar,
                              facet_scales = "fixed",
                              facet_ncol = NULL,
                              y_breaks = waiver(),
-                             y_max = NULL) {
+                             y_max = NULL,
+                             .title = NULL,
+                             w1 = FALSE) {
 
     # yvar = "outbreak_size"; type = "low"; outbreaks = "small"; col_fct = "pseudo_repel"
     # x_facet_fct = "virus_attract"; y_facet_fct = NULL; shp_lty_fct = "wt_vp"
     # fixed = list(wt_pp = "uniform", sd_N = 0)
     # color_vals = NULL; facet_scales = "fixed"; facet_ncol = NULL
-    # y_breaks = waiver(); y_max = NULL
+    # y_breaks = waiver(); y_max = NULL; w1 = FALSE
     # rm(yvar, type, outbreaks, col_fct, x_facet_fct, y_facet_fct, shp_lty_fct, fixed)
     # rm(color_vals, facet_scales, facet_ncol, dd, facet_fct, facet_form)
-    # rm(points_lines, shp_lty_ttl, facets_coord, y_breaks, y_max)
+    # rm(points_lines, shp_lty_ttl, facets_coord, y_breaks, y_max, w1)
     # rm(pretty_greek_fct, make_land_type)
 
     pretty_greek_fct <- function(x, letter, suffix = "") {
@@ -129,12 +194,24 @@ big_land_plotter <- function(yvar,
         factor(paste0(wt_vp, sep, wt_pp), levels = lvls)
     }
 
+    if (is.null(.title)) {
+        .title <- sprintf("*Pseudomonas*<br>%s outbreaks",
+                          ifelse(type == "low", "inhibits", "promotes"))
+    }
+
     facet_scales <- match.arg(facet_scales, c("fixed", "free", "free_x", "free_y"))
 
-    dd <- sim_df |>
+    if (w1) {
+        dd <- sim_w1_df |>
+            filter(type == .env$type) |>
+            mutate(sd_N = 0)
+    } else dd <- sim_df |>
         filter(type == .env$type, outbreaks == .env$outbreaks) |>
+        select(-outbreaks)
+
+    dd <- dd |>
         mutate(outbreak_size = ifelse(is.na(outbreak_size), -Inf, outbreak_size)) |>
-        select(-type, -outbreaks, -sim) |>
+        select(-type, -sim) |>
         add_no_pseudo_points() |>
         mutate(land_type = make_land_type(wt_vp, wt_pp),
                grp = interaction(sd_N, land_type, virus_attract,
@@ -164,7 +241,7 @@ big_land_plotter <- function(yvar,
         points_lines <- list(geom_point(aes(shape = .data[[shp_lty_fct]])),
                              geom_line(aes(group = grp, linetype = .data[[shp_lty_fct]])))
                              # geom_line(aes(group = grp, linewidth = .data[[shp_lty_fct]])))
-        shp_lty_ttl <- pretty_params(shp_lty_fct, TRUE) |>
+        shp_lty_ttl <- pretty_params(shp_lty_fct, cap1 = TRUE) |>
             str_replace_all("\\s+", "<br>")
     } else {
         points_lines <- list(geom_point(), geom_line(aes(group = grp)))
@@ -197,16 +274,25 @@ big_land_plotter <- function(yvar,
     }
 
     if (!is.null(color_vals)) {
-        col_scale <- scale_color_manual(pretty_params(col_fct, TRUE, serif = TRUE),
+        col_scale <- scale_color_manual(pretty_params(col_fct, cap1 = TRUE,
+                                                      serif = TRUE) |>
+                                            str_replace(" ", "<br>"),
                                         values = color_vals)
     } else {
-        col_scale <- scale_color_viridis_d(pretty_params(col_fct, TRUE, serif = TRUE),
+        col_scale <- scale_color_viridis_d(pretty_params(col_fct, cap1 = TRUE,
+                                                         serif = TRUE) |>
+                                               str_replace(" ", "<br>"),
                                            begin = 0.2, end = 0.8, option = "plasma")
     }
 
+    y_ints <- 0
+    if (yvar == "p_emerge") y_ints <- c(0, 1)
+    if (yvar == "outbreak_size" && (outbreaks == "big" || w1)) y_ints <- c(0, 10e3)
+
+
     dd |>
         ggplot(aes(n_pseudo / 10e3 * 100, .data[[yvar]], color = .data[[col_fct]])) +
-        geom_hline(yintercept = 0, color = "gray70") +
+        geom_hline(yintercept = y_ints, color = "gray70") +
         points_lines +
         col_scale +
         scale_linetype_manual(shp_lty_ttl, values = c("solid", "22")) +
@@ -217,8 +303,7 @@ big_land_plotter <- function(yvar,
         facets_coord +
         labs(x = "Percent *Pseudomonas* patches",
              y = yvar_desc[[yvar]] |> first_cap(),
-             title = sprintf("*Pseudomonas* %s outbreaks",
-                             ifelse(type == "low", "inhibits", "promotes"))) +
+             title = .title) +
         theme(legend.text = element_markdown())
 }
 
@@ -438,58 +523,148 @@ big_land_plotter(yvar = .y, type = .t, outbreaks = .o,
 # =============================================================================*
 # =============================================================================*
 
-crossing(.t = c("low", "high"),
-         .v = c(1, 5)) |>
-    pmap(\(.t, .v) {
-    big_land_plotter(yvar = "outbreak_size", type = .t, outbreaks = "small",
-                     col_fct = "pseudo_repel",
-                     shp_lty_fct = "wt_vp",
-                     x_facet_fct = NULL,
-                     y_facet_fct = NULL,
-                     fixed = list(wt_pp = "uniform", sd_N = 0,
-                                  virus_attract = .v),
-                     color_vals = scico(2, end = 0.8, palette = "hawaii"))
-}) |>
+# crossing(.t = c("low", "high"),
+#          .v = c(1, 5)) |>
+#     pmap(\(.t, .v) {
+#     big_land_plotter(yvar = "outbreak_size", type = .t,
+#                      w1 = TRUE,
+#                      col_fct = "pseudo_repel",
+#                      shp_lty_fct = "wt_vp",
+#                      x_facet_fct = NULL,
+#                      y_facet_fct = NULL,
+#                      fixed = list(wt_pp = "uniform", sd_N = 0,
+#                                   virus_attract = .v),
+#                      color_vals = scico(2, end = 0.8, palette = "hawaii"))
+# }) |>
+#     do.call(what = wrap_plots) +
+#     plot_layout(nrow = 2, axis_titles = "collect", guides = "collect")
+
+
+
+# Takes ~26 sec
+set.seed(314679353)
+dens_sims <- crossing(ty = sort(unique(sim_df$type)),
+                      np = sort(unique(sim_df$n_pseudo))) |>
+    pmap(\(ty, np) {
+        if (np > 0) {
+            .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
+                filter(n_pseudo == np,
+                       wt_pp == 1,
+                       ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") ==
+                           "off *Pseudo.*") |>
+                getElement("landscape") |> getElement(1) |>
+                base::`[`(,,1,drop=FALSE)
+        } else {
+            .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
+        }
+        large_simmer(.landscape, type = ty, sd_N = 0, virus_attract = 1,
+                     pseudo_repel = 1, outbreaks = "small",
+                     summ = "none", n_sims = dim(.landscape)[3],
+                     n_threads = 1L) |>
+            mutate(n_pseudo = np, type = ty) |>
+            select(type, n_pseudo, everything())
+    }) |>
+    list_rbind()
+
+
+
+total_dens_p <- dens_sims |>
+    filter(is.na(x)) |>
+    filter(type == "high") |>
+    mutate(aphids = aphids + parasitized) |>
+    select(n_pseudo, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps")),
+           n_pseudo = factor(n_pseudo)) |>
+    ggplot(aes(time, density / 1e6, color = n_pseudo)) +
+    geom_line(linewidth = 0.75) +
+    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+    facet_wrap(~ species, ncol = 1, scales = "free") +
+    labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)")
+
+
+max_plant_dens_p <- dens_sims |>
+    filter(type == "high") |>
+    filter(!is.na(x)) |>
+    mutate(n_pseudo = factor(n_pseudo),
+           aphids = aphids + parasitized) |>
+    group_by(n_pseudo, time) |>
+    summarize(across(aphids:wasps, max), .groups = "drop") |>
+    select(n_pseudo, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    ggplot(aes(time, density, color = n_pseudo)) +
+    geom_line(linewidth = 0.75) +
+    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+    facet_wrap(~ species, ncol = 1, scales = "free") +
+    labs(x = "Time (days)", y = "Maximum per-plant density")
+
+
+
+if (.overwrite) {
+    for (.t in c("low", "high")) {
+
+        .p <- tibble(yvar = c("p_emerge", "outbreak_size")) |>
+            mutate(virus_attract = map(1:n(), \(i) sort(unique(sim_df$virus_attract)))) |>
+            unnest(virus_attract) |>
+            pmap(\(yvar, virus_attract) {
+                .ym <- if (yvar == "outbreak_size") NA else NULL
+                .yb <- if (yvar == "outbreak_size") waiver() else c(0, 0.5, 1)
+                big_land_plotter(yvar = yvar, type = .t, outbreaks = "small",
+                                 col_fct = "pseudo_repel",
+                                 shp_lty_fct = "wt_vp",
+                                 x_facet_fct = NULL,
+                                 y_facet_fct = NULL,
+                                 fixed = list(wt_pp = "uniform", sd_N = 0,
+                                              virus_attract = virus_attract),
+                                 color_vals = scico(2, end = 0.8, palette = "hawaii"),
+                                 y_max = .ym, y_breaks = .yb) +
+                    theme(plot.margin = margin(0, 0, 0, 0))
+            }) |>
+            do.call(what = wrap_plots) +
+            plot_layout(design = "A#B\n###\nC#D", heights = c(1, 0.15, 1),
+                        widths = c(1, 0.1, 1),
+                        axis_titles = "collect", guides = "collect", byrow = TRUE) &
+            illustrator_theme
+        .f <- sprintf("_plots/large-plantscapes-%s.pdf", .t)
+        save_plot(.f, .p, width = 3.25, height = 4.5)
+    }; rm(.t, .p, .f)
+}
+
+
+
+
+
+
+# =============================================================================*
+# =============================================================================*
+# Big outbreaks  ----
+# =============================================================================*
+# =============================================================================*
+
+
+big_outbreaks_p <- c("low", "high") |>
+    map(\(type) {
+        big_land_plotter(yvar = "outbreak_size", type = type, outbreaks = "big",
+                         col_fct = "pseudo_repel",
+                         shp_lty_fct = "wt_vp",
+                         x_facet_fct = "virus_attract",
+                         y_facet_fct = NULL,
+                         fixed = list(wt_pp = "uniform", sd_N = 0),
+                         color_vals = scico(2, end = 0.8, palette = "hawaii"),
+                         y_max = NA) +
+            theme(plot.margin = margin(0, 0, 0, 0))
+    }) |>
     do.call(what = wrap_plots) +
-    plot_layout(nrow = 2, axis_titles = "collect", guides = "collect")
+    plot_layout(design = "A#B", widths = c(1, 0.1, 1),
+                axis_titles = "collect", guides = "collect") +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"))
 
-
-
-.t <- "low"
-
-
-
-
-for (.t in c("low", "high")) {
-
-    .p <- tibble(yvar = rep(c("p_emerge", "outbreak_size"), c(1, 2)),
-                 outbreaks = rep(c("small", "big"), c(2, 1))) |>
-        mutate(virus_attract = map(1:n(), \(i) sort(unique(sim_df$virus_attract)))) |>
-        unnest(virus_attract) |>
-        pmap(\(yvar, outbreaks, virus_attract) {
-            .ym <- if (yvar == "outbreak_size") NA else NULL
-            .yb <- if (yvar == "outbreak_size") waiver() else c(0, 0.5, 1)
-            big_land_plotter(yvar = yvar, type = .t, outbreaks = outbreaks,
-                             col_fct = "pseudo_repel",
-                             shp_lty_fct = "wt_vp",
-                             x_facet_fct = NULL,
-                             y_facet_fct = NULL,
-                             fixed = list(wt_pp = "uniform", sd_N = 0,
-                                          virus_attract = virus_attract),
-                             color_vals = scico(2, end = 0.8, palette = "hawaii"),
-                             y_max = .ym, y_breaks = .yb) +
-                theme(plot.margin = margin(0, 0, 0, 0))
-        }) |>
-        do.call(what = wrap_plots) +
-        plot_layout(design = "AB\n##\nCD\n##\nEF", heights = c(1, 0.15, 1, 0.15, 1),
-                    axis_titles = "collect", guides = "collect", byrow = TRUE) &
-        illustrator_theme
-
-    .f <- sprintf("_plots/large-plantscapes-%s.pdf", .t)
-    save_plot(.f, .p, width = 3.25, height = 6.5)
-}; rm(.t, .p, .f)
-
-
+if (.overwrite) {
+    save_plot("_plots/large-plantscapes-big.pdf", big_outbreaks_p,
+              width = 7.5, height = 4)
+}
 
 
 
@@ -500,41 +675,76 @@ for (.t in c("low", "high")) {
 # =============================================================================*
 # =============================================================================*
 
-virus_attract_plotter <- function(type, yvar, outbreaks = "small") {
+virus_attract_plotter <- function(type, yvar, outbreaks = "small", w1 = FALSE,
+                                  .title = NULL, xvar = "pseudo_percent",
+                                  y_lims = NULL, x_lims = NULL,
+                                  y_lines = NULL, log_rel = TRUE) {
+    # type = "high"; yvar = "outbreak_size"; outbreaks = "big"; w1 = TRUE
+    # .title = waiver(); xvar = "log_alates"
+    # rm(type, yvar, outbreaks, w1, .title, xvar, y_lims, x_lims, y_lines)
+    # rm(y_line, y, y_lab, shp_lty_ttl, dd)
+
+    stopifnot(xvar %in% c("pseudo_percent", "mean", colnames(sim_df$sim[[1]])[-1]))
+
     type <- paste(type)
     yvar <- paste(yvar)
-    .title = list(low = "*Pseudomonas*<br>inhibits outbreaks",
-                  high = "*Pseudomonas*<br>promotes outbreaks")[[type]]
-    y_max <- 6
-    if (yvar == "outbreak_size" & outbreaks == "small") {
-        .title <- NULL
-        y_max <- 9
+    if (is.null(.title)) {
+        .title <- list(low = "*Pseudomonas*<br>inhibits outbreaks",
+                       high = "*Pseudomonas*<br>promotes outbreaks")[[type]]
     }
+
+    y <- "rel"
+    y_lab <- paste(first_cap(yvar_desc[[yvar]]),
+                   "with<br>virus attract / without")
     shp_lty_ttl <- pretty_params("wt_vp", cap1 = TRUE) |>
         str_replace(" ", "<br>")
-    sim_df |>
-        filter(type == .env$type,
-               outbreaks == .env$outbreaks,
-               wt_pp %in% c(NA, "uniform"),
-               sd_N == 0) |>
-        select(-type, -outbreaks, -sim, -sd_N) |>
+    if (log_rel) {
+        y <- "log_rel"
+        y_lab <- paste0("log<sub>2</sub>(", yvar_desc[[yvar]],
+                        " with<br>virus attract / without)")
+    }
+    if (w1) {
+        dd <- sim_w1_df |>
+            filter(type == .env$type,
+                   wt_pp %in% c(NA, "uniform"))
+    } else {
+        dd <- sim_df |>
+            filter(type == .env$type,
+                   outbreaks == .env$outbreaks,
+                   wt_pp %in% c(NA, "uniform"),
+                   sd_N == 0)
+    }
+
+    if (xvar %in% colnames(sim_df$sim[[1]])[-1]) {
+        dd[[xvar]] <- map_dbl(dd$sim, \(x) mean(x[[xvar]]))
+    }
+    x_breaks <- if (xvar == "pseudo_percent") c(0, 10, 30, 50, 70, 90) else {
+        waiver()
+    }
+    x_lab <- if (xvar == "pseudo_percent") {"Percent *Pseudomonas* patches"
+    } else if (xvar == "mean") paste("Mean", yvar_desc[[yvar]]) else {
+        first_cap(yvar_desc[[xvar]])
+    }
+
+    dd |>
         add_no_pseudo_points() |>
-        select(-wt_pp) |>
-        select(wt_vp, n_pseudo, pseudo_repel, virus_attract, all_of(yvar)) |>
-        pivot_wider(names_from = "virus_attract", values_from = yvar) |>
+        select(wt_vp, n_pseudo, pseudo_repel, virus_attract, any_of(c(yvar, xvar))) |>
+        pivot_wider(names_from = "virus_attract", values_from = yvar,
+                    id_cols = wt_vp:pseudo_repel, unused_fn = mean) |>
         mutate(rel = `5` / `1`,
+               log_rel = log2(`5` / `1`),
+               mean = (`5` + `1`) / 2,
                pseudo_percent = n_pseudo / 10e3 * 100) |>
         mutate(pseudo_repel = factor(pseudo_repel)) |>
-        ggplot(aes(pseudo_percent, rel, color = pseudo_repel)) +
-        geom_hline(yintercept = 1, color = "gray70") +
+        ggplot(aes(.data[[xvar]], .data[[y]], color = pseudo_repel)) +
+        geom_hline(yintercept = y_lines, color = "gray70") +
         geom_point(aes(shape = wt_vp)) +
         geom_line(aes(linetype = wt_vp)) +
-        scale_x_continuous(breaks = c(0, 10, 30, 50, 70, 90)) +
-        labs(x = "Percent *Pseudomonas* patches",
-             y = paste(first_cap(yvar_desc[[yvar]]),
-                       "with<br>virus attract / without"),
+        scale_x_continuous(breaks = x_breaks) +
+        labs(x = x_lab,
+             y = y_lab,
              title = .title) +
-        coord_cartesian(ylim = c(1, y_max)) +
+        coord_cartesian(ylim = y_lims, xlim = x_lims) +
         scale_linetype_manual(shp_lty_ttl, values = c("solid", "22")) +
         scale_shape_manual(shp_lty_ttl, values = c(19, 17)) +
         scale_color_manual(pretty_params("pseudo_repel") |>
@@ -545,15 +755,16 @@ virus_attract_plotter <- function(type, yvar, outbreaks = "small") {
 virus_attract_p <- crossing(yvar = c("p_emerge", "outbreak_size") |>
                                 (\(x) factor(x, levels = x))(),
                             type = sim_df$type |> unique() |> sort()) |>
+    mutate(y_lines = 0) |>
     pmap(virus_attract_plotter) |>
     wrap_plots(nrow = 2, guides = "collect", axis_titles = "collect", byrow = TRUE) +
     plot_annotation(tag_levels = "A") &
     theme(plot.tag = element_markdown(face = "bold"))
 
-
 big_virus_attract_p <- tibble(type = sim_df$type |> unique() |> sort(),
                               yvar = "outbreak_size",
                               outbreaks = "big") |>
+    mutate(y_lines = 0) |>
     pmap(virus_attract_plotter) |>
     wrap_plots(nrow = 1, guides = "collect", axis_titles = "collect") +
     plot_annotation(tag_levels = "A") &
@@ -562,8 +773,132 @@ big_virus_attract_p <- tibble(type = sim_df$type |> unique() |> sort(),
 virus_attract_p
 big_virus_attract_p
 
-save_plot("_plots/virus_attract-small.pdf", virus_attract_p, width = 6.5, height = 6.5)
-save_plot("_plots/virus_attract-big.pdf", big_virus_attract_p, width = 6.5, height = 3.5)
+if (.overwrite) {
+    save_plot("_plots/virus_attract-small.pdf", virus_attract_p,
+              width = 6.5, height = 6.5)
+    save_plot("_plots/virus_attract-big.pdf", big_virus_attract_p,
+              width = 6.5, height = 3.5)
+}
+
+
+
+# LEFT OFF ----
+#
+# What is the effect of virus_attract = 5 when w = 1?
+#
+va_w1_p <- crossing(.v = c(1, 5),
+         .t = factor(c("low", "high"), levels = c("low", "high"))) |>
+    pmap(\(.v, .t) {
+        .title <- if (.v == 1) NULL else waiver()
+        big_land_plotter(yvar = "outbreak_size", type = .t,
+                         w1 = TRUE,
+                         col_fct = "pseudo_repel",
+                         shp_lty_fct = "wt_vp",
+                         x_facet_fct = NULL,
+                         y_facet_fct = NULL,
+                         fixed = list(wt_pp = "uniform", sd_N = 0,
+                                      virus_attract = .v),
+                         .title = .title,
+                         color_vals = scico(2, end = 0.8, palette = "hawaii"))
+    }) |>
+    c(tibble(yvar = "outbreak_size",
+             type = sim_df$type |> unique() |> sort()) |>
+          pmap(\(yvar, type) virus_attract_plotter(yvar = yvar, type = type,
+                                                   w1 = TRUE, .title = waiver()))) |>
+    c(tibble(yvar = "outbreak_size",
+             type = sim_df$type |> unique() |> sort()) |>
+          pmap(\(yvar, type) virus_attract_plotter(yvar = yvar, type = type,
+                                                   w1 = TRUE, .title = waiver(),
+                                                   xvar = "mean"))) |>
+    do.call(what = wrap_plots) +
+    plot_layout(nrow = 4, axis_titles = "collect", guides = "collect", byrow = TRUE) +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"))
+va_w1_p
+
+if (.overwrite) {
+    save_plot("_plots/virus_attract-w1.pdf", va_w1_p, width = 6.5, height = 8.5)
+}
+
+crossing(yvar = "outbreak_size",
+         xvar = c("mean", "log_alates", "pseudo_percent"),
+         type = sim_df$type |> unique() |> sort()) |>
+    pmap(\(yvar, type, xvar) {
+        xlims <- if (xvar == "mean") c(500, 8500) else if (xvar == "log_alates") c(7,11) else NULL
+        virus_attract_plotter(yvar = yvar, type = type,
+                                             w1 = TRUE, .title = waiver(),
+                                             xvar = xvar,
+                                             x_lims = xlims,
+                                             y_lines = 0)
+    }) |>
+    do.call(what = wrap_plots) +
+    plot_layout(nrow = 3, axis_titles = "collect", guides = "collect", byrow = TRUE)
+
+
+set.seed(1488176133)
+va_w1_sims <- map(c(0, 1000, 3000, 5000, 7000, 9000),
+    \(np) {
+        if (np > 0) {
+            .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
+                filter(n_pseudo == np,
+                       wt_pp == 1,
+                       ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") ==
+                           "off *Pseudo.*") |>
+                getElement("landscape") |> getElement(1) |>
+                base::`[`(,,1,drop=FALSE)
+        } else {
+            .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
+        }
+        large_simmer(.landscape, type = "high", sd_N = 0, virus_attract = 1,
+                     pseudo_repel = 1, outbreaks = "big", w = 1,
+                     summ = "none",
+                     n_sims = dim(.landscape)[3]) |>
+            mutate(n_pseudo = np)
+    }) |>
+    list_rbind()
+
+
+
+va_w1_total_dens_p <- va_w1_sims |>
+    filter(is.na(x)) |>
+    mutate(n_pseudo = factor(n_pseudo),
+           aphids = aphids + parasitized) |>
+    select(n_pseudo, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    ggplot(aes(time, density / 1e6, color = n_pseudo)) +
+    geom_line(linewidth = 0.75) +
+    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+    facet_wrap(~ species, ncol = 1, scales = "free") +
+    labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
+         title = "Big outbreaks, w = 1")
+
+va_w1_max_plant_dens_p <- va_w1_sims |>
+    filter(!is.na(x)) |>
+    mutate(n_pseudo = factor(n_pseudo),
+           aphids = aphids + parasitized) |>
+    group_by(n_pseudo, time) |>
+    summarize(across(aphids:wasps, max), .groups = "drop") |>
+    select(n_pseudo, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    ggplot(aes(time, density, color = n_pseudo)) +
+    geom_line(linewidth = 0.75) +
+    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+    facet_wrap(~ species, ncol = 1, scales = "free") +
+    labs(x = "Time (days)", y = "Maximum per-plant density",
+         title = "Big outbreaks, w = 1")
+
+
+va_w1_total_dens_p + total_dens_p +
+    plot_layout(nrow = 1, guides = "collect", axes = "collect")
+
+va_w1_max_plant_dens_p + max_plant_dens_p +
+    plot_layout(nrow = 1, guides = "collect", axes = "collect")
+
+
+
+
 
 
 # =============================================================================*
@@ -572,58 +907,25 @@ save_plot("_plots/virus_attract-big.pdf", big_virus_attract_p, width = 6.5, heig
 # =============================================================================*
 # =============================================================================*
 
-large_simmer <- function(landscape, type, sd_N, virus_attract, pseudo_repel, ...) {
-
-    args <- list(landscape = landscape,
-                 sd_N = sd_N,
-                 virus_attract = virus_attract,
-                 pseudo_repel = pseudo_repel,
-                 Y0 = 100,
-                 K = 12.5e3,
-                 pseudo_surv = 0.85,
-                 p_load_alate = 0.075,
-                 p_load_plant = 0.075,
-                 n_sims = 100L,
-                 summ = "all")
-
-    if (type == "low") {
-        args <- list_assign(args,
-                            N0 = 110,
-                            zeta = 1)
-    } else {
-        args <- list_assign(args,
-                            N0 = 10,
-                            zeta = 0.14)
-    }
-
-    args <- list_assign(args, ...)
-
-    return(do.call(big_plantscape, args))
-
-}
-
 .type <- "high"
 .sd_N <- 0
 .virus_attract <- 1
 
-.landscape <- read_rds("_scripts/interm-data/large-plantscapes.rds") |>
-    filter(type == .type,
-           sd_N == .sd_N,
-           virus_attract == .virus_attract,
-           pseudo_repel == 1,
-           n_pseudo == 7000,
+.landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
+    filter(n_pseudo == 7000,
            wt_pp == 1,
            ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") == "off *Pseudo.*") |>
     getElement("landscape") |> getElement(1) |>
     base::`[`(,,1:10)
 
-# Takes ~30 sec
+# Takes ~30 sec for both
+set.seed(1083022697)
 sims_p1 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
-                        pseudo_repel = 1, n_sims = 10, summ = "all",
+                        pseudo_repel = 1, n_sims = dim(.landscape)[3], summ = "all",
                         max_t = 50,
                         out_dispersals = TRUE)
 sims_p5 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
-                        pseudo_repel = 5, n_sims = 10, summ = "all",
+                        pseudo_repel = 5, n_sims = dim(.landscape)[3], summ = "all",
                         max_t = 50,
                         out_dispersals = TRUE)
 
@@ -633,9 +935,12 @@ sims_p5 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
 #
 # Below, this is the total number of incoming alates to the initially
 # infected patch:
-sims_p1$disps |> map_int(\(x) sum(x[1,]))
-sims_p5$disps |> map_int(\(x) sum(x[1,]))
 
+sims_p1$disps |> map_int(\(x) sum(x[1,]))
+# [1] 55 52 53 58 54 51 51 64 56 48
+
+sims_p5$disps |> map_int(\(x) sum(x[1,]))
+# [1] 132 139 139 132 137 122 132 162 122 122
 
 
 
@@ -650,12 +955,8 @@ sims_p5$disps |> map_int(\(x) sum(x[1,]))
 .sd_N <- 0
 .pseudo_repel <- 1
 
-.landscapes <- read_rds("_scripts/interm-data/large-plantscapes.rds") |>
-    filter(type == .type,
-           sd_N == .sd_N,
-           virus_attract == 1,
-           pseudo_repel == .pseudo_repel,
-           n_pseudo %in% c(1000, 7000, 9000),
+.landscapes <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
+    filter(n_pseudo %in% c(1000, 7000, 9000),
            wt_pp == 1,
            ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") == "on *Pseudo.*") |>
     arrange(n_pseudo) |>
@@ -663,7 +964,7 @@ sims_p5$disps |> map_int(\(x) sum(x[1,]))
     set_names(c("low", "med", "high")) |>
     map(\(x) x[,,1:10,drop=FALSE])
 
-# Takes ~1 min 45 sec
+# Takes ~2
 set.seed(500860318)
 sims_va <- imap(.landscapes, \(l, n) {
 
@@ -696,19 +997,17 @@ sims_va <- imap(.landscapes, \(l, n) {
 }, .progress = .prog_args) |>
     list_rbind()
 
-
 sims_va |>
     group_by(pseudo, virus_attract) |>
     summarize(across(starts_with("disps"), mean), .groups = "drop")
-# # A tibble: 6 × 4
 #   pseudo virus_attract disps_in disps_out
 #   <fct>          <dbl>    <dbl>     <dbl>
-# 1 low                1     57.1      46.4
-# 2 low                5    265.      218.
-# 3 med                1     57.5      45.8
-# 4 med                5    286.      236.
-# 5 high               1     30.1      24.9
-# 6 high               5    141.      114.
+# 1 low                1     47.5      38.4
+# 2 low                5    233.      192.
+# 3 med                1     63.2      52.2
+# 4 med                5    302.      249.
+# 5 high               1     27.3      22.1
+# 6 high               5    133.      110.
 
 
 sims_va |>
@@ -716,12 +1015,11 @@ sims_va |>
     summarize(across(starts_with("disps"), mean), .groups = "drop") |>
     group_by(pseudo) |>
     summarize(across(starts_with("disps"), \(x) x[virus_attract == 5] / x[virus_attract == 1]))
-# # A tibble: 3 × 3
 #   pseudo disps_in disps_out
 #   <fct>     <dbl>     <dbl>
-# 1 low        4.65      4.69
-# 2 med        4.97      5.16
-# 3 high       4.69      4.57
+# 1 low        4.91      5.01
+# 2 med        4.77      4.76
+# 3 high       4.89      4.96
 
 
 
