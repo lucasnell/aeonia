@@ -127,12 +127,14 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
                   outbreak_size = (mean(n_infected[n_infected > 1]) - 2) / 7,
                   .groups = "drop") |>
         pivot_longer(p_emerge:outbreak_size, names_to = "outcome")
+    if (par_name == "K") dd$par_val <- carrying_capacity(K = dd$par_val, pred_surv = 1)
     pv_og <- run_sim_combos(type = type, n_pseudo = 0, return_args = TRUE) |>
         getElement(par_name)
     if (is.null(pv_og)) pv_og <- formals(lil_plantscape)[[par_name]]
     if (is.null(pv_og)) pv_og <- eval(formals(sim_plantscape)[[par_name]])
     if (is.null(pv_og)) pv_og <- eval(formals(make_insects_ptr)[[par_name]])
     if (is.null(pv_og)) pv_og <- eval(formals(make_disease_ptr)[[par_name]])
+    if (par_name == "K") pv_og <- carrying_capacity(K = pv_og, pred_surv = 1)
     dd_og <- tibble(par_val = pv_og)
 
     yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
@@ -164,6 +166,14 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         ungroup() |>
         filter(max_diff)
 
+
+    if (par_name == "K") {
+        x_lab <- paste("Aphid carrying capacity",
+                       "(<span style=\"font-family: serif\"><i>K</i>",
+                       "(<i>&lambda;</i> &minus; 1)</span>)")
+    } else x_lab <- pretty_params(par_name) |> first_cap()
+
+
     p <- dd |>
         filter(!is.na(value)) |>
         ggplot(aes(par_val, value, color = outcome)) +
@@ -177,8 +187,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
     p +
         geom_point(aes(shape = n_pseudo)) +
         ..LINES +
-        labs(x = pretty_params(par_name) |> first_cap(),
-             y = yvar_desc[["p_emerge"]] |> first_cap()) +
+        labs(x = x_lab, y = yvar_desc[["p_emerge"]] |> first_cap()) +
         x_scale +
         scale_y_continuous(breaks = 0:2/2,
                            sec.axis = sec_axis(\(x) 7 * x + 2,
@@ -339,6 +348,53 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
 
 
+#
+# _ N0 / Y0 thresholds ----
+#
+
+# ... for when outbreaks never occur
+manip2_sims |>
+    rename(Y0 = par_val_a, N0 = par_val_b) |>
+    group_by(type, N0) |>
+    filter(Y0 == min(Y0[p_emerge == 0])) |>
+    group_by(type) |>
+    summarize(rel = median(Y0 / N0))
+manip2_sims |>
+    rename(Y0 = par_val_a, N0 = par_val_b) |>
+    group_by(type, N0) |>
+    filter(Y0 == min(Y0[p_emerge == 0])) |>
+    ungroup() |>
+    ggplot(aes(Y0, N0)) +
+    geom_point() +
+    facet_wrap(~ type, nrow = 1)
+
+# ... for when outbreaks always occur
+manip2_sims |>
+    rename(Y0 = par_val_a, N0 = par_val_b) |>
+    filter(p_emerge == 1) |>
+    group_by(type, N0) |>
+    filter(Y0 == max(Y0)) |>
+    group_by(type) |>
+    summarize(rel = median(Y0 / N0))
+manip2_sims |>
+    rename(Y0 = par_val_a, N0 = par_val_b) |>
+    filter(p_emerge == 1) |>
+    group_by(type, N0) |>
+    filter(Y0 == max(Y0)) |>
+    ungroup() |>
+    ggplot(aes(Y0, N0)) +
+    geom_point() +
+    facet_wrap(~ type, nrow = 1)
+
+
+
+manip2_sims |>
+    filter(type == "high") |>
+    group_by(par_val_a, par_val_b) |>
+    summarize(outbreak_size = outbreak_size[n_pseudo > 0] - outbreak_size[n_pseudo == 0],
+              p_emerge = p_emerge[n_pseudo > 0] - p_emerge[n_pseudo == 0],
+              .groups = "drop") |>
+    arrange((outbreak_size))
 
 
 # --------------------------------------*
