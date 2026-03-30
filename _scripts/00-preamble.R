@@ -37,12 +37,6 @@ if (interactive() && exists(".LAN_USER")) {
     grDevices::graphics.off()
 }
 
-# Carrying capacity with no alates or natural enemies:
-CC <- function(K, pseudo_surv, pred_surv){
-    L  <- rbind(c(pop_info$surv_j, pop_info$fecund),
-                c(pop_info$recruit, pop_info$surv_a))
-    K * (max(abs(eigen(L)[["values"]])) * pseudo_surv * pred_surv - 1)
-}
 
 
 color_pal <- c("#999999", "#0046D2", "#FF64FF",
