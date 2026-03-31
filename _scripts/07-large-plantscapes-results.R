@@ -770,8 +770,8 @@ big_virus_attract_p <- tibble(type = sim_df$type |> unique() |> sort(),
     plot_annotation(tag_levels = "A") &
     theme(plot.tag = element_markdown(face = "bold"))
 
-virus_attract_p
-big_virus_attract_p
+# virus_attract_p
+# big_virus_attract_p
 
 if (.overwrite) {
     save_plot("_plots/virus_attract-small.pdf", virus_attract_p,
@@ -782,119 +782,28 @@ if (.overwrite) {
 
 
 
-# LEFT OFF ----
+
 #
-# What is the effect of virus_attract = 5 when w = 1?
+# Effect of virus_attract = 5 when w = 1? ----
 #
-va_w1_p <- crossing(.v = c(1, 5),
-         .t = factor(c("low", "high"), levels = c("low", "high"))) |>
-    pmap(\(.v, .t) {
-        .title <- if (.v == 1) NULL else waiver()
-        big_land_plotter(yvar = "outbreak_size", type = .t,
-                         w1 = TRUE,
-                         col_fct = "pseudo_repel",
-                         shp_lty_fct = "wt_vp",
-                         x_facet_fct = NULL,
-                         y_facet_fct = NULL,
-                         fixed = list(wt_pp = "uniform", sd_N = 0,
-                                      virus_attract = .v),
-                         .title = .title,
-                         color_vals = scico(2, end = 0.8, palette = "hawaii"))
+va_w1_p <- crossing(x = c("pseudo_percent", "mean") |> (\(x) factor(x, levels = x))(),
+                    ty = sim_df$type |> unique() |> sort()) |>
+    pmap(\(x, ty) {
+        .t <- waiver()
+        if (x == "pseudo_percent") .t <- NULL
+        virus_attract_plotter(yvar = "outbreak_size", type = paste(ty),
+                              w1 = TRUE, .title = .t,
+                              xvar = paste(x), x_lims = NULL, y_lines = 0)
     }) |>
-    c(tibble(yvar = "outbreak_size",
-             type = sim_df$type |> unique() |> sort()) |>
-          pmap(\(yvar, type) virus_attract_plotter(yvar = yvar, type = type,
-                                                   w1 = TRUE, .title = waiver()))) |>
-    c(tibble(yvar = "outbreak_size",
-             type = sim_df$type |> unique() |> sort()) |>
-          pmap(\(yvar, type) virus_attract_plotter(yvar = yvar, type = type,
-                                                   w1 = TRUE, .title = waiver(),
-                                                   xvar = "mean"))) |>
     do.call(what = wrap_plots) +
-    plot_layout(nrow = 4, axis_titles = "collect", guides = "collect", byrow = TRUE) +
+    plot_layout(nrow = 2, axis_titles = "collect", guides = "collect") +
     plot_annotation(tag_levels = "A") &
     theme(plot.tag = element_markdown(face = "bold"))
-va_w1_p
+
 
 if (.overwrite) {
-    save_plot("_plots/virus_attract-w1.pdf", va_w1_p, width = 6.5, height = 8.5)
+    save_plot("_plots/virus_attract-w1.pdf", va_w1_p, width = 6.5, height = 5.5)
 }
-
-crossing(yvar = "outbreak_size",
-         xvar = c("mean", "log_alates", "pseudo_percent"),
-         type = sim_df$type |> unique() |> sort()) |>
-    pmap(\(yvar, type, xvar) {
-        xlims <- if (xvar == "mean") c(500, 8500) else if (xvar == "log_alates") c(7,11) else NULL
-        virus_attract_plotter(yvar = yvar, type = type,
-                                             w1 = TRUE, .title = waiver(),
-                                             xvar = xvar,
-                                             x_lims = xlims,
-                                             y_lines = 0)
-    }) |>
-    do.call(what = wrap_plots) +
-    plot_layout(nrow = 3, axis_titles = "collect", guides = "collect", byrow = TRUE)
-
-
-set.seed(1488176133)
-va_w1_sims <- map(c(0, 1000, 3000, 5000, 7000, 9000),
-    \(np) {
-        if (np > 0) {
-            .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
-                filter(n_pseudo == np,
-                       wt_pp == 1,
-                       ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") ==
-                           "off *Pseudo.*") |>
-                getElement("landscape") |> getElement(1) |>
-                base::`[`(,,1,drop=FALSE)
-        } else {
-            .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
-        }
-        large_simmer(.landscape, type = "high", sd_N = 0, virus_attract = 1,
-                     pseudo_repel = 1, outbreaks = "big", w = 1,
-                     summ = "none",
-                     n_sims = dim(.landscape)[3]) |>
-            mutate(n_pseudo = np)
-    }) |>
-    list_rbind()
-
-
-
-va_w1_total_dens_p <- va_w1_sims |>
-    filter(is.na(x)) |>
-    mutate(n_pseudo = factor(n_pseudo),
-           aphids = aphids + parasitized) |>
-    select(n_pseudo, time, aphids, alates, wasps) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
-    ggplot(aes(time, density / 1e6, color = n_pseudo)) +
-    geom_line(linewidth = 0.75) +
-    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
-    facet_wrap(~ species, ncol = 1, scales = "free") +
-    labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
-         title = "Big outbreaks, w = 1")
-
-va_w1_max_plant_dens_p <- va_w1_sims |>
-    filter(!is.na(x)) |>
-    mutate(n_pseudo = factor(n_pseudo),
-           aphids = aphids + parasitized) |>
-    group_by(n_pseudo, time) |>
-    summarize(across(aphids:wasps, max), .groups = "drop") |>
-    select(n_pseudo, time, aphids, alates, wasps) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
-    ggplot(aes(time, density, color = n_pseudo)) +
-    geom_line(linewidth = 0.75) +
-    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
-    facet_wrap(~ species, ncol = 1, scales = "free") +
-    labs(x = "Time (days)", y = "Maximum per-plant density",
-         title = "Big outbreaks, w = 1")
-
-
-va_w1_total_dens_p + total_dens_p +
-    plot_layout(nrow = 1, guides = "collect", axes = "collect")
-
-va_w1_max_plant_dens_p + max_plant_dens_p +
-    plot_layout(nrow = 1, guides = "collect", axes = "collect")
 
 
 
