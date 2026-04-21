@@ -517,6 +517,130 @@ big_land_plotter(yvar = .y, type = .t, outbreaks = .o,
 
 
 
+
+# =============================================================================*
+# =============================================================================*
+# Density sims ----
+# =============================================================================*
+# =============================================================================*
+
+if (! file.exists(rds_files$dens_sims) || .overwrite) {
+    # Takes ~26 sec
+    set.seed(314679353)
+    dens_sims <- crossing(ty = sort(unique(sim_df$type)),
+                          np = sort(unique(sim_df$n_pseudo))) |>
+        pmap(\(ty, np) {
+            if (np > 0) {
+                .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
+                    filter(n_pseudo == np,
+                           wt_pp == 1,
+                           ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") ==
+                               "off *Pseudo.*") |>
+                    getElement("landscape") |> getElement(1) |>
+                    base::`[`(,,1,drop=FALSE)
+            } else {
+                .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
+            }
+            large_simmer(.landscape, type = ty, sd_N = 0, virus_attract = 1,
+                         pseudo_repel = 1, outbreaks = "small",
+                         summ = "none", n_sims = dim(.landscape)[3],
+                         n_threads = 1L) |>
+                mutate(n_pseudo = np, type = ty) |>
+                select(type, n_pseudo, everything())
+        }) |>
+        list_rbind()
+
+    write_rds(dens_sims, rds_files$dens_sims, compress = "gz")
+
+} else {
+
+    dens_sims<- read_rds(rds_files$dens_sims)
+
+}
+
+
+
+total_dens_blank <- dens_sims |>
+    filter(is.na(x)) |>
+    mutate(aphids = aphids + parasitized) |>
+    select(type, n_pseudo, time, aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    group_by(species) |>
+    summarize(density = max(density)) |>
+    mutate(time = 50)
+max_plant_dens_blank <- dens_sims |>
+    filter(is.na(x)) |>
+    mutate(aphids = aphids + parasitized) |>
+    group_by(time) |>
+    summarize(across(aphids:wasps, max), .groups = "drop") |>
+    select(aphids, alates, wasps) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    group_by(species) |>
+    summarize(density = max(density)) |>
+    mutate(time = 50)
+
+
+total_dens_p_list <- levels(sim_df$type) |>
+    set_names() |>
+    map(\(ty) {
+        dens_sims |>
+            filter(type == ty) |>
+            filter(is.na(x)) |>
+            mutate(aphids = aphids + parasitized) |>
+            select(n_pseudo, time, aphids, alates, wasps) |>
+            pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+            mutate(species = factor(species, levels = c("aphids", "alates", "wasps")),
+                   n_pseudo = factor(n_pseudo)) |>
+            ggplot(aes(time, density / 1e6)) +
+            geom_hline(yintercept = 0, color = "gray70") +
+            geom_blank(data = total_dens_blank) +
+            geom_line(aes(color = n_pseudo), linewidth = 0.75) +
+            scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+            scale_y_continuous(n.breaks = 4L) +
+            facet_wrap(~ species, ncol = 1, scales = "free_y") +
+            # coord_cartesian(expand = FALSE, clip = FALSE) +
+            labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
+                 title = sprintf("*Pseudomonas*<br>%s outbreaks",
+                                 ifelse(ty == "low", "inhibits", "promotes")))
+    })
+
+
+max_plant_dens_p_list <- levels(sim_df$type) |>
+    set_names() |>
+    map(\(ty) {
+        dens_sims |>
+            filter(type == ty) |>
+            filter(!is.na(x)) |>
+            mutate(n_pseudo = factor(n_pseudo),
+                   aphids = aphids + parasitized) |>
+            group_by(n_pseudo, time) |>
+            summarize(across(aphids:wasps, max), .groups = "drop") |>
+            select(n_pseudo, time, aphids, alates, wasps) |>
+            pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+            mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+            ggplot(aes(time, density)) +
+            geom_hline(yintercept = 0, color = "gray70") +
+            geom_blank(data = total_dens_blank) +
+            geom_line(aes(color = n_pseudo), linewidth = 0.75) +
+            scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
+            facet_wrap(~ species, ncol = 1, scales = "free_y") +
+            # coord_cartesian(expand = FALSE, clip = FALSE) +
+            labs(x = "Time (days)", y = "Maximum per-plant density",
+                 title = sprintf("*Pseudomonas*<br>%s outbreaks",
+                                 ifelse(ty == "low", "inhibits", "promotes")))
+    })
+
+
+
+# wrap_plots(total_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
+# wrap_plots(max_plant_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
+
+
+
+
+
 # =============================================================================*
 # =============================================================================*
 # Save plots ----
@@ -539,65 +663,6 @@ big_land_plotter(yvar = .y, type = .t, outbreaks = .o,
 #     do.call(what = wrap_plots) +
 #     plot_layout(nrow = 2, axis_titles = "collect", guides = "collect")
 
-
-
-# Takes ~26 sec
-set.seed(314679353)
-dens_sims <- crossing(ty = sort(unique(sim_df$type)),
-                      np = sort(unique(sim_df$n_pseudo))) |>
-    pmap(\(ty, np) {
-        if (np > 0) {
-            .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
-                filter(n_pseudo == np,
-                       wt_pp == 1,
-                       ifelse(wt_vp < 1, "off *Pseudo.*", "on *Pseudo.*") ==
-                           "off *Pseudo.*") |>
-                getElement("landscape") |> getElement(1) |>
-                base::`[`(,,1,drop=FALSE)
-        } else {
-            .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
-        }
-        large_simmer(.landscape, type = ty, sd_N = 0, virus_attract = 1,
-                     pseudo_repel = 1, outbreaks = "small",
-                     summ = "none", n_sims = dim(.landscape)[3],
-                     n_threads = 1L) |>
-            mutate(n_pseudo = np, type = ty) |>
-            select(type, n_pseudo, everything())
-    }) |>
-    list_rbind()
-
-
-
-total_dens_p <- dens_sims |>
-    filter(is.na(x)) |>
-    filter(type == "high") |>
-    mutate(aphids = aphids + parasitized) |>
-    select(n_pseudo, time, aphids, alates, wasps) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps")),
-           n_pseudo = factor(n_pseudo)) |>
-    ggplot(aes(time, density / 1e6, color = n_pseudo)) +
-    geom_line(linewidth = 0.75) +
-    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
-    facet_wrap(~ species, ncol = 1, scales = "free") +
-    labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)")
-
-
-max_plant_dens_p <- dens_sims |>
-    filter(type == "high") |>
-    filter(!is.na(x)) |>
-    mutate(n_pseudo = factor(n_pseudo),
-           aphids = aphids + parasitized) |>
-    group_by(n_pseudo, time) |>
-    summarize(across(aphids:wasps, max), .groups = "drop") |>
-    select(n_pseudo, time, aphids, alates, wasps) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
-    ggplot(aes(time, density, color = n_pseudo)) +
-    geom_line(linewidth = 0.75) +
-    scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
-    facet_wrap(~ species, ncol = 1, scales = "free") +
-    labs(x = "Time (days)", y = "Maximum per-plant density")
 
 
 
