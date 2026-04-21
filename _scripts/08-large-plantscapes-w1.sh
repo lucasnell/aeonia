@@ -20,8 +20,8 @@
 # I first moved this script over to bioHPC using the following:
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
-# scp 06-large-plantscapes.sh \
-#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/06-large-plantscapes/
+# scp 08-large-plantscapes-w1.sh \
+#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/08-large-plantscapes-w1/
 #
 # This was run on BioHPC in a non-interactive batch job started with the following:
 #
@@ -68,15 +68,24 @@ sim_df <- sim_df |>
 # this whole section differs from w = 0.2 simulations
 
 set.seed(1928347678)
-sim_df[["landscape"]] <- lapply(sim_df[["landscape"]],
-                                function(land) {
+sim_df[["landscape"]] <- map2(sim_df[["landscape"]], sim_df[["wt_vp"]],
+                                function(land, wt_vp) {
                                     # reset to have no virus-infected plants:
                                     land[land == 1L] <- 0L
                                     land[land == 3L] <- 2L
                                     stopifnot(all(land %in% c(0L, 2L)))
                                     for (j in 1:dim(land)[3]) {
                                         tmp <- land[,,j]
-                                        idx <- sample.int(length(tmp), 5)
+                                        if (is.na(wt_vp) || wt_vp == 1) {
+                                            # Totally random
+                                            idx <- sample.int(length(tmp), 5)
+                                        } else if (wt_vp < 1) {
+                                            # NO overlap with Pseudomonas
+                                            idx <- sample(which(tmp == 0L), 5)
+                                        } else {
+                                            # ALL overlap with Pseudomonas
+                                            idx <- sample(which(tmp == 2L), 5)
+                                        }
                                         tmp[idx] <- tmp[idx] + 1L
                                         land[,,j] <- tmp
                                     }
