@@ -15,57 +15,6 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 
 
-one_test <- function(Y0, N0, zeta) {
-
-    # N0 = 55; Y0 = 1; zeta = c(1, 0.3)
-    # rm(N0, Y0, zeta)
-
-    stopifnot(length(N0) == 1 && is.numeric(N0) && N0 > 0)
-    stopifnot(length(Y0) == 1 && is.numeric(Y0) && Y0 > 0)
-    stopifnot(length(zeta) == 2 && is.numeric(zeta))
-    stopifnot(all(zeta >= 0) && all(zeta <= 1))
-
-    zeta <- sort(zeta, TRUE) |> set_names(c("low", "high"))
-
-    crossing(np = c(3L, 0L), tp = c("low", "high")) |>
-        pmap(\(np, tp) {
-            args <- list(type = tp, large_sims = TRUE)
-            args[["Y0"]] <- Y0
-            args[["N0"]] <- N0
-            args[["n_pseudo"]] <- np
-            args[["zeta"]] <- zeta[[tp]]
-            do.call(run_sim_combos, args) |>
-                select(n_infected) |>
-                mutate(p_emerge = as.integer(n_infected > 1),
-                       outbreak_size = ifelse(n_infected > 1, n_infected, NA)) |>
-                summarize(across(everything(), \(x) mean(x, na.rm = TRUE))) |>
-                mutate(type = tp, n_pseudo = np)
-        }) |>
-        list_rbind() |>
-        select(type, n_pseudo, n_infected, p_emerge, outbreak_size) |>
-        mutate(type = factor(type, levels = c("low", "high"))) |>
-        arrange(type, n_pseudo)
-}
-
-
-
-(sims <- one_test(Y0 = 1, N0 = 55, zeta = c(1, 0.3))); sims |>
-    group_by(type) |>
-    summarize(across(n_infected:outbreak_size,
-                     \(x) x[n_pseudo == 3L] - x[n_pseudo == 0L]))
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ============================================================================*
 # Larger sims ----
 # ============================================================================*
