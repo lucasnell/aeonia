@@ -191,6 +191,7 @@ run_sim_combos <- function(type,
 
     shared_args <- list(sd_N = 0,
                         Y0 = 1,
+                        N0 = 55,
                         pseudo_surv = 0.85,
                         n_pseudo = n_pseudo,
                         spat_config = "diagonal")
@@ -201,15 +202,7 @@ run_sim_combos <- function(type,
         size_args <- list_assign(shared_args, n_sims = 1, summ = "none")
     }
 
-    if (type == "low") {
-        args <- list_assign(size_args,
-                            N0 = 60,
-                            zeta = 1)
-    } else {
-        args <- list_assign(size_args,
-                            N0 = 45,
-                            zeta = 0.3)
-    }
+    args[["zeta"]] <- ifelse(type == "low", 0.9, 0.4)
 
     args <- list_assign(args, ...)
 
@@ -220,8 +213,11 @@ run_sim_combos <- function(type,
 
 
 
-scenario_title <- function(.type, .break = FALSE) {
-    .fmt <- ifelse(.break, "*Pseudomonas*<br>%s outbreaks",
-                   "*Pseudomonas* %s outbreaks")
-    return(sprintf(.fmt, ifelse(.type == "low", "inhibits", "promotes")))
+
+scenario_title <- function(.type, .break = FALSE, .cap1 = FALSE) {
+    .fmt <- ifelse(.break, "%s parasitoid<br>responsiveness to<br>aphid densities",
+                   "%s parasitoid responsiveness to aphid densities")
+    out <- sprintf(.fmt, ifelse(.type == "low", "strong", "weak"))
+    if (.cap1) out <- first_cap(out)
+    return(out)
 }
