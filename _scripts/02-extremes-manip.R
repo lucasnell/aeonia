@@ -348,25 +348,6 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
 
 
-manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
-    group_by(type, Y0, N0) |>
-    summarize(diff = n_infected[n_pseudo == 3L] - n_infected[n_pseudo == 0L],
-              .groups = "drop") |>
-    filter(Y0 %% 1 == 0) |>
-    arrange(desc(abs(diff)))
-
-simsl <- one_manip2_sim(type = "low", par_name_a = "Y0", par_val_a = 1,
-               par_name_b = "N0", par_val_b = 55)
-simsh <- one_manip2_sim(type = "high", par_name_a = "Y0", par_val_a = 1,
-               par_name_b = "N0", par_val_b = 55)
-
-
-bind_rows(simsl, simsh) |> select(type, n_pseudo, n_infected, p_emerge, outbreak_size)
-bind_rows(simsl, simsh) |> select(type, n_pseudo, n_infected, p_emerge, outbreak_size)
-
-
-
 #
 # _ N0 / Y0 thresholds ----
 #
@@ -404,76 +385,6 @@ manip2_sims |>
     ggplot(aes(Y0, N0)) +
     geom_point() +
     facet_wrap(~ type, nrow = 1)
-
-
-
-# Stability caused by Pseudomonas? ----
-
-par(mfrow = c(2, 1))
-
-for (ty in c("low", "high")) {
-    x <- manip2_sims |>
-        filter(type == ty) |>
-        rename(Y0 = par_val_a, N0 = par_val_b) |>
-        select(Y0, N0, n_pseudo, p_emerge) |>
-        mutate(midness = abs(p_emerge - 0.5)) |>
-        group_by(Y0, N0) |>
-        summarize(diff_midness = midness[n_pseudo > 0] - midness[n_pseudo == 0],
-                  .groups = "drop") |>
-        arrange(diff_midness) |>
-        getElement("diff_midness")
-    print(mean(x))
-    hist(x, main = ty, xlab = "diff_midness")
-}; rm(ty, x)
-
-
-manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
-    select(type, Y0, N0, n_pseudo, p_emerge) |>
-    mutate(midness = abs(p_emerge - 0.5)) |>
-    group_by(type, Y0, N0) |>
-    summarize(diff_midness = midness[n_pseudo > 0] - midness[n_pseudo == 0],
-              .groups = "drop") |>
-    arrange(diff_midness) |>
-    ggplot(aes(type, diff_midness, color = type)) +
-    geom_jitter()
-
-
-manip2_sims |>
-    filter(type == "high") |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
-    select(Y0, N0, n_pseudo, p_emerge) |>
-    mutate(midness = abs(p_emerge - 0.5)) |>
-    group_by(Y0, N0) |>
-    summarize(diff_midness = midness[n_pseudo > 0] - midness[n_pseudo == 0],
-              .groups = "drop") |>
-    arrange(diff_midness)
-
-
-manip2_sims |>
-    filter(type == "high") |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
-    filter(Y0 == 1, N0 == 20) |>
-    select(Y0, N0, n_pseudo, p_emerge)
-
-sim1 <- run_sim_combos("high", n_pseudo = 3L, large_sims = FALSE, Y0 = 1, N0 = 20)
-sim0 <- run_sim_combos("high", n_pseudo = 0L, large_sims = FALSE, Y0 = 1, N0 = 20)
-
-bind_rows(sim1 |> mutate(n_pseudo = 3L),
-          sim0 |> mutate(n_pseudo = 0L)) |>
-    filter(is.na(x)) |>
-    mutate(n_pseudo = factor(n_pseudo),
-           aphids = aphids + parasitized) |>
-    select(n_pseudo, time, aphids, alates, wasps) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
-    ggplot(aes(time, density)) +
-    geom_line(aes(color = species, linetype = n_pseudo, linewidth = n_pseudo))  +
-    scale_color_manual(values = color_pal) +
-    scale_linetype_manual(values = np_linetypes) +
-    scale_linewidth_manual(values = np_linewidths) +
-    facet_wrap(~ species, scales = "free", ncol = 1)
-
 
 
 
