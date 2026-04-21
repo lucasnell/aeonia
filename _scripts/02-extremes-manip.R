@@ -388,13 +388,106 @@ manip2_sims |>
 
 
 
-manip2_sims |>
-    filter(type == "high") |>
-    group_by(par_val_a, par_val_b) |>
-    summarize(outbreak_size = outbreak_size[n_pseudo > 0] - outbreak_size[n_pseudo == 0],
-              p_emerge = p_emerge[n_pseudo > 0] - p_emerge[n_pseudo == 0],
-              .groups = "drop") |>
-    arrange((outbreak_size))
+#
+# _ above / below thresholds ----
+#
+set.seed(778424076)
+thresh_sims <- crossing(type = sort(unique(manip_sims$type)),
+                        n_pseudo = c(0L, 3L),
+                        large_sims = FALSE,
+                        ny = factor(0:1, labels = c("below", "above"))) |>
+    pmap(\(type, n_pseudo, large_sims, ny) {
+        Y0  <- ifelse(ny == "below", 3, 1)
+        N0 <- ifelse(ny == "below", 50, 150)
+        out <- run_sim_combos(type = type,
+                              n_pseudo = n_pseudo,
+                              large_sims = large_sims,
+                              Y0 = Y0,
+                              N0 = N0) |>
+            select(-rep) |>
+            mutate(type = .env$type,
+                   n_pseudo = .env$n_pseudo,
+                   thresh = ny)
+    }) |>
+    list_rbind()
+
+
+thresh_empty_data <- thresh_sims |>
+    filter(is.na(x)) |>
+    mutate(aphids = aphids + parasitized) |>
+    select(aphids, alates, wasps, virus) |>
+    pivot_longer(aphids:virus, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels =
+                                c("aphids", "alates", "wasps", "virus"))) |>
+    group_by(species) |>
+    summarize(density = max(density)) |>
+    mutate(time = 1)
+
+thresh_p_list <- thresh_sims |>
+    distinct(thresh, type) |>
+    arrange(thresh, type) |>
+    pmap(\(type, thresh) {
+        # type = "low"; thresh = "above"; .title = NULL
+        # rm(type, thresh, .title, .subtitle, .strip)
+        type <- paste(type)
+        thresh <- paste(thresh)
+        if (thresh == "below") {
+            .title <- sprintf("*Pseudomonas*<br>%s outbreaks",
+                              ifelse(type == "low", "inhibits", "promotes"))
+        } else .title <- waiver()
+        .subtitle <- serify("", "*Y*<sub>0</sub> / *N*<sub>0</sub>",
+                           list(below = " too high", above = " too low")[[thresh]])
+        if (type == "low") {
+            .strip <- element_blank()
+        } else .strip <- element_markdown(size = 8)
+        thresh_sims |>
+            filter(type == .env$type, thresh == .env$thresh, is.na(x)) |>
+            mutate(aphids = aphids + parasitized) |>
+            select(n_pseudo, time, aphids, alates, wasps, virus) |>
+            pivot_longer(aphids:virus, names_to = "species",
+                         values_to = "density") |>
+            mutate(n_pseudo = factor(n_pseudo),
+                   species = factor(species, levels =
+                                        c("aphids", "alates", "wasps", "virus"))) |>
+            ggplot(aes(time, density)) +
+            geom_hline(yintercept = 0, color = "gray70") +
+            geom_blank(data = thresh_empty_data) +
+            geom_line(aes(color = species, linetype = n_pseudo,
+                          linewidth = n_pseudo)) +
+            scale_color_manual(values = color_pal, guide = "none") +
+            scale_linetype_manual("*Pseudo.*<br>patches", values = np_linetypes) +
+            scale_linewidth_manual("*Pseudo.*<br>patches", values = np_linewidths) +
+            labs(x = "Time (days)", y = "Density", title = .title,
+                 subtitle = .subtitle) +
+            scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
+            coord_cartesian(clip = "off") +
+            facet_wrap(~ species, ncol = 1, scales = "free_y",
+                       strip.position = "right") +
+            guides(linetype = guide_legend(
+                override.aes = list(color = "black"))) +
+            theme(strip.text.y = .strip,
+                  axis.text.x = element_markdown(size = 7),
+                  axis.text.y = element_markdown(size = 7),
+                  plot.subtitle = element_markdown())
+    })
+
+
+
+
+thresh_p <- wrap_plots(thresh_p_list, ncol = 2, guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"))
+
+
+if (.overwrite) {
+    save_plot("_plots/extreme-manips-thresholds.pdf", thresh_p, width = 6.5, height = 6)
+}
+
+
+
+
+
+
 
 
 # --------------------------------------*
