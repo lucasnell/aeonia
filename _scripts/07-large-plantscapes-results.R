@@ -215,8 +215,7 @@ big_land_plotter <- function(yvar,
     if (v100 && w1) stop("v100 and w1 are mutually exclusive")
 
     if (is.null(.title)) {
-        .title <- sprintf("*Pseudomonas*<br>%s outbreaks",
-                          ifelse(type == "low", "inhibits", "promotes"))
+        .title <- scenario_title(type, TRUE)
     }
 
     facet_scales <- match.arg(facet_scales, c("fixed", "free", "free_x", "free_y"))
@@ -325,7 +324,7 @@ big_land_plotter <- function(yvar,
         scale_x_continuous(breaks = c(0, 10, 30, 50, 70, 90)) +
         scale_y_continuous(breaks = y_breaks) +
         facets_coord +
-        labs(x = "Percent *Pseudomonas* patches",
+        labs(x = "Percent *Pseudomonas* plants",
              y = yvar_desc[[yvar]] |> first_cap(),
              title = .title) +
         theme(legend.text = element_markdown())
@@ -401,7 +400,7 @@ big_land_plotter <- function(yvar,
 #' * `virus_attract` (nu):
 #'     - `virus_attract` > 1 always increases outbreak sizes, quite strongly
 #'     - when `virus_attract` = 5, there is an especially large drop in the
-#'       effect of *Pseudomonas* on outbreak sizes at 90% *Pseudomonas* patches
+#'       effect of *Pseudomonas* on outbreak sizes at 90% *Pseudomonas* plants
 #'       compared to 70%
 #'         - this is especially pronounced virus starts on *Pseudomonas*  and
 #'           when landscape is uniform
@@ -496,7 +495,7 @@ big_land_plotter <- function(yvar,
 #'       *Pseudomonas*, especially at higher *Pseudomonas* densities (>= 50%)
 #'     - `pseudo_repel` = 5 decreases chance of outbreak when virus starts
 #'       on *Pseudomonas*, but this effect levels off with greater
-#'       *Pseudomonas* such that at 90% *Pseudomonas* patches, it is gone
+#'       *Pseudomonas* such that at 90% *Pseudomonas* plants, it is gone
 #'       entirely
 #' * `virus_attract` (nu):
 #'     - greater value always increases chance of outbreak
@@ -626,8 +625,8 @@ total_dens_p_list <- levels(sim_df$type) |>
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
-                 title = sprintf("*Pseudomonas*<br>%s outbreaks",
-                                 ifelse(ty == "low", "inhibits", "promotes")))
+                 title = scenario_title(ty, TRUE))
+
     })
 
 
@@ -652,8 +651,8 @@ max_plant_dens_p_list <- levels(sim_df$type) |>
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Maximum per-plant density",
-                 title = sprintf("*Pseudomonas*<br>%s outbreaks",
-                                 ifelse(ty == "low", "inhibits", "promotes")))
+                 title = scenario_title(ty, TRUE))
+
     })
 
 
@@ -786,8 +785,7 @@ virus_attract_plotter <- function(type, yvar, outbreaks = "small", w1 = FALSE,
     type <- paste(type)
     yvar <- paste(yvar)
     if (is.null(.title)) {
-        .title <- list(low = "*Pseudomonas*<br>inhibits outbreaks",
-                       high = "*Pseudomonas*<br>promotes outbreaks")[[type]]
+        .title <- scenario_title(type, TRUE)
     }
 
     y <- "rel"
@@ -822,7 +820,7 @@ virus_attract_plotter <- function(type, yvar, outbreaks = "small", w1 = FALSE,
     x_breaks <- if (xvar == "pseudo_percent") c(0, 10, 30, 50, 70, 90) else {
         waiver()
     }
-    x_lab <- if (xvar == "pseudo_percent") {"Percent *Pseudomonas* patches"
+    x_lab <- if (xvar == "pseudo_percent") {"Percent *Pseudomonas* plants"
     } else if (xvar == "mean") paste("Mean", yvar_desc[[yvar]]) else {
         first_cap(yvar_desc[[xvar]])
     }
@@ -859,6 +857,8 @@ virus_attract_plotter <- function(type, yvar, outbreaks = "small", w1 = FALSE,
 virus_attract_p <- crossing(yvar = c("p_emerge", "outbreak_size") |>
                                 (\(x) factor(x, levels = x))(),
                             type = sim_df$type |> unique() |> sort()) |>
+    mutate(.title = map(yvar, \(y) {
+        if (y == "p_emerge") return(NULL) else return(waiver())})) |>
     mutate(y_lines = 0) |>
     pmap(virus_attract_plotter) |>
     wrap_plots(nrow = 2, guides = "collect", axis_titles = "collect", byrow = TRUE) +
@@ -996,7 +996,7 @@ sims_p5 <- large_simmer(.landscape, .type, .sd_N, .virus_attract,
 # and the row indicates the plant the alate dispersed to.
 #
 # Below, this is the total number of incoming alates to the initially
-# infected patch:
+# infected plant:
 
 sims_p1$disps |> map_int(\(x) sum(x[1,]))
 # [1] 55 52 53 58 54 51 51 64 56 48
@@ -1039,7 +1039,7 @@ sims_va <- imap(.landscapes, \(l, n) {
         # from, and the row indicates the plant the alate dispersed to.
         #
         # The first line below is the total number of incoming alates to the
-        # initially infected patch:
+        # initially infected plant:
         #
         mutate(disps_in = map_int(disps, \(x) sum(x[1,])),
                disps_out = map_int(disps, \(x) sum(x[,1]))) |>

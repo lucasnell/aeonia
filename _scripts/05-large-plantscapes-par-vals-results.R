@@ -331,7 +331,7 @@ p_load <- 0.075
 #' From below graph and table, I should use
 #' high zeta (0.12) when *Pseudomonas* promotes outbreaks, and
 #' medium zeta (0.95) when *Pseudomonas* inhibits outbreaks.
-#' Because I simulated 5000 *Pseudomonas* patches instead of 7000 (the density that
+#' Because I simulated 5000 *Pseudomonas* plants instead of 7000 (the density that
 #' typically produces the strongest *Pseudomonas* effect),
 #' I will use zeta = 0.14 when *Pseudomonas* promotes outbreaks and
 #' zeta = 1.0 when *Pseudomonas* inhibits outbreaks.
