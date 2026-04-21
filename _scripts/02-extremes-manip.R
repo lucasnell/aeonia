@@ -213,41 +213,41 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 # one_manip_plotter("high", "zeta", TRUE, FALSE)
 
 
-manip_plots <- c("low", "high") |>
-    set_names() |>
-    map(\(type) {
-
-        # type = "low"
-        # rm(type, .title, plot_list)
-
-        .title <- sprintf("*Pseudomonas* %s outbreaks",
-                          ifelse(type == "low", "inhibits", "promotes"))
-
-        plot_list <- levels(manip_sims$par_name) |>
-            discard(\(x) x == "spat_config") |>
-            map(\(x) one_manip_plotter(type, x))
-
-        plot_list |>
-            do.call(what = wrap_plots) +
-            plot_layout(nrow = 4, guides = "collect", axes = "collect") +
-            plot_annotation(title = .title)
-    })
-
-
-# manip_plots$low
-# manip_plots$high
-
-if (.overwrite) {
-    for (n in names(manip_plots)) {
-        save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
-                  manip_plots[[n]],
-                  width = 6.5, height = 6)
-        # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
-        #           manip_plots[[n]] & illustrator_theme &
-        #               theme(axis.title.x = element_markdown()),
-        #           width = 6.5, height = 4)
-    }; rm(n)
-}
+# manip_plots <- c("low", "high") |>
+#     set_names() |>
+#     map(\(type) {
+#
+#         # type = "low"
+#         # rm(type, .title, plot_list)
+#
+#         .title <- sprintf("*Pseudomonas* %s outbreaks",
+#                           ifelse(type == "low", "inhibits", "promotes"))
+#
+#         plot_list <- levels(manip_sims$par_name) |>
+#             discard(\(x) x == "spat_config") |>
+#             map(\(x) one_manip_plotter(type, x))
+#
+#         plot_list |>
+#             do.call(what = wrap_plots) +
+#             plot_layout(nrow = 4, guides = "collect", axes = "collect") +
+#             plot_annotation(title = .title)
+#     })
+#
+#
+# # manip_plots$low
+# # manip_plots$high
+#
+# if (.overwrite) {
+#     for (n in names(manip_plots)) {
+#         save_plot(sprintf("_plots/extreme-manips-all-%s.pdf", n),
+#                   manip_plots[[n]],
+#                   width = 6.5, height = 6)
+#         # save_plot(sprintf("_plots/extremes-manip-all-illustrator-%s.pdf", n),
+#         #           manip_plots[[n]] & illustrator_theme &
+#         #               theme(axis.title.x = element_markdown()),
+#         #           width = 6.5, height = 4)
+#     }; rm(n)
+# }
 
 
 

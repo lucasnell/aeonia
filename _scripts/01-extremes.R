@@ -411,3 +411,81 @@ if (.overwrite) {
 }
 
 
+
+
+
+# ============================================================================*
+# Empirical zeta ----
+# ============================================================================*
+
+
+# In Ives et al. (1999), they found that parasitoids spent ~3.76 more time
+# foraging at plants where they encountered an aphid.
+# Below simulates our model with varying zeta, then compares the observed
+# wasp abundances to those predicted when parasitoids never encounter an aphid
+# on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
+
+set.seed(1180209329)
+zeta_low_high_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
+        sims <- run_sim_combos(type = "high", n_pseudo = 3L, n_sims = 12L,
+                               out_attack_surv = TRUE, zeta = zeta) |>
+            filter(!is.na(x)) |>
+            mutate(plant = interaction(y, x),
+                   aphids = aphids + parasitized) |>
+            mutate(zeta = .env$zeta) |>
+            select(zeta, rep, plant, time, virus, aphids, alates, wasps,
+                   attack_surv) |>
+            split(~ rep + time) |>
+            map(\(x) {
+                Y <- sum(x$wasps)
+                p_plants <- x$plant %in% c("3.1", "2.2", "1.3")
+                pred_wasps <- numeric(nrow(x))
+                pred_wasps[p_plants] <- 1
+                pred_wasps[!p_plants] <- 3.76
+                pred_wasps <- Y * pred_wasps / sum(pred_wasps)
+                x[["pred_wasps"]] <- pred_wasps
+                return(x)
+            }) |>
+            list_rbind()
+    }) |>
+    list_rbind()
+
+
+
+empir_zeta_p <- zeta_low_high_sims |>
+    split(~ zeta + rep) |>
+    map(\(x) {
+        max_N_t <- x |>
+            group_by(time) |>
+            summarize(aphids = max(aphids + alates)) |>
+            filter(aphids == max(aphids)) |>
+            getElement("time") |> getElement(1)
+        return(x |> filter(time == max_N_t))
+    }) |>
+    list_rbind() |>
+    select(zeta, rep, plant, wasps, pred_wasps) |>
+    mutate(pseudo = factor(plant %in% c("3.1", "2.2", "1.3"),
+                           levels = c(TRUE, FALSE),
+                           labels = c("*Pseudomonas*", "No *Pseudomonas*")),
+           zeta = factor(zeta),
+           rep = factor(rep),
+           rel = wasps / pred_wasps) |>
+    ggplot(aes(zeta, rel)) +
+    geom_jitter(aes(color = zeta), height = 0, width = 0.2, shape = 1, size = 2) +
+    geom_hline(yintercept = 1, color = "black", linewidth = 1.5, linetype = "22") +
+    # facet_wrap(~ plant, nrow = 3, scales = "free") +
+    facet_wrap(~ pseudo, nrow = 1, scales = "free") +
+    labs(x = pretty_params("zeta", cap1 = TRUE),
+         y = "Observed / predicted parasitoid density") +
+    scale_color_viridis_d(guide = "none")
+
+
+
+# empir_zeta_p
+
+if (.overwrite) {
+    save_plot("_plots/empirical-zeta.pdf", empir_zeta_p, width = 6, height = 3)
+}
+
+
+

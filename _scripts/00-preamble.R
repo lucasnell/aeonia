@@ -12,7 +12,8 @@ suppressPackageStartupMessages({
 
 # RDS files with simulation output:
 rds_files <- list(extreme_manip = "extremes-manip-sims.rds",
-                  extreme_manip2 = "extremes-manip2-sims.rds") |>
+                  extreme_manip2 = "extremes-manip2-sims.rds",
+                  dens_sims = "density-sims.rds") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 
@@ -91,7 +92,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "virus_attract" ~ serify("virus attraction (", "<i>&nu;</i>", ")"),
                          x == "pseudo_repel" ~ serify("*Pseudomonas* repellence (", "<i>&rho;</i>", ")"),
                          x == "epsilon" ~ serify("virus effect on staying (", "<i>&epsilon;</i>", ")"),
-                         x == "zeta" ~ serify("wasp density response (", "<i>&zeta;</i>", ")"),
+                         x == "zeta" ~ serify("parasitoid responsiveness to aphid density (", "<i>&zeta;</i>", ")"),
                          x == "sd_N" ~ serify("initial aphid density SD (", "<i>&sigma;</i><sub>N</sub>", ")"),
                          x == "Y0" ~ serify("initial wasp density (", "<i>Y</i><sub>0</sub>", ")"),
                          x == "mean_N" ~ serify("initial aphid density mean (", "<i>&mu;</i><sub>N</sub>", ")"),
