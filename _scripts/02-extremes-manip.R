@@ -34,9 +34,8 @@ manip_pars <- list(Y0 = seq(1, 10, 0.5),
                    virus_attract = 0:19 / 2 + 1,
                    pseudo_repel = 0:19 / 2 + 1,
                    pseudo_surv = seq(0.85, 1, 0.01),
-                   zeta = seq(0, 1, 0.05),
-                   spat_config = 1:length(spat_config_lvls)) |>
-    map(\(x) if (inherits(x, "numeric")) round(x, 2) else x)
+                   zeta = seq(0, 1, 0.05)) |>
+    map(\(x) round(x, 2))
 
 
 
@@ -48,11 +47,7 @@ one_manip_sim <- function(type, x_name, x_val) {
     # rm(type, x_name, x_val, args, sims_p, sims_np, out)
 
     args <- list(type = type, n_pseudo = 3L, large_sims = TRUE)
-    # spat_config takes a character, but needs to be numeric to be compatible
-    # with other parameter types:
-    if (x_name == "spat_config") {
-        args[[x_name]] <- spat_config_lvls[[x_val]]
-    } else args[[x_name]] <- x_val
+    args[[x_name]] <- x_val
 
     sims_p <- do.call(run_sim_combos, args) |>
         select(-rep) |>
@@ -72,7 +67,7 @@ one_manip_sim <- function(type, x_name, x_val) {
 }
 
 
-if (!file.exists(rds_files$extreme_manip)) {
+if (.overwrite || !file.exists(rds_files$extreme_manip)) {
 
     # Takes ~21 min
     set.seed(1531497906)
@@ -140,22 +135,11 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
     yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
         set_names("outbreak_size", "p_emerge")
 
-    if (par_name == "spat_config") {
-        ..LINES <- theme(legend.position = "none")
-        x_lvl_labs <- tolower(as.roman(1:length(spat_config_lvls)))
-        dd$par_val <- map_chr(dd$par_val, \(i) spat_config_lvls[[i]]) |>
-            factor(levels = spat_config_lvls) |>
-            as.integer()
-        dd_og$par_val <- factor(dd_og$par_val, levels = spat_config_lvls) |>
-            as.integer()
-        x_scale <- scale_x_continuous(breaks = 1:6, labels = x_lvl_labs)
-    } else {
-        ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
-                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>plants",
-                                              values = np_linetypes))
-        x_lvl_labs <- NULL
-        x_scale <- scale_x_continuous()
-    }
+    ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
+                    scale_linetype_manual("Number of<br>*Pseudomonas*<br>plants",
+                                          values = np_linetypes))
+    x_lvl_labs <- NULL
+    x_scale <- scale_x_continuous()
     dd_md <- dd |>
         group_by(outcome, par_val) |>
         summarize(value0 = value[n_pseudo == 0L],
@@ -223,7 +207,6 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 #         .title <- scenario_title(type)
 #
 #         plot_list <- levels(manip_sims$par_name) |>
-#             discard(\(x) x == "spat_config") |>
 #             map(\(x) one_manip_plotter(type, x))
 #
 #         plot_list |>
@@ -279,10 +262,6 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
     # par_name_b = "N0"; par_val_b = manip_pars[[par_name_b]][[1]]
     # rm(type, par_name_a, par_val_a, par_name_b, par_val_b, args, sims_p, sims_np, out)
     #
-    # Don't accept spatial configuration:
-    if (par_name_a == "spat_config" || par_name_b == "spat_config") {
-        stop("spat_config not configured")
-    }
 
     # In case these are factors:
     par_name_a <- paste(par_name_a)
@@ -524,9 +503,6 @@ heatmaps_make_objs <- function(yvar,
         base::`[`(c(par_name_a, par_name_b)) |>
         set_names(c("par_val_a", "par_val_b")) |>
         as_tibble()
-    if ("spat_config" %in% names(pars_og)) {
-        pars_og[["spat_config"]] <- which(spat_config_lvls == pars_og[["spat_config"]])
-    }
 
     .title <- waiver()
     if (.add_title) {
@@ -591,16 +567,6 @@ heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_a
         geom_point(data = pars_og, size = 2, shape = 23, color = "black",
                    fill = "white", stroke = 1) +
         labs(x = x_lab, y = y_lab, tag = ..tag, title = ..title)
-
-    spat_scale_fun <- NULL
-    if (par_name_a == "spat_config") spat_scale_fun <- scale_x_continuous
-    if (par_name_b == "spat_config") spat_scale_fun <- scale_y_continuous
-    if (!is.null(spat_scale_fun)) {
-        pp <- pp +
-            spat_scale_fun(breaks = 1:length(spat_config_lvls),
-                           labels = 1:length(spat_config_lvls) |>
-                               as.roman() |> tolower())
-    }
 
     return(pp)
 }

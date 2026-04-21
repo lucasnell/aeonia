@@ -80,12 +80,11 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "alate_slope" ~ "<i>b</i><sub>slope</sub>",
                          x == "alate_max" ~ "<i>b</i><sub>max</sub>",
                          x == "n_pseudo" ~ "<i>n</i><sub>P</sub>",
-                         x == "spat_config" ~ "spat. config.",
                          x == "wt_vp" ~ "virus place.",
                          x == "wt_pp" ~ "*Pseudo.* spacing",
                          .default = x)
-        if (serif && any(x != "spat_config")) {
-            out[x != "spat_config"] <- serify("", out[x != "spat_config"], "")
+        if (serif) {
+            out <- serify("", out, "")
         }
     } else {
         out <- case_when(x == "pseudo_surv" ~ serify("*Pseudomonas* survival (", "<i>&psi;</i>", ")"),
@@ -101,7 +100,6 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "alate_max" ~ serify("max alate proportion (", "<i>b</i><sub>max</sub>", ")"),
                          x == "n_pseudo" ~ serify("number of *Pseudomonas* plants (", "<i>n</i><sub>P</sub>", ")"),
                          x == "K" ~ serify("aphid density dependence (", "<i>K</i>", ")"),
-                         x == "spat_config" ~ "spatial configuration",
                          x == "wt_vp" ~ "virus placement",
                          x == "wt_pp" ~ "*Pseudomonas* spacing",
                          .default = x)
@@ -131,14 +129,6 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  wasps = "mean wasp abundance")
 
 
-spat_config_lvls <- c("random", "no virus", "diagonal",
-                      "near virus", "far virus", "over virus")
-spat_config_abbrevs <- c("random" = "rnd+v",
-                         "no virus" = "rnd&minus;v",
-                         "diagonal" = "diag",
-                         "near virus" = "nr v",
-                         "far virus" = "fr v",
-                         "over virus" = "on v")
 
 
 #'
