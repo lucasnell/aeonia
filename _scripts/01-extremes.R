@@ -133,7 +133,7 @@ tot_low_high_p_list <- low_high_sims |>
             coord_cartesian(ylim = c(0, ym))
     })
 
-wrap_plots(tot_low_high_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(tot_low_high_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
     for (n in names(tot_low_high_p_list)) {
@@ -289,7 +289,7 @@ z_pa_p_list <- low_high_sims |>
             scale_x_continuous(breaks = c(0, 500, 1000, 1500))
     })
 
-wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
     for (n in names(z_pa_p_list)) {
@@ -364,7 +364,7 @@ low_high_hist_list <- levels(large_sims$type) |>
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
 
-wrap_plots(low_high_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(low_high_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
     for (n in names(low_high_hist_list)) {
@@ -394,7 +394,7 @@ low_high_bar_list <- levels(large_sims$type) |>
             geom_vline(xintercept = 0, color = "gray70") +
             geom_col(aes(fill = n_pseudo), color = "black", width = 0.45,
                      linewidth = 0.75, linejoin = "mitre") +
-            labs(x = "Prob. of emergence", y = "Number of Pseudo. patches") +
+            labs(x = "Prob. of emergence", y = "Number of Pseudo. plants") +
             coord_cartesian(xlim  = c(0, 1)) +
             scale_fill_manual(values = c(`0` = "white", `3` = "black")) +
             theme(axis.text.y = element_markdown(color = NA))

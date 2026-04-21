@@ -45,7 +45,7 @@ color_pal <- c("#999999", "#0046D2", "#FF64FF",
     set_names(c("no_pseudo", "pseudo", "virus", "aphids", "alates", "wasps"))
 # scales::show_col(color_pal, labels = FALSE)
 
-# for numbers of pseudomonas patches:
+# for numbers of pseudomonas plants:
 np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
 # scales::show_col(np_pal, labels = FALSE)
@@ -99,7 +99,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "N0" ~ serify("initial aphid density (", "<i>N</i><sub>0</sub>", ")"),
                          x == "alate_slope" ~ serify("slope for aphid density ~ alate offspring (", "<i>b</i><sub>slope</sub>", ")"),
                          x == "alate_max" ~ serify("max alate proportion (", "<i>b</i><sub>max</sub>", ")"),
-                         x == "n_pseudo" ~ serify("number of *Pseudomonas* patches (", "<i>n</i><sub>P</sub>", ")"),
+                         x == "n_pseudo" ~ serify("number of *Pseudomonas* plants (", "<i>n</i><sub>P</sub>", ")"),
                          x == "K" ~ serify("aphid density dependence (", "<i>K</i>", ")"),
                          x == "spat_config" ~ "spatial configuration",
                          x == "wt_vp" ~ "virus placement",
@@ -216,4 +216,12 @@ run_sim_combos <- function(type,
     if (return_args) return(args)
 
     return(do.call(lil_plantscape, args))
+}
+
+
+
+scenario_title <- function(.type, .break = FALSE) {
+    .fmt <- ifelse(.break, "*Pseudomonas*<br>%s outbreaks",
+                   "*Pseudomonas* %s outbreaks")
+    return(sprintf(.fmt, ifelse(.type == "low", "inhibits", "promotes")))
 }

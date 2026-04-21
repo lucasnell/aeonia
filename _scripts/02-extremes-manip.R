@@ -151,7 +151,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
         x_scale <- scale_x_continuous(breaks = 1:6, labels = x_lvl_labs)
     } else {
         ..LINES <- list(geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
-                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>patches",
+                        scale_linetype_manual("Number of<br>*Pseudomonas*<br>plants",
                                               values = np_linetypes))
         x_lvl_labs <- NULL
         x_scale <- scale_x_continuous()
@@ -196,7 +196,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
                                                breaks = c(3,6,9))) +
         coord_cartesian(ylim = c(0, 1)) +
         scale_color_manual(values = yvar_pal, guide = "none") +
-        scale_shape_manual("Number of<br>*Pseudomonas*<br>patches",
+        scale_shape_manual("Number of<br>*Pseudomonas*<br>plants",
                            values = np_shapes) +
         guides(shape = guide_legend(override.aes = list(color = "black"))) +
         theme(axis.title.y.left = element_text(color = yvar_pal[["p_emerge"]]),
@@ -220,8 +220,7 @@ one_manip_plotter <- function(type, par_name, .og_vals = TRUE, .md_vals = TRUE) 
 #         # type = "low"
 #         # rm(type, .title, plot_list)
 #
-#         .title <- sprintf("*Pseudomonas* %s outbreaks",
-#                           ifelse(type == "low", "inhibits", "promotes"))
+#         .title <- scenario_title(type)
 #
 #         plot_list <- levels(manip_sims$par_name) |>
 #             discard(\(x) x == "spat_config") |>
@@ -432,8 +431,7 @@ thresh_p_list <- thresh_sims |>
         type <- paste(type)
         thresh <- paste(thresh)
         if (thresh == "below") {
-            .title <- sprintf("*Pseudomonas*<br>%s outbreaks",
-                              ifelse(type == "low", "inhibits", "promotes"))
+            .title <- scenario_title(type, TRUE)
         } else .title <- waiver()
         .subtitle <- serify("", "*Y*<sub>0</sub> / *N*<sub>0</sub>",
                            list(below = " too high", above = " too low")[[thresh]])
@@ -455,8 +453,8 @@ thresh_p_list <- thresh_sims |>
             geom_line(aes(color = species, linetype = n_pseudo,
                           linewidth = n_pseudo)) +
             scale_color_manual(values = color_pal, guide = "none") +
-            scale_linetype_manual("*Pseudo.*<br>patches", values = np_linetypes) +
-            scale_linewidth_manual("*Pseudo.*<br>patches", values = np_linewidths) +
+            scale_linetype_manual("*Pseudo.*<br>plants", values = np_linetypes) +
+            scale_linewidth_manual("*Pseudo.*<br>plants", values = np_linewidths) +
             labs(x = "Time (days)", y = "Density", title = .title,
                  subtitle = .subtitle) +
             scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
@@ -532,8 +530,7 @@ heatmaps_make_objs <- function(yvar,
 
     .title <- waiver()
     if (.add_title) {
-        .title <- sprintf("*Pseudomonas* %s outbreaks",
-                          ifelse(type == "low", "inhibits", "promotes"))
+        .title <- scenario_title(type)
     }
 
     assign("par_name_a", par_name_a, envir = env)
