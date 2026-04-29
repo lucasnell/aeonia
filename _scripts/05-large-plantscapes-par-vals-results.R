@@ -1,111 +1,3 @@
-# library(bench)
-#
-#
-# Rcpp::cppFunction(code =
-# 'SEXP make_ptr(const arma::uword& r, const arma::uword& c) {
-#     XPtr<arma::Mat<arma::uhword>> xp(new arma::Mat<arma::uhword>(
-#                                      r, c, arma::fill::none), true);
-#     arma::Mat<arma::uhword>& x(*xp);
-#     typedef arma::uword uint32;
-#     for (uint32 i = 0; i < x.n_rows; i++) {
-#         for (uint32 j = 0; j < x.n_cols; j++) {
-#             arma::uhword& xij(x.at(i,j));
-#             xij = (arma::uhword)0U;
-#             if (R::runif(0,1) > 0.5) xij += (arma::uhword)1;
-#             if (R::runif(0,1) > 0.5) xij += (arma::uhword)2;
-#         }
-#     }
-#     // double x_max = arma::max(arma::max(x));
-#     // double x_min = arma::min(arma::min(x));
-#     // Rcout << "min = " << x_min << ", ";
-#     // Rcout << "max = " << x_max << std::endl;
-#     return xp;
-# }
-# ', depends = "RcppArmadillo")
-#
-#
-#
-#
-# Rcpp::cppFunction(code =
-# 'arma::Mat<arma::uhword> getset_bits(SEXP x_ptr) {
-#     typedef arma::uhword uint16;
-#     typedef arma::uword uint32;
-#     XPtr<arma::Mat<uint16>> xp(x_ptr);
-#     const arma::Mat<uint16>& x(*xp);
-#
-#     arma::Mat<uint16> z(arma::size(x), arma::fill::none);
-#     uint16 k0 = 0;
-#     uint16 k1 = 1;
-#     uint16 mask1 = 1;
-#     bool b;
-#     for (uint32 i = 0; i < x.n_rows; i++) {
-#         for (uint32 j = 0; j < x.n_cols; j++) {
-#             const uint16& xij(x.at(i,j));
-#             uint16& zij(z.at(i,j));
-#             zij = 0;
-#             // b = (xij & ( 1 << k0 )) >> k0;
-#             b = xij & mask1;
-#             if (b) zij |= (mask1 << k0);
-#             // b = (xij & ( 1 << k1 )) >> k1;
-#             b = (xij >> mask1) & mask1;
-#             if (b) zij |= ((uint32)1 << k1);
-#         }
-#     }
-#     return z;
-# }
-# ', depends = "RcppArmadillo")
-# Rcpp::cppFunction(code =
-# 'arma::Mat<arma::uhword> getset_bool(SEXP x_ptr) {
-#     typedef arma::uhword uint16;
-#     typedef arma::uword uint32;
-#     XPtr<arma::Mat<uint16>> xp(x_ptr);
-#     const arma::Mat<uint16>& x(*xp);
-#
-#     arma::Mat<uint16> z(arma::size(x), arma::fill::none);
-#     bool b;
-#     for (uint32 i = 0; i < x.n_rows; i++) {
-#         for (uint32 j = 0; j < x.n_cols; j++) {
-#             const uint16& xij(x.at(i,j));
-#             uint16& zij(z.at(i,j));
-#             zij = 0;
-#             b = xij == 1U || xij == 3U;
-#             if (b) zij += 1U;
-#             // b = xij == 2U || xij == 3U;
-#             b = xij > 1U;
-#             if (b) zij += 2U;
-#         }
-#     }
-#     return z;
-# }
-# ', depends = "RcppArmadillo")
-# # Rcpp::cppFunction(code =
-# # 'arma::umat getset_2bools(const LogicalMatrix& x, const LogicalMatrix& y) {
-# #     arma::umat z(x.nrow(), x.ncol(), arma::fill::none);
-# #     typedef arma::uword uint32;
-# #     for (size_t i = 0; i < x.nrow(); i++) {
-# #         for (size_t j = 0; j < x.ncol(); j++) {
-# #             uint32& zij(z.at(i,j));
-# #             if (x[i,j]) zij += 1U;
-# #             if (y[i,j]) zij += 2U;
-# #         }
-# #     }
-# #     return z;
-# # }
-# # ', depends = "RcppArmadillo")
-#
-#
-# n <- 100L
-# ptr <- make_ptr(100, 100)
-#
-#
-#
-# mark(bits = getset_bits(ptr),
-#      bool = getset_bool(ptr),
-#      iterations = 2000, check = FALSE, memory = FALSE)
-
-
-
-
 
 #'
 #' Find par values for larger landscape simulations
@@ -118,21 +10,26 @@ source("_scripts/03-large-preamble.R")
 
 
 
+# ============================================================================*
+# Small outbreaks ----
+# ============================================================================*
 
-test_sims <- read_rds("_scripts/interm-data/large-plantscapes-par-vals.rds") |>
-    # # determine which two scenario: Pseudomonas promotes or inhibits viruses, resp.:
-    # mutate(scenario = factor(zeta < 0.2 & N0 < 20, levels = c(TRUE, FALSE),
-    #                          labels = c("promotes", "inhibits"))) |>
+
+test_sims <- list.files("_scripts/interm-data", "large-plantscapes-par-vals-.?.?.rds",
+                        full.names = TRUE) |>
+    map(read_rds) |>
+    list_rbind() |>
     mutate(scenario = interaction(Y0, N0, zeta, drop = TRUE)) |>
     select(scenario, p_load, everything()) |>
-    mutate(outbreak_size = outbreak_size) |>
     pivot_longer(outbreak_size:p_emerge, names_to = "outcome") |>
     filter(!is.na(value)) |>
     mutate(outcome = factor(outcome,
                             levels = c("outbreak_size", "p_emerge"),
                             labels = c("outbreak size", "prob. emerge")),
            n_pseudo = factor(n_pseudo)) |>
-    arrange(scenario, p_load, outcome, n_pseudo)
+    arrange(scenario, p_load, outcome, n_pseudo) |>
+    # Because this doesn't vary:
+    select(-N0)
 
 
 np_pal <- c("#999999", "#0046D2") |>
@@ -151,226 +48,231 @@ test_sims |>
     # filter(zeta == 0.1, p_load == 0.15) |>
     # filter(p_load == 0.1) |>
     filter(outcome == "outbreak size") |>
+    # filter(outcome == "prob. emerge") |>
     group_by(p_load, scenario) |>
     summarize(diff = value[n_pseudo != "0"] / value[n_pseudo == "0"], .groups = "drop") |>
     # filter(diff > 0) |>
-    arrange((abs(diff)))
+    arrange(desc(abs(diff)))
 
 
-scenarios = c(low = "200.60.1", high = "200.45.0.125")
-p_load = 0.1
 
+# For outbreak size and ascending sort:
+#    p_load scenario   diff
+#     <dbl> <fct>     <dbl>
+#  1   0.15 275.55.1 0.0613
+#  2   0.1  225.55.1 0.0617
+#  3   0.15 300.55.1 0.0629
+#  4   0.15 350.55.1 0.0640
+#  5   0.1  175.55.1 0.0643
+#  6   0.1  200.55.1 0.0656
+#  7   0.15 375.55.1 0.0660
+#  8   0.1  250.55.1 0.0665
+#  9   0.15 250.55.1 0.0680
+# 10   0.1  275.55.1 0.0687
+#
+# For outbreak size and ascending sort:
+#    p_load scenario     diff
+#     <dbl> <fct>       <dbl>
+#  1   0.1  400.55.0.1   4.88
+#  2   0.1  375.55.0.1   4.32
+#  3   0.1  350.55.0.1   4.07
+#  4   0.15 400.55.0.1   4.06
+#  5   0.15 375.55.0.1   3.93
+#  6   0.1  325.55.0.1   3.75
+#  7   0.15 400.55.0.15  3.40
+#  8   0.15 325.55.0.1   3.22
+#  9   0.1  400.55.0.15  3.22
+# 10   0.15 350.55.0.1   3.17
+#
+#
+#
+# For prob. emerge and ascending sort:
+#    p_load scenario    diff
+#     <dbl> <fct>      <dbl>
+#  1   0.05 400.55.1   0.322
+#  2   0.05 375.55.1   0.404
+#  3   0.05 375.55.0.9 0.444
+#  4   0.05 350.55.1   0.489
+#  5   0.05 300.55.1   0.541
+#  6   0.05 400.55.0.9 0.560
+#  7   0.05 275.55.1   0.573
+#  8   0.05 350.55.0.9 0.580
+#  9   0.05 325.55.0.9 0.594
+# 10   0.05 225.55.1   0.6
+#
+# For prob. emerge and descending sort:
+#    p_load scenario     diff
+#     <dbl> <fct>       <dbl>
+#  1   0.05 400.55.0.1   1.17
+#  2   0.05 400.55.0.15  1.14
+#  3   0.05 350.55.0.15  1.11
+#  4   0.05 325.55.0.1   1.08
+#  5   0.05 375.55.0.15  1.07
+#  6   0.05 375.55.0.1   1.05
+#  7   0.05 300.55.0.15  1.05
+#  8   0.05 350.55.0.3   1.04
+#  9   0.05 325.55.0.15  1.03
+# 10   0.05 275.55.0.15  1.03
 
 
 
 test_sims |>
-    # filter(p_load == .env$p_load) |>
-    # filter(p_load == min(p_load)) |>
-    filter(p_load == max(p_load)) |>
-    filter(scenario %in% scenarios) |>
-    arrange(scenario, outcome, n_pseudo)
+    filter(p_load == 0.05, Y0 == 400, zeta %in% c(0.1, 0.9)) |>
+    select(outcome, zeta, n_pseudo, value) |>
+    arrange(outcome, zeta, n_pseudo)
 
-
-#     ggplot(aes(Y0, value, color = factor(N0), shape = n_pseudo)) +
-#     geom_hline(yintercept = 0) +
-#     geom_point(position = position_jitterdodge(jitter.width = 0.0, dodge.width = 3)) +
-#     # geom_point() +
-#     facet_wrap(~ outcome, ncol = 1, scales = "free") +
-#     # scale_color_manual(values = np_pal)
-#     scale_color_viridis_d(end = 0.9) +
-#     scale_shape_manual(values = c(`0` = 1, `7000` = 8))
-
-
-test_sims |>
-    # filter(scenario == "100.60.1", p_load == 0.075) |>
-    filter(scenario == "105.60.1", p_load == 0.2) |>
-    ggplot(aes(p_load, value, color = factor(N0), shape = n_pseudo)) +
-    geom_hline(yintercept = 0) +
-    geom_point(position = position_jitterdodge(jitter.width = 0.0, dodge.width = 3)) +
-    # geom_point() +
-    facet_wrap(~ outcome, ncol = 1, scales = "free") +
-    # scale_color_manual(values = np_pal)
-    scale_color_viridis_d(end = 0.9) +
-    scale_shape_manual(values = c(`0` = 1, `7000` = 8))
+#   outcome        zeta n_pseudo value
+#   <fct>         <dbl> <fct>    <dbl>
+# 1 outbreak size   0.1 0         6.15
+# 2 outbreak size   0.1 7000     14.7
+# 3 outbreak size   0.9 0         6.43
+# 4 outbreak size   0.9 7000      2.49
+# 5 prob. emerge    0.1 0         0.84
+# 6 prob. emerge    0.1 7000      0.98
+# 7 prob. emerge    0.9 0         0.91
+# 8 prob. emerge    0.9 7000      0.51
 
 
 
-large_simmer <- function(landscape, Y0, N0, zeta, p_load) {
 
-    args <- list(landscape = landscape,
-                 sd_N = 0,
-                 virus_attract = 1,
-                 pseudo_repel = 1,
-                 Y0 = Y0,
-                 N0 = N0,
-                 zeta = zeta,
-                 p_load_alate = p_load,
-                 p_load_plant = p_load,
-                 K = 12.5e3,
-                 pseudo_surv = 0.85,
-                 n_sims = 100L,
-                 summ = "all")
+# _ conclusions ----
+# For small outbreaks:
+# - Keep N0 at 55
+# - p_load = 0.05
+# - Y0 = 400
+# - zeta = 0.1 or 0.9
 
-    return(do.call(big_plantscape, args))
 
-}
 
+
+# ============================================================================*
+# Big outbreaks ----
+# ============================================================================*
+
+#
+# This section is testing for simulating large outbreaks (where p_emerge = 1
+# and outbreak_size approaches # plants)
+#
+
+
+# If running below on the cluster (takes much less time):
+#
+# cd /home2/lan68/04-large-plantscapes-par-vals/
+# srun -N 1 -n 1 -c 50 --mem=100G --time=1-20:00:00 --job-name="aeonia-test" --pty R --vanilla
+#
+# source("../03-large-preamble.R")
 
 
 landscape1 <- sim_df |>
-    filter(n_pseudo == 7000, wt_vp == 1e-6, wt_pp == 1,
-           # These do not affect landscape:
-           type == "low", sd_N == 0, virus_attract == 1,
-           pseudo_repel == 1) |>
+    filter(n_pseudo == 7000, wt_vp == 1e-6, wt_pp == 1) |>
     getElement("landscape") |> getElement(1)
 landscape0 <- array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L))
 
 
 
-one_test <- function(p_load, Y0, N0, zeta) {
+one_test <- function(p_load, Y0, N0, zeta = c(0.1, 0.9)) {
 
-    n_inf1 <- large_simmer(landscape = landscape1,
-                           Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
-        getElement("n_infected")
-    n_inf0 <- large_simmer(landscape = landscape0,
-                           Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
-        getElement("n_infected")
+    large_simmer <- function(landscape, Y0, N0, zeta, p_load) {
 
-    tibble(n_pseudo = c(7000L, 0L),
-           p_load = .env$p_load, Y0 = .env$Y0, N0 = .env$N0, zeta = .env$zeta,
-           outbreak_size = c(mean(n_inf1[n_inf1 > 1]), mean(n_inf0[n_inf0 > 1])),
-           p_emerge = c(mean(n_inf1 > 1), mean(n_inf0 > 1)))
+        args <- list(landscape = landscape,
+                     sd_N = 0,
+                     virus_attract = 5,
+                     pseudo_repel = 1,
+                     Y0 = Y0,
+                     N0 = N0,
+                     zeta = zeta,
+                     p_load_alate = p_load,
+                     p_load_plant = p_load,
+                     K = 12.5e3,
+                     pseudo_surv = 0.85,
+                     n_sims = 100L,
+                     summ = "all")
+
+        return(do.call(big_plantscape, args))
+
+    }
+
+    np <- sum(landscape1[,,1] > 1L)
+
+    one_pair <- function(zeta) {
+        n_inf1 <- large_simmer(landscape = landscape1,
+                               Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
+            getElement("n_infected")
+        n_inf0 <- large_simmer(landscape = landscape0,
+                               Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
+            getElement("n_infected")
+
+        tibble(# p_load = .env$p_load, Y0 = .env$Y0, N0 = .env$N0,
+               zeta = .env$zeta,
+               n_pseudo = c(np, 0L),
+               outbreak_size = c(mean(n_inf1[n_inf1 > 1]), mean(n_inf0[n_inf0 > 1])),
+               p_emerge = c(mean(n_inf1 > 1), mean(n_inf0 > 1)))
+    }
+
+    map(zeta, one_pair) |>
+        list_rbind()
 
 }
 
-# Both are with virus_attract = 5
-#
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000   0.05   300    35   0.1         23.7      0.99
-# 2        0   0.05   300    35   0.1          5.40     0.84
-#
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000   0.05   220    60     1          3.64     0.74
-# 2        0   0.05   220    60     1         23.6      0.99
+
+# > (sim <- one_test(p_load = 0.5, Y0 = 400, N0 = 55))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         5567.        1
+# 2   0.1        0         1835.        1
+# 3   0.9     7000          397.        1
+# 4   0.9        0         1914.        1
+
+# > (sim <- one_test(p_load = 0.5, Y0 = 300, N0 = 55))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         6585.        1
+# 2   0.1        0         6612.        1
+# 3   0.9     7000          662.        1
+# 4   0.9        0         3202.        1
+
+# > (sim <- one_test(p_load = 0.5, Y0 = 400, N0 = 65))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         5086.        1
+# 2   0.1        0         2312.        1
+# 3   0.9     7000          531.        1
+# 4   0.9        0         2375.        1
+
+# > (sim <- one_test(p_load = 1, Y0 = 400, N0 = 55))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         8824.        1
+# 2   0.1        0         3873.        1
+# 3   0.9     7000         1271.        1
+# 4   0.9        0         4016.        1
+
+# > (sim <- one_test(p_load = 1, Y0 = 200, N0 = 55))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         9854.        1
+# 2   0.1        0         8556.        1
+# 3   0.9     7000         3771.        1
+# 4   0.9        0         8438.        1
+
+# > (sim <- one_test(p_load = 1, Y0 = 100, N0 = 55))
+# # A tibble: 4 × 4
+#    zeta n_pseudo outbreak_size p_emerge
+#   <dbl>    <int>         <dbl>    <dbl>
+# 1   0.1     7000         9987.        1
+# 2   0.1        0         9841.        1
+# 3   0.9     7000         7053.        1
+# 4   0.9        0         9853.        1
 
 
-# > (sim <- one_test(p_load = 0.5, Y0 = 220, N0 = 60, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   220    60     1         1254.        1
-# 2        0    0.5   220    60     1         5296.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 220, N0 = 90, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   220    90     1         2105.        1
-# 2        0    0.5   220    90     1         6690.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 220, N0 = 100, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   220   100     1         2202.        1
-# 2        0    0.5   220   100     1         7080.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 220, N0 = 150, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   220   150     1         3476.        1
-# 2        0    0.5   220   150     1         8888.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 280, N0 = 150, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   280   150     1         2492.        1
-# 2        0    0.5   280   150     1         7917.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 200, N0 = 150, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   200   150     1         3652.        1
-# 2        0    0.5   200   150     1         8986.        1
-# > (sim <- one_test(p_load = 0.5, Y0 = 150, N0 = 150, zeta = 1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   150   150     1         4786.        1
-# 2        0    0.5   150   150     1         9518.        1
-
-# > (sim <- one_test(p_load = 0.5, Y0 = 150, N0 = 20, zeta = 0.1))
-# # A tibble: 2 × 7
-#   n_pseudo p_load    Y0    N0  zeta outbreak_size p_emerge
-#      <int>  <dbl> <dbl> <dbl> <dbl>         <dbl>    <dbl>
-# 1     7000    0.5   150    20   0.1         9415.        1
-# 2        0    0.5   150    20   0.1         3763.        1
-
-
-
-
-# srun -N 1 -n 1 -c 50 --mem=100G --time=1-20:00:00 --job-name="aeonia-test" --pty bash -l
-# Takes ~ 10 min (1 min on cluster w 50 threads)
-(sim <- one_test(p_load = 0.2, Y0 = 210, N0 = 60, zeta = 1))
-# 1 / 0.127 = 7.874016
-
-for (n0 in c(5, 20, 45, 90, 180)) for (y0 in c(5, 25, 50, 75, 100, 200, 300, 400)) {
-    cat("Y0 =", y0, ", N0 =", n0, "\n")
-    print(one_test(p_load = 0.2, Y0 = y0, N0 = n0, zeta = 0.1))
-    cat("\n\n")
-}
-
-
-
-
-
-
-p_load <- 0.075
-
-#'
-#' From below graph and table, I should use
-#' high zeta (0.12) when *Pseudomonas* promotes outbreaks, and
-#' medium zeta (0.95) when *Pseudomonas* inhibits outbreaks.
-#' Because I simulated 5000 *Pseudomonas* plants instead of 7000 (the density that
-#' typically produces the strongest *Pseudomonas* effect),
-#' I will use zeta = 0.14 when *Pseudomonas* promotes outbreaks and
-#' zeta = 1.0 when *Pseudomonas* inhibits outbreaks.
-#'
-
-
-test_sims |>
-    filter(p_load == .env$p_load) |>
-    select(-p_load) |>
-    filter(Y0 == 100) |>
-    filter(N0 %in% c(10, 110)) |>
-    group_by(scenario) |>
-    mutate(zeta_lvl = case_when(zeta == min(zeta) ~ 1L,
-                                zeta == max(zeta) ~ 3L,
-                                .default = 2L)) |>
-    ungroup() |>
-    ggplot(aes(zeta_lvl, value, color = n_pseudo)) +
-    # geom_hline(yintercept = 0) +
-    geom_point(aes(shape = scenario)) +
-    geom_line(aes(linetype = scenario)) +
-    scale_x_continuous(breaks = 1:3, labels = c("low", "mid", "high")) +
-    facet_grid(outcome ~ ., scales = "free") +
-    scale_color_manual(values = np_pal)
-
-
-test_sims |>
-    filter(p_load == .env$p_load) |>
-    filter(Y0 == 100) |>
-    filter(N0 %in% c(10, 110)) |>
-    select(-p_load, -Y0, -N0) |>
-    group_by(scenario) |>
-    mutate(zeta_lvl = case_when(zeta == min(zeta) ~ 1L,
-                            zeta == max(zeta) ~ 3L,
-                            .default = 2L)) |>
-    ungroup() |>
-    filter((scenario == "promotes" & zeta_lvl == 3L) |
-               (scenario == "inhibits" & zeta_lvl == 2L)) |>
-    arrange(outcome, scenario, n_pseudo) |>
-    select(outcome, scenario, n_pseudo, value)
-
-
-
+# _ conclusions ----
+# For big outbreaks:
+# - Keep N0 at 55
+# - Always use p_load = 1
+# - When zeta is low: Y0 = 400
+# - When zeta is high: Y0 = 200

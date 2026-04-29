@@ -2,10 +2,10 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-4
-#SBATCH --cpus-per-task=25
-#SBATCH --mem=25G
-#SBATCH --time=20:00:00
+#SBATCH --array=1-16
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=32G
+#SBATCH --time=04:00:00
 #SBATCH --job-name=large-plantscapes
 #SBATCH --output=logs/large-plantscapes-%a.out
 #SBATCH --error=logs/large-plantscapes-%a.err
@@ -54,8 +54,8 @@ sim_df <- sim_df |>
         add_row(n_pseudo = 0, wt_vp = NA, wt_pp = NA,
                 landscape = list(array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L)))) |>
         # add other parameters:
-        crossing(crossing(type = c("low", "high"),
-                          outbreaks = c("small", "big"),
+        crossing(crossing(wasp_resp = c("strong", "weak"),
+                          outbreaks = c("small", "big_zl", "big_zh"),
                           sd_N = c(0, 50),
                           virus_attract = c(1, 5),
                           pseudo_repel = c(1, 5))) |>
@@ -72,11 +72,14 @@ if (is.na(curr_idx)) stop("SLURM_ARRAY_TASK_ID must be an integer")
 
 max_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_MAX")))
 if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
+if (curr_idx > max_idx) stop("SLURM_ARRAY_TASK_ID cannot exceed SLURM_ARRAY_TASK_MAX")
 
 # Get seed for this set of simulations:
-.seed <- c(1409962309, 969620847, 693008744, 828602012)[curr_idx]
+.seed <- c(1409962309, 969620847, 693008744, 828602012, 1748673948, 788130188,
+           860067048, 406795366, 471844865, 244202211, 321868958, 122012710,
+           1101480883, 1938338393, 267503242, 1920906170)[curr_idx]
 
-# Verify that indices align with 'sobol_mat' object created in 'sobol-preamble.R':
+# Verify that indices align with 'sim_df':
 stopifnot(nrow(sim_df) %% max_idx == 0L)
 
 # number of rows to simulate per job:
@@ -94,26 +97,21 @@ sim_df <- sim_df[curr_start:curr_stop,]
 # --------------*
 # Main simulator function:
 
+
+
 large_simmer <- function(sim_df_row) {
 
     landscape <- sim_df[["landscape"]][[sim_df_row]]
-    type <- sim_df[["type"]][[sim_df_row]]
+    wasp_resp <- sim_df[["wasp_resp"]][[sim_df_row]]
     outbreaks <- sim_df[["outbreaks"]][[sim_df_row]]
     sd_N <- sim_df[["sd_N"]][[sim_df_row]]
     virus_attract <- sim_df[["virus_attract"]][[sim_df_row]]
     pseudo_repel <- sim_df[["pseudo_repel"]][[sim_df_row]]
 
-    if (outbreaks == "big") {
-        p_load <- 0.5
-        Y0 <- 150
-        N0 <- ifelse(type == "low", 150, 20)
-    } else {
-        p_load <- 0.05
-        Y0 <- ifelse(type == "low", 220, 300)
-        N0 <- ifelse(type == "low", 60, 35)
-    }
-
-    zeta <- ifelse(type == "low", 1, 0.1)
+    N0 <- 55
+    p_load <- ifelse(outbreaks == "small", 0.05, 1)
+    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
+    Y0 <- ifelse(outbreaks == "big_zh", 200, 400)
 
     args <- list(landscape = landscape,
                  sd_N = sd_N,
@@ -137,7 +135,7 @@ large_simmer <- function(sim_df_row) {
 
 
 
-# Took ~3 hours per job, where each job processed 168 rows using 25 threads
+# Took ~2.25 hours per job, where each job processed 63 rows using 16 threads
 
 cat("Starting simulations...\n")
 t0 <- Sys.time()

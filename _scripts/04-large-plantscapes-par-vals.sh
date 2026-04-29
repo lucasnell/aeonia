@@ -2,14 +2,16 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=50
-#SBATCH --mem=100G
+#SBATCH --array=1-3
+#SBATCH --cpus-per-task=25
+#SBATCH --mem=25G
 #SBATCH --time=20:00:00
 #SBATCH --job-name=large-plantscapes-par-vals
-#SBATCH --output=large-plantscapes-par-vals.out
-#SBATCH --error=large-plantscapes-par-vals.err
+#SBATCH --output=logs/large-plantscapes-par-vals-%a.out
+#SBATCH --error=logs/large-plantscapes-par-vals-%a.err
 #SBATCH --mail-user=lan68@cornell.edu
 #SBATCH --mail-type=END,FAIL
+
 
 
 #
@@ -25,11 +27,12 @@
 # This was then run on BioHPC in a non-interactive job started with the following:
 #
 # cd /home2/lan68/04-large-plantscapes-par-vals/
+# mkdir -p logs
 # sbatch 04-large-plantscapes-par-vals.sh
 #
 # Then, when the job is done (assuming you're still in `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-plantscapes-par-vals/large-plantscapes-par-vals.rds \
+# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-plantscapes-par-vals/large-plantscapes-par-vals*.rds \
 #     ./interm-data/
 #
 # Then run script 05-large-plantscapes-par-vals.R for analysis
@@ -66,10 +69,7 @@ large_simmer <- function(landscape, Y0, N0, zeta, p_load) {
 .n_pseudo <- 7000L  # << maximizes effect of Pseudomonas when it promotes outbreaks
 
 landscape1 <- sim_df |>
-    filter(n_pseudo == .n_pseudo, wt_vp == 1e-6, wt_pp == 1,
-           # These do not affect landscape:
-           type == "low", sd_N == 0, virus_attract == 1,
-           pseudo_repel == 1) |>
+    filter(n_pseudo == .n_pseudo, wt_vp == 1e-6, wt_pp == 1) |>
     getElement("landscape") |> getElement(1)
 landscape0 <- array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L))
 
@@ -92,13 +92,42 @@ one_test <- function(p_load, Y0, N0, zeta) {
 
 }
 
-# Takes ~14 hrs
+test_sim_df <- crossing(p_load = round(seq(0.05, 0.15, 0.05), 2),
+                      Y0 = round(seq(100, 400, 25)),
+                      N0 = 55,
+                      zeta = c(0.1, 0.15, 0.3, 0.4, 0.9, 1))
+
+# --------------*
+# Read inputs from job manager:
+
+curr_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_ID")))
+if (is.na(curr_idx)) stop("SLURM_ARRAY_TASK_ID must be an integer")
+
+max_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_MAX")))
+if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
+
+# Get seed for this set of simulations:
+.seed <- c(769895830, 1692138374, 1774036889)[curr_idx]
+
+# Verify that indices align with 'test_sim_df' object:
+stopifnot(nrow(test_sim_df) %% max_idx == 0L)
+
+# number of rows to simulate per job:
+n_rows_pj <- nrow(test_sim_df) %/% max_idx
+
+# Start and stop for rows to simulate this job:
+curr_start <- (curr_idx - 1L) * n_rows_pj + 1L
+curr_stop <- curr_idx * n_rows_pj
+
+
+test_sim_df <- test_sim_df[curr_start:curr_stop,]
+
+# --------------*
+# Run simulations:
+
+# Took ~2.4 hours per job, where each job processed 78 rows using 25 threads
 t0 <- Sys.time()
-test_sims <- crossing(p_load = round(seq(0.05, 0.15, 0.025), 3),
-                      Y0 = round(seq(25, 250, 25)),
-                      N0 = c(45, 60),
-                      zeta = c(0.1, 0.125, 0.15, 1)) |>
-    filter((N0 == 45 & zeta < 1) | (N0 == 60 & zeta == 1)) |>
+test_sim_df <- test_sim_df |>
     pmap(one_test, .progress = list(clear = FALSE,
                                     format = paste("{cli::pb_bar}",
                                                    "{cli::pb_percent}",
@@ -108,9 +137,8 @@ test_sims <- crossing(p_load = round(seq(0.05, 0.15, 0.025), 3),
 t1 <- Sys.time()
 difftime(t1, t0, units = "min")
 
+write_rds(test_sim_df, sprintf("large-plantscapes-par-vals-%02i.rds", curr_idx), compress = "gz")
 
-write_rds(test_sims, "large-plantscapes-par-vals.rds", compress = "gz")
-
-
+cat("\nFINISHED!!\n\n")
 
 EOF

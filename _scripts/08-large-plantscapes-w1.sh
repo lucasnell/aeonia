@@ -2,10 +2,10 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-4
+#SBATCH --array=1-6
 #SBATCH --cpus-per-task=25
 #SBATCH --mem=25G
-#SBATCH --time=20:00:00
+#SBATCH --time=04:00:00
 #SBATCH --job-name=large-plantscapes-w1
 #SBATCH --output=logs/large-plantscapes-w1-%a.out
 #SBATCH --error=logs/large-plantscapes-w1-%a.err
@@ -53,10 +53,10 @@ sim_df <- sim_df |>
                 landscape = list(array(0L, c(100L, 100L, 100L))) # << different from w = 0.2 sims
         ) |>
         # add other parameters:
-        crossing(crossing(type = c("low", "high"),
-                          # outbreaks = c("small", "big"),  # << different from w = 0.2 sims
+        crossing(crossing(wasp_resp = c("strong", "weak"),
+                          # outbreaks = c("small", "big_zl", "big_zh"),  # << different from w = 0.2 sims
                           # sd_N = c(0, 50),  # << different from w = 0.2 sims
-                          virus_attract = c(1, 5),
+                          virus_attract = c(1, 5, 100),  # << different from w = 0.2 sims
                           pseudo_repel = c(1, 5))) |>
         # placeholder for simulation output:
         mutate(sim = rep(list(NA), n()))
@@ -102,11 +102,12 @@ if (is.na(curr_idx)) stop("SLURM_ARRAY_TASK_ID must be an integer")
 
 max_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_MAX")))
 if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
+if (curr_idx > max_idx) stop("SLURM_ARRAY_TASK_ID cannot exceed SLURM_ARRAY_TASK_MAX")
 
 # Get seed for this set of simulations:
-.seed <- c(921782975, 1753992136, 506798594, 1245256270)[curr_idx]
+.seed <- c(921782975, 1753992136, 506798594, 1245256270, 1635039610, 50641579)[curr_idx]
 
-# Verify that indices align with 'sim_df' object created in '03-large-preamble.R':
+# Verify that indices align with 'sim_df' object:
 stopifnot(nrow(sim_df) %% max_idx == 0L)
 
 # number of rows to simulate per job:
@@ -129,29 +130,16 @@ sim_df <- sim_df[curr_start:curr_stop,]
 large_simmer <- function(sim_df_row) {
 
     landscape <- sim_df[["landscape"]][[sim_df_row]]
-    type <- sim_df[["type"]][[sim_df_row]]
+    wasp_resp <- sim_df[["wasp_resp"]][[sim_df_row]]
     # outbreaks <- sim_df[["outbreaks"]][[sim_df_row]]  # << different from w = 0.2 sims
     # sd_N <- sim_df[["sd_N"]][[sim_df_row]]  # << different from w = 0.2 sims
     virus_attract <- sim_df[["virus_attract"]][[sim_df_row]]
     pseudo_repel <- sim_df[["pseudo_repel"]][[sim_df_row]]
 
+    N0 <- 55
     p_load <- 1  # << different from w = 0.2 sims
-    Y0 <- 150
-    N0 <- ifelse(type == "low", 150, 20)
-    # >>>>>>>>>>>>>>>>>>>>>>>>
-    # this chunk is uncommented and used instead of chunk above in  w = 0.2 sims
-    # if (outbreaks == "big") {
-    #     p_load <- 0.5
-    #     Y0 <- 150
-    #     N0 <- ifelse(type == "low", 150, 20)
-    # } else {
-    #     p_load <- 0.05
-    #     Y0 <- ifelse(type == "low", 220, 300)
-    #     N0 <- ifelse(type == "low", 60, 35)
-    # }
-    # <<<<<<<<<<<<<<<<<<<<<<<<
-
-    zeta <- ifelse(type == "low", 1, 0.1)
+    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
+    Y0 <- 200 # << different from w = 0.2 sims
 
     args <- list(landscape = landscape,
                  sd_N = 0,  # << different from w = 0.2 sims
