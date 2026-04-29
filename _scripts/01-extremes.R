@@ -1,9 +1,10 @@
 
 
 #'
-#' Time series and histograms for simulations of two scenarios:
-#' one where Pseudomonas decreases outbreaks ("low"),
-#' and another where it increases outbreaks ("high")
+#' Time series and histograms for simulations of two levels of wasp
+#' responsiveness to aphid densities:
+#' "strong" (so Pseudomonas decreases outbreak size)
+#' "weak" (so Pseudomonas increases outbreak size)
 #'
 
 source("_scripts/00-preamble.R")
@@ -27,10 +28,10 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 
 set.seed(259619623)
-large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
+large_sims <- crossing(wasp_resp = factor(1:2, labels = c("strong", "weak")),
                        n_pseudo = c(0L, 3L)) |>
-    mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
-        run_sim_combos(type = type, n_pseudo = n_pseudo, large_sims = TRUE)
+    mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
+        run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo, large_sims = TRUE)
     }))
 
 
@@ -38,24 +39,24 @@ large_sims <- crossing(type = factor(1:2, labels = c("low", "high")),
 large_sims |>
     mutate(n_infected = num(map_dbl(sims, \(x) mean(x$n_infected)), digits = 3)) |>
     select(-sims)
-#   type  n_pseudo n_infected
-#   <fct>    <int>  <num:.3!>
-# 1 low          0      3.686
-# 2 low          3      2.096
-# 3 high         0      3.671
-# 4 high         3      6.551
+#   wasp_resp n_pseudo n_infected
+#   <fct>        <int>  <num:.3!>
+# 1 strong           0      3.686
+# 2 strong           3      2.096
+# 3 weak             0      3.671
+# 4 weak             3      6.551
 
 
 large_sims |>
     mutate(n_infected = map_dbl(sims, \(x) mean(x$n_infected))) |>
-    group_by(type) |>
+    group_by(wasp_resp) |>
     summarize(n_infected = n_infected[n_pseudo != 0] -
                   n_infected[n_pseudo == 0]) |>
     mutate(n_infected = num(n_infected, digits = 3))
-#   type  n_infected
-#   <fct>  <num:.3!>
-# 1 low       -1.590
-# 2 high       2.880
+#   wasp_resp n_infected
+#   <fct>      <num:.3!>
+# 1 strong        -1.590
+# 2 weak           2.880
 
 
 # ============================================================================*
@@ -64,14 +65,14 @@ large_sims |>
 
 
 set.seed(1001450726)
-low_high_sims <- large_sims |>
+strong_weak_sims <- large_sims |>
     select(-sims) |>
-    mutate(sims = map2(type, n_pseudo, \(type, n_pseudo) {
-        # type = "high"; n_pseudo = 3
-        # rm(type, n_pseudo, sims, target, .rep, half_inf_times, hit_adiffs)
-        sims <- run_sim_combos(type, n_pseudo, n_sims = 100L, out_attack_surv = TRUE)
+    mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
+        # wasp_resp = "weak"; n_pseudo = 3
+        # rm(wasp_resp, n_pseudo, sims, target, .rep, half_inf_times, hit_adiffs)
+        sims <- run_sim_combos(wasp_resp, n_pseudo, n_sims = 100L, out_attack_surv = TRUE)
         target <- large_sims |>
-            filter(type == .env$type, n_pseudo == .env$n_pseudo) |>
+            filter(wasp_resp == .env$wasp_resp, n_pseudo == .env$n_pseudo) |>
             getElement("sims") |>
             map_dbl(\(x) mean(x$n_infected))
         # Choose a representative simulation:
@@ -109,17 +110,16 @@ low_high_sims <- large_sims |>
     })) |>
     unnest(sims)
 
-low_high_sims |>
+strong_weak_sims |>
     filter(is.na(plant)) |>
-    group_by(type, n_pseudo) |>
+    group_by(wasp_resp, n_pseudo) |>
     summarize(n_infected = max(virus), .groups = "drop")
-# # A tibble: 4 × 3
-#   type  n_pseudo n_infected
-#   <fct>    <int>      <dbl>
-# 1 low          0          4
-# 2 low          3          2
-# 3 high         0          4
-# 4 high         3          7
+#   wasp_resp n_pseudo n_infected
+#   <fct>        <int>      <dbl>
+# 1 strong           0          4
+# 2 strong           3          2
+# 3 weak             0          4
+# 4 weak             3          7
 
 
 
@@ -132,7 +132,7 @@ low_high_sims |>
 # -------------------------------------*
 
 # This is used to get the same axis max values across plots:
-tot_empty_data <- low_high_sims |>
+tot_empty_data <- strong_weak_sims |>
     filter(is.na(plant)) |>
     select(-plant, -attack_surv) |>
     pivot_longer(virus:wasps, names_to = "species", values_to = "density") |>
@@ -144,12 +144,12 @@ tot_empty_data <- low_high_sims |>
            density = ifelse(species == "virus", 9, density))
 
 
-total_plotter <- function(type) {
-    # type = "high"
-    # rm(type, dd, breaks_fun, np_df)
+total_plotter <- function(wasp_resp) {
+    # wasp_resp = "weak"
+    # rm(wasp_resp, dd, breaks_fun, np_df)
 
-    dd <- low_high_sims |>
-        filter(type == .env$type) |>
+    dd <- strong_weak_sims |>
+        filter(wasp_resp == .env$wasp_resp) |>
         filter(is.na(plant)) |>
         select(n_pseudo, time, virus:wasps) |>
         pivot_longer(virus:wasps, names_to = "species",
@@ -194,8 +194,8 @@ total_plotter <- function(type) {
 }
 
 
-# total_plotter("low")
-# total_plotter("high")
+# total_plotter("strong")
+# total_plotter("weak")
 
 
 
@@ -207,7 +207,7 @@ total_plotter <- function(type) {
 # -------------------------------------*
 
 # This is used to get the same axis max values across plots:
-bp_empty_data <- low_high_sims |>
+bp_empty_data <- strong_weak_sims |>
     filter(!is.na(plant)) |>
     select(-virus, -attack_surv) |>
     pivot_longer(aphids:wasps, names_to = "species",
@@ -219,12 +219,12 @@ bp_empty_data <- low_high_sims |>
 
 
 
-by_plant_plotter <- function(type) {
-    # type = "high"
-    # rm(type, breaks_fun)
+by_plant_plotter <- function(wasp_resp) {
+    # wasp_resp = "weak"
+    # rm(wasp_resp, breaks_fun)
 
-    low_high_sims |>
-        filter(type == .env$type) |>
+    strong_weak_sims |>
+        filter(wasp_resp == .env$wasp_resp) |>
         filter(!is.na(plant)) |>
         select(n_pseudo, plant, time, aphids, alates, wasps) |>
         pivot_longer(aphids:wasps, names_to = "species",
@@ -266,8 +266,8 @@ by_plant_plotter <- function(type) {
 
 }
 
-# by_plant_plotter("low")
-# by_plant_plotter("high")
+# by_plant_plotter("strong")
+# by_plant_plotter("weak")
 
 
 
@@ -276,13 +276,13 @@ by_plant_plotter <- function(type) {
 # -------------------------------------*
 
 
-timeseries_p <- crossing(type = sort(unique(low_high_sims$type)),
+timeseries_p <- crossing(wasp_resp = sort(unique(strong_weak_sims$wasp_resp)),
          fxn = c(total_plotter, by_plant_plotter)) |>
-    pmap(\(type, fxn) {
-        p <- fxn(type) +
+    pmap(\(wasp_resp, fxn) {
+        p <- fxn(wasp_resp) +
             theme(axis.text.x = element_markdown(size = 10),
                   axis.text.y = element_markdown(size = 10))
-        if (type == "high") p <- p + theme(axis.text.y = element_blank())
+        if (wasp_resp == "weak") p <- p + theme(axis.text.y = element_blank())
         if (identical(fxn, total_plotter)) p <- p +
                 theme(axis.text.x = element_blank())
         return(p)
@@ -306,10 +306,10 @@ if (.overwrite) {
 # z --> Pr(alates) ----
 # ============================================================================*
 
-z_pa_p_list <- low_high_sims |>
-    split(~ type) |>
+z_pa_p_list <- strong_weak_sims |>
+    split(~ wasp_resp) |>
     map(\(x) {
-        # x = low_high_sims |> filter(type == "low")
+        # x = strong_weak_sims |> filter(wasp_resp == "strong")
         # rm(x, dd, max_z)
         dd <- x |>
             filter(!is.na(plant)) |>
@@ -366,13 +366,13 @@ if (.overwrite) {
 
 
 
-low_high_hist_list <- levels(large_sims$type) |>
+strong_weak_hist_list <- levels(large_sims$wasp_resp) |>
     set_names() |>
     map(\(tp) {
-        # tp = "low"
+        # tp = "strong"
         # rm(tp, d, dd, dd_means)
         d  <- large_sims |>
-            filter(type == tp)|>
+            filter(wasp_resp == tp)|>
             mutate(n_pseudo = factor(n_pseudo)) |>
             mutate(outbreak_size = map(sims, \(x) x$n_infected)) |>
             select(-sims) |>
@@ -406,12 +406,12 @@ low_high_hist_list <- levels(large_sims$type) |>
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
 
-# wrap_plots(low_high_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(strong_weak_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
-    for (n in names(low_high_hist_list)) {
+    for (n in names(strong_weak_hist_list)) {
         save_plot(sprintf("_plots/extremes/histograms-%s.pdf", n),
-                  low_high_hist_list[[n]] + illustrator_theme,
+                  strong_weak_hist_list[[n]] + illustrator_theme,
                   width = 3.2, height = 1.5)
     }; rm(n)
 }
@@ -425,11 +425,11 @@ if (.overwrite) {
 # ============================================================================*
 
 
-low_high_bar_list <- levels(large_sims$type) |>
+strong_weak_bar_list <- levels(large_sims$wasp_resp) |>
     set_names() |>
     map(\(tp) {
         large_sims |>
-            filter(type == tp)|>
+            filter(wasp_resp == tp)|>
             mutate(n_pseudo = factor(n_pseudo)) |>
             mutate(p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1))) |>
             ggplot(aes(p_emerge, n_pseudo)) +
@@ -442,12 +442,12 @@ low_high_bar_list <- levels(large_sims$type) |>
             theme(axis.text.y = element_markdown(color = NA))
     })
 
-# wrap_plots(low_high_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(strong_weak_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
-    for (n in names(low_high_bar_list)) {
+    for (n in names(strong_weak_bar_list)) {
         save_plot(sprintf("_plots/extremes/barplots-%s.pdf", n),
-                  low_high_bar_list[[n]] + illustrator_theme,
+                  strong_weak_bar_list[[n]] + illustrator_theme,
                   width = 3.15, height = 1.5)
     }; rm(n)
 }
@@ -463,13 +463,13 @@ if (.overwrite) {
 
 # In Ives et al. (1999), they found that parasitoids spent ~3.76 more time
 # foraging at plants where they encountered an aphid.
-# Below simulates our model with varying zeta, then compares the observed
+# Bestrong simulates our model with varying zeta, then compares the observed
 # wasp abundances to those predicted when parasitoids never encounter an aphid
 # on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
 
 set.seed(1180209329)
-zeta_low_high_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
-        sims <- run_sim_combos(type = "high", n_pseudo = 3L, n_sims = 12L,
+zeta_strong_weak_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
+        sims <- run_sim_combos(wasp_resp = "weak", n_pseudo = 3L, n_sims = 12L,
                                out_attack_surv = TRUE, zeta = zeta) |>
             filter(!is.na(x)) |>
             mutate(plant = interaction(y, x),
@@ -494,7 +494,7 @@ zeta_low_high_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
 
 
 
-empir_zeta_p <- zeta_low_high_sims |>
+empir_zeta_p <- zeta_strong_weak_sims |>
     split(~ zeta + rep) |>
     map(\(x) {
         max_N_t <- x |>
