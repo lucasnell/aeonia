@@ -69,7 +69,7 @@ one_manip_sim <- function(type, x_name, x_val) {
 
 if (.overwrite || !file.exists(rds_files$extreme_manip)) {
 
-    # Takes ~21 min
+    # Takes ~6 min
     set.seed(1531497906)
     manip_sims <- c("low", "high") |>
         map(\(type) {
@@ -298,7 +298,7 @@ one_manip2_sim <- function(type, par_name_a, par_val_a, par_name_b, par_val_b) {
 
 if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
-    # Takes ~50 min
+    # Takes ~12 min
     set.seed(2025929231)
     manip2_sims <- tibble(par_name_a = "Y0",
                           par_name_b = "N0") |>
@@ -314,7 +314,9 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
         select(type, par_name_a, par_val_a, par_name_b, par_val_b) |>
         pmap(one_manip2_sim, .progress = .prog_args) |>
         list_rbind() |>
-        mutate(type = factor(type, levels = c("low", "high")))
+        mutate(type = factor(type, levels = c("low", "high"))) |>
+        rename(Y0 = par_val_a, N0 = par_val_b) |>
+        select(-starts_with("par_name_"))
 
     write_rds(manip2_sims, rds_files$extreme_manip2, compress = "gz")
 
@@ -332,13 +334,11 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
 # ... for when outbreaks never occur
 manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
     group_by(type, N0) |>
     filter(Y0 == min(Y0[p_emerge == 0])) |>
     group_by(type) |>
     summarize(rel = median(Y0 / N0))
 manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
     group_by(type, N0) |>
     filter(Y0 == min(Y0[p_emerge == 0])) |>
     ungroup() |>
@@ -348,14 +348,12 @@ manip2_sims |>
 
 # ... for when outbreaks always occur
 manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
     filter(p_emerge == 1) |>
     group_by(type, N0) |>
     filter(Y0 == max(Y0)) |>
     group_by(type) |>
     summarize(rel = median(Y0 / N0))
 manip2_sims |>
-    rename(Y0 = par_val_a, N0 = par_val_b) |>
     filter(p_emerge == 1) |>
     group_by(type, N0) |>
     filter(Y0 == max(Y0)) |>
@@ -410,7 +408,7 @@ thresh_p_list <- thresh_sims |>
         type <- paste(type)
         thresh <- paste(thresh)
         if (thresh == "below") {
-            .title <- scenario_title(type, TRUE)
+            .title <- scenario_title(type, TRUE, TRUE)
         } else .title <- waiver()
         .subtitle <- serify("", "*Y*<sub>0</sub> / *N*<sub>0</sub>",
                            list(below = " too high", above = " too low")[[thresh]])
@@ -487,21 +485,19 @@ heatmaps_make_objs <- function(yvar,
     par_name_a <- paste(par_name_a)
     par_name_b <- paste(par_name_b)
 
+    stopifnot(!"par_name_a" %in% colnames(manip2_sims))
     dd <- manip2_sims |>
-        filter(type == .env$type,
-               par_name_a == .env$par_name_a,
-               par_name_b == .env$par_name_b)
+        filter(type == .env$type)
     if (nrow(dd) == 0) {
         stop("\nCombination of type, par_name_a, and par_name_b not found!")
     }
     dd <- dd |>
-        select(n_pseudo, starts_with("par_val_"), all_of(yvar)) |>
+        select(n_pseudo, all_of(c(par_name_a, par_name_b, yvar))) |>
         mutate(n_pseudo = factor(n_pseudo))
 
     pars_og <- run_sim_combos(type = type, n_pseudo = 0,
                               return_args = TRUE) |>
         base::`[`(c(par_name_a, par_name_b)) |>
-        set_names(c("par_val_a", "par_val_b")) |>
         as_tibble()
 
     .title <- waiver()
@@ -542,7 +538,7 @@ heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_a
 
 
     pp <- d |>
-        ggplot(aes(par_val_a, par_val_b)) +
+        ggplot(aes(.data[[par_name_a]], .data[[par_name_b]])) +
         geom_raster(aes(fill = .data[[yvar]]), na.rm = TRUE)
     if (!isTRUE(is.na(.contour_args))) {
         .contour_args$mapping <- aes(z = .data[[yvar]])
@@ -633,11 +629,11 @@ pseudo_eff_heatmap <- function(yvar, type, par_name_a, par_name_b,
                                .contour_args = list(), .tag = waiver(),
                                .add_title = FALSE, .shorten_K = FALSE) {
 
-    # yvar = "outbreak_size"; type = "low"; par_name_a = "Y0"; par_name_b = "N0"
+    # yvar = "p_emerge"; type = "low"; par_name_a = "Y0"; par_name_b = "N0"
     # .contour_args = list(); .tag = waiver(); .add_title = FALSE
-    # .n_pseudo = NA; .shorten_K = FALSE
+    # .shorten_K = FALSE
     # rm(yvar, type, par_name_a, par_name_b, .contour_args, .tag, .add_title)
-    # rm(.n_pseudo, .shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, y_summ)
+    # rm(.shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, y_summ)
 
     # generate objects par_name_a, par_name_b, dd, pars_og, and .title
     heatmaps_make_objs(yvar, type, par_name_a, par_name_b, .add_title,
@@ -662,7 +658,7 @@ pseudo_eff_heatmap <- function(yvar, type, par_name_a, par_name_b,
 
     y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
     dd |>
-        group_by(across(starts_with("par_val")))  |>
+        group_by(across(all_of(c(par_name_a, par_name_b)))) |>
         summarize(across(all_of(yvar), \(y) y_summ(y, np = n_pseudo)),
                   .groups = "drop") |>
         heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
@@ -696,7 +692,7 @@ one_manip2_plotter <- function(type, par_name_a, par_name_b,
 
 
 manip2_sims |>
-    group_by(type, par_name_a, par_name_b, par_val_a, par_val_b) |>
+    group_by(type, Y0, N0) |>
     summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
                   outbreak_size[n_pseudo == "0"],
               p_emerge = p_emerge[n_pseudo != "0"] -
@@ -706,24 +702,28 @@ manip2_sims |>
               os_max = max(outbreak_size, na.rm = TRUE),
               pe_min = min(p_emerge),
               pe_max = max(p_emerge))
+#   os_min os_max pe_min pe_max
+#    <dbl>  <dbl>  <dbl>  <dbl>
+# 1  -2.33   1.96  -0.49  0.652
 
 
-outbreak_heatmap("p_emerge", "high", "Y0", "N0") /
-    outbreak_heatmap("p_emerge", "low", "Y0", "N0") +
-    plot_layout(guides = "collect")
 
-outbreak_heatmap("outbreak_size", "high", "Y0", "N0") /
-    outbreak_heatmap("outbreak_size", "low", "Y0", "N0") +
-    plot_layout(guides = "collect")
-
-
-(pseudo_eff_heatmap("p_emerge", "high", "Y0", "N0") |
-    pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0")) +
-    plot_layout(guides = "collect")
-
-(pseudo_eff_heatmap("outbreak_size", "high", "Y0", "N0") |
-    pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0")) +
-    plot_layout(guides = "collect")
+# outbreak_heatmap("p_emerge", "low", "Y0", "N0") /
+#     outbreak_heatmap("p_emerge", "high", "Y0", "N0") +
+#     plot_layout(guides = "collect")
+#
+# outbreak_heatmap("outbreak_size", "low", "Y0", "N0") /
+#     outbreak_heatmap("outbreak_size", "high", "Y0", "N0") +
+#     plot_layout(guides = "collect")
+#
+#
+# (pseudo_eff_heatmap("p_emerge", "low", "Y0", "N0") |
+#     pseudo_eff_heatmap("p_emerge", "high", "Y0", "N0")) +
+#     plot_layout(guides = "collect")
+#
+# (pseudo_eff_heatmap("outbreak_size", "low", "Y0", "N0") |
+#     pseudo_eff_heatmap("outbreak_size", "high", "Y0", "N0")) +
+#     plot_layout(guides = "collect")
 
 
 
@@ -740,8 +740,7 @@ c("low", "high") |>
     map(\(type) {
         y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
         manip2_sims |>
-            filter(par_name_a == "Y0", par_name_b == "N0", type == .env$type) |>
-            rename(Y0 = par_val_a, N0 = par_val_b) |>
+            filter(type == .env$type) |>
             group_by(type, Y0, N0) |>
             summarize(diff = y_summ(.data[[yvar]], np = n_pseudo), .groups = "drop")
     }) |>
@@ -788,19 +787,21 @@ c("low", "high") |>
 
 if (!dir.exists("_plots/extremes-manip-subs")) dir.create("_plots/extremes-manip-subs")
 
-for (.t in c("low", "high")) {
-    for (.v in c("outbreak_size", "p_emerge")) {
-        .f <- sprintf("_plots/extremes-manip-subs/heatmap-%s-%s-Y0-N0.pdf",
-                      list(outbreak_size = "obs", p_emerge = "pem")[[.v]], .t)
-        .p <- pseudo_eff_heatmap(.v, .t, "Y0", "N0", .contour_args = NA)
-        save_plot(.f, .p + illustrator_theme, 2, 2)
-    }
-    for (.v in c("K", "pseudo_surv", "zeta")) {
-        .f <- sprintf("_plots/extremes-manip-subs/lines-%s-%s.pdf", .t, .v)
-        .p <- one_manip_plotter(.t, .v, TRUE, FALSE)
-        save_plot(.f, .p + illustrator_theme, 2.5, 1.25)
-    }
-}; rm(.t, .f, .p, .v)
+if (.overwrite) {
+    for (.t in c("low", "high")) {
+        for (.v in c("outbreak_size", "p_emerge")) {
+            .f <- sprintf("_plots/extremes-manip-subs/heatmap-%s-%s-Y0-N0.pdf",
+                          list(outbreak_size = "obs", p_emerge = "pem")[[.v]], .t)
+            .p <- pseudo_eff_heatmap(.v, .t, "Y0", "N0", .contour_args = NA)
+            save_plot(.f, .p + illustrator_theme, 2, 2)
+        }
+        for (.v in c("K", "pseudo_surv", "zeta")) {
+            .f <- sprintf("_plots/extremes-manip-subs/lines-%s-%s.pdf", .t, .v)
+            .p <- one_manip_plotter(.t, .v, TRUE, FALSE)
+            save_plot(.f, .p + illustrator_theme, 2.5, 1.25)
+        }
+    }; rm(.t, .f, .p, .v)
+}
 
 
 

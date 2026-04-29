@@ -50,9 +50,9 @@ np_pal <- color_pal[c("no_pseudo", "pseudo")] |>
     set_names(c("0", "3"))
 # scales::show_col(np_pal, labels = FALSE)
 
-np_shapes <- c(`0` = 1, `3` = 8)
+np_shapes <- c(`0` = 1, `3` = 19)
 np_linetypes <- c(`0` = "22", `3` = "solid")
-np_linewidths <- c(`0` = 1, `3` = 0.75)
+np_linewidths <- c(`0` = 1.25, `3` = 1)
 
 
 serify <- function(prefix, x, suffix) {
@@ -173,23 +173,23 @@ run_sim_combos <- function(type,
                            return_args = FALSE,
                            ...) {
 
-    # type = "low"; n_pseudo = 3L; large_sims = TRUE; return_args = FALSE
-
     stopifnot(length(type) == 1L && type %in% c("low", "high"))
     stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
     stopifnot(length(large_sims) == 1L && is.logical(large_sims))
 
-    shared_args <- list(sd_N = 0,
-                        Y0 = 1,
-                        N0 = 55,
-                        pseudo_surv = 0.85,
-                        n_pseudo = n_pseudo,
-                        spat_config = "diagonal")
+    args <- list(sd_N = 0,
+                 Y0 = 1,
+                 N0 = 55,
+                 pseudo_surv = 0.85,
+                 n_pseudo = n_pseudo,
+                 spat_config = "diagonal")
 
     if (large_sims) {
-        size_args <- list_assign(shared_args, n_sims = 1000, summ = "all")
+        args[["n_sims"]]  <- 1000
+        args[["summ"]]  <- "all"
     } else {
-        size_args <- list_assign(shared_args, n_sims = 1, summ = "none")
+        args[["n_sims"]]  <- 1
+        args[["summ"]]  <- "none"
     }
 
     args[["zeta"]] <- ifelse(type == "low", 0.9, 0.4)
@@ -204,10 +204,10 @@ run_sim_combos <- function(type,
 
 
 
-scenario_title <- function(.type, .break = FALSE, .cap1 = FALSE) {
+scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE) {
     .fmt <- ifelse(.break, "%s parasitoid<br>responsiveness to<br>aphid densities",
                    "%s parasitoid responsiveness to aphid densities")
-    out <- sprintf(.fmt, ifelse(.type == "low", "strong", "weak"))
+    out <- sprintf(.fmt, .wasp_resp)
     if (.cap1) out <- first_cap(out)
     return(out)
 }
