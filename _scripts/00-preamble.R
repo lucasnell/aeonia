@@ -161,19 +161,19 @@ boot_ci <- function(x, alpha = 0.01, R = 2000L) {
 
 
 #' Run lil_landscape under two simulation scenarios: large or small,
-#' and under two parameter combo types:
-#' "low" (Pseudomonas decreases outbreak size)
-#' "high" (Pseudomonas increases outbreak size)
+#' and under two levels of wasp responsiveness to aphid densities:
+#' "strong" (so Pseudomonas decreases outbreak size)
+#' "weak" (so Pseudomonas increases outbreak size)
 #'
 #' Use of `...` allows you to adjust parameter values.
 #'
-run_sim_combos <- function(type,
+run_sim_combos <- function(wasp_resp,
                            n_pseudo,
                            large_sims = FALSE,
                            return_args = FALSE,
                            ...) {
 
-    stopifnot(length(type) == 1L && type %in% c("low", "high"))
+    stopifnot(length(wasp_resp) == 1L && wasp_resp %in% c("strong", "weak"))
     stopifnot(length(n_pseudo) == 1L && is.numeric(n_pseudo) && n_pseudo >= 0)
     stopifnot(length(large_sims) == 1L && is.logical(large_sims))
 
@@ -192,7 +192,7 @@ run_sim_combos <- function(type,
         args[["summ"]]  <- "none"
     }
 
-    args[["zeta"]] <- ifelse(type == "low", 0.9, 0.4)
+    args[["zeta"]] <- ifelse(wasp_resp == "strong", 0.9, 0.4)
 
     args <- list_assign(args, ...)
 
