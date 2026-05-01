@@ -70,43 +70,48 @@ strong_weak_sims <- large_sims |>
     mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
         # wasp_resp = "weak"; n_pseudo = 3
         # rm(wasp_resp, n_pseudo, sims, target, .rep, half_inf_times, hit_adiffs)
-        sims <- run_sim_combos(wasp_resp, n_pseudo, n_sims = 100L, out_attack_surv = TRUE)
-        target <- large_sims |>
-            filter(wasp_resp == .env$wasp_resp, n_pseudo == .env$n_pseudo) |>
-            getElement("sims") |>
-            map_dbl(\(x) mean(x$n_infected))
-        # Choose a representative simulation:
-        .rep <- sims |>
-            filter(is.na(x)) |>
-            group_by(rep) |>
-            summarize(n_infected = max(virus)) |>
-            filter(abs(n_infected - target) ==
-                       min(abs(n_infected - target))) |>
-            getElement("rep")
-        stopifnot(length(.rep) > 0)
-        sims <- sims |>
-            filter(rep %in% .rep)
-        # Now find rep with median time to halfway max infected:
-        if (length(.rep) > 1) {
-            half_inf_times <- sims |>
-                split(~ rep) |>
-                map(\(x) {
-                    max_inf <- max(x$virus)
-                    tibble(rep = x$rep[[1]],
-                           time = min(x$time[is.na(x$x) & x$virus >= (max_inf / 2)]))
-                }) |>
-                list_rbind()
-            hit_adiffs <- abs(half_inf_times$time - median(half_inf_times$time))
-            .rep <- half_inf_times$rep[hit_adiffs == min(hit_adiffs)]
-            if (length(.rep) > 1) .rep <- sample(.rep, 1)
-            sims <- sims |>
-                filter(rep %in% .rep)
-        }
+        sims <- run_sim_combos(wasp_resp, n_pseudo, n_sims = 1000L,
+                               out_attack_surv = TRUE, out_stages = TRUE)
+        # target <- large_sims |>
+        #     filter(wasp_resp == .env$wasp_resp, n_pseudo == .env$n_pseudo) |>
+        #     getElement("sims") |>
+        #     map_dbl(\(x) mean(x$n_infected))
+        # # Choose a representative simulation:
+        # .rep <- sims |>
+        #     filter(is.na(x)) |>
+        #     group_by(rep) |>
+        #     summarize(n_infected = max(virus)) |>
+        #     filter(abs(n_infected - target) ==
+        #                min(abs(n_infected - target))) |>
+        #     getElement("rep")
+        # stopifnot(length(.rep) > 0)
+        # sims <- sims |>
+        #     filter(rep %in% .rep)
+        # # Now find rep with median time to halfway max infected:
+        # if (length(.rep) > 1) {
+        #     half_inf_times <- sims |>
+        #         split(~ rep) |>
+        #         map(\(x) {
+        #             max_inf <- max(x$virus)
+        #             tibble(rep = x$rep[[1]],
+        #                    time = min(x$time[is.na(x$x) & x$virus >= (max_inf / 2)]))
+        #         }) |>
+        #         list_rbind()
+        #     hit_adiffs <- abs(half_inf_times$time - median(half_inf_times$time))
+        #     .rep <- half_inf_times$rep[hit_adiffs == min(hit_adiffs)]
+        #     if (length(.rep) > 1) .rep <- sample(.rep, 1)
+        #     sims <- sims |>
+        #         filter(rep %in% .rep)
+        # }
         sims |>
-            filter(rep == .rep) |>
+            # filter(rep == .rep) |>
             mutate(plant = interaction(y, x),
-                   aphids = aphids + parasitized) |>
-            select(plant, time, virus, aphids, alates, wasps, attack_surv)
+                   aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,
+                   alates = alates_adu) |>
+            select(rep, plant, time, virus, starts_with("aphids"),
+                   starts_with("alates"), wasps, attack_surv) |>
+            group_by(time, plant) |>
+            summarize(across(virus:attack_surv, mean), .groups = "drop")
     })) |>
     unnest(sims)
 
@@ -134,43 +139,36 @@ strong_weak_sims |>
 # This is used to get the same axis max values across plots:
 tot_empty_data <- strong_weak_sims |>
     filter(is.na(plant)) |>
-    select(-plant, -attack_surv) |>
+    select(virus, aphids, alates, wasps) |>
+    mutate(aphids = aphids / 100) |>
     pivot_longer(virus:wasps, names_to = "species", values_to = "density") |>
     group_by(species) |>
     summarize(density = max(density)) |>
     mutate(time = 1,
            species = factor(species, levels = c("aphids", "alates",
                                                 "wasps", "virus")),
-           density = ifelse(species == "virus", 9, density))
+           density = ifelse(species == "virus", 9, density)) |>
+    arrange(desc(density))
 
 
-total_plotter <- function(wasp_resp) {
-    # wasp_resp = "weak"
-    # rm(wasp_resp, dd, breaks_fun, np_df)
+total_plotter <- function(wasp_resp, delay_virus = FALSE) {
+    # wasp_resp = "weak"; delay_virus = FALSE
+    # rm(wasp_resp, delay_virus, dd)
 
     dd <- strong_weak_sims |>
         filter(wasp_resp == .env$wasp_resp) |>
         filter(is.na(plant)) |>
-        select(n_pseudo, time, virus:wasps) |>
+        select(n_pseudo, time, virus, aphids, alates, wasps) |>
+        mutate(aphids = aphids / 100) |>
         pivot_longer(virus:wasps, names_to = "species",
                      values_to = "density") |>
         mutate(species = factor(species, levels =
                                     levels(tot_empty_data$species)))
-
-    breaks_fun <- function(x) {
-        if (max(x) >= 10e3) {
-            return(c(0, 5e3, 10e3))
-        } else if (max(x) >= 900) {
-            return(c(0, 500, 1000))
-        } else if (max(x) >= 400) {
-            return(c(0, 200, 400))
-        } else return(c(1, 5, 9))
+    if (delay_virus) {
+        dd <- dd |>
+            mutate(time = ifelse(species == "virus", time - 7L, time)) |>
+            filter(time >= 0L)
     }
-
-    # np_df <- dd |>
-    #     filter(n_pseudo == 0) |>
-    #     group_by(time, species) |>
-    #     summarize(density = mean(density), .groups = "drop")
 
     dd |>
         # filter(n_pseudo > 0) |>
@@ -179,14 +177,24 @@ total_plotter <- function(wasp_resp) {
         geom_hline(yintercept = 0, color = "gray70") +
         # geom_area(data = np_df, aes(fill = species), alpha = 0.4) +
         # geom_line(aes(color = species), linewidth = 0.75) +
-        geom_line(aes(color = species, linewidth = n_pseudo, linetype = n_pseudo)) +
+        # geom_line(aes(color = species, linewidth = n_pseudo, linetype = n_pseudo)) +
+        geom_line(aes(color = n_pseudo), linewidth = 1.25) +
         geom_blank(data = tot_empty_data, aes(y = density * 1.15)) +
-        scale_color_manual(values = color_pal, aesthetics = c("color", "fill")) +
-        scale_linetype_manual(values = np_linetypes) +
-        scale_linewidth_manual(values = np_linewidths) +
+        # scale_color_manual(values = color_pal, aesthetics = c("color", "fill")) +
+        scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
+        # scale_linetype_manual(values = np_linetypes) +
+        # scale_linewidth_manual(values = np_linewidths) +
         labs(x = "Time (days)", y = "Total density") +
         scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
-        scale_y_continuous(breaks = breaks_fun) +
+        scale_y_continuous(breaks = \(x) {
+            if (max(x) >= 400) {# wasps
+                return(c(0, 200, 400))
+            } else if (max(x) >= 120) {# aphids (total)
+                return(c(0, 60, 120))
+            } else if (max(x) >= 50) {# alates (adult)
+                return(c(0, 25, 50))
+            } else return(c(1, 5, 9))# virus
+        }) +
         coord_cartesian(clip = "off") +
         facet_wrap(~ species, ncol = 1, scales = "free_y") +
         theme(strip.text.x = element_blank())
@@ -202,6 +210,7 @@ total_plotter <- function(wasp_resp) {
 
 
 
+
 # -------------------------------------*
 # ... by plant ----
 # -------------------------------------*
@@ -209,24 +218,25 @@ total_plotter <- function(wasp_resp) {
 # This is used to get the same axis max values across plots:
 bp_empty_data <- strong_weak_sims |>
     filter(!is.na(plant)) |>
-    select(-virus, -attack_surv) |>
-    pivot_longer(aphids:wasps, names_to = "species",
-                 values_to = "density") |>
+    select(aphids, alates, wasps) |>
+    mutate(aphids = aphids / 100) |>
+    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
     group_by(species) |>
     summarize(density = max(density)) |>
     mutate(time = 1,
-           species = factor(species, levels = c("aphids", "alates", "wasps")))
-
+           species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    arrange(desc(density))
 
 
 by_plant_plotter <- function(wasp_resp) {
     # wasp_resp = "weak"
-    # rm(wasp_resp, breaks_fun)
+    # rm(wasp_resp, dd)
 
-    strong_weak_sims |>
+    dd <- strong_weak_sims |>
         filter(wasp_resp == .env$wasp_resp) |>
         filter(!is.na(plant)) |>
         select(n_pseudo, plant, time, aphids, alates, wasps) |>
+        mutate(aphids = aphids / 100) |>
         pivot_longer(aphids:wasps, names_to = "species",
                      values_to = "density") |>
         mutate(species = factor(species, levels =
@@ -237,34 +247,35 @@ by_plant_plotter <- function(wasp_resp) {
         group_by(n_pseudo, plant_type, time, species) |>
         summarize(density = mean(density), .groups = "drop") |>
         mutate(n_pseudo = factor(n_pseudo)) |>
-        # filter(n_pseudo > 0) |>
-        # mutate(grp = interaction(plant, species, drop = TRUE)) |>
-        mutate(grp = interaction(plant_type, species, drop = TRUE)) |>
+        mutate(grp = interaction(plant_type, species, drop = TRUE))
+
+    dd |>
         ggplot(aes(time, density)) +
         geom_hline(yintercept = 0, color = "gray70", linewidth = 0.5) +
-        # geom_area(data = np_df, aes(fill = species), alpha = 0.4) +
-        # geom_line(aes(color = species, group = grp), linewidth = 0.5) +
-        geom_line(aes(color = species, linewidth = plant_type,
-                      linetype = n_pseudo, group = grp)) +
+        geom_line(aes(color = n_pseudo, linetype = plant_type, group = grp),
+                  linewidth = 1.25) +
         geom_blank(data = bp_empty_data, aes(y = density * 1.15)) +
-        scale_color_manual(values = color_pal, aesthetics = c("color", "fill")) +
-        scale_linetype_manual(values = np_linetypes) +
-        scale_linewidth_manual(values = c(np_linewidths[c("0", "3")], 0.5) |>
+        scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
+        scale_linetype_manual(values = c("solid", "solid", "22") |>
                                    set_names(c("noP", "PnoP", "allP"))) +
         labs(x = "Time (days)", y = "Density per plant") +
         scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
         scale_y_continuous(breaks = \(x) {
-            if (max(x) >= 1200) {
-                return(c(0, 600, 1200))
-            } else if (max(x) >= 120) {
-                return(c(0, 60, 120))
-            } else return(c(0, 25, 50))
+            if (max(x) >= 50) {# wasps
+                return(c(0, 25, 50))
+            } else if (max(x) >= 14) {# aphids (total)
+                return(c(0, 7, 14))
+            } else return(c(0, 4, 8))# alates (adult)
         }) +
         coord_cartesian(clip = "off") +
         facet_wrap(~ species, ncol = 1, scales = "free_y") +
         theme(strip.text.x = element_blank())
 
 }
+
+
+
+
 
 # by_plant_plotter("strong")
 # by_plant_plotter("weak")
@@ -277,7 +288,7 @@ by_plant_plotter <- function(wasp_resp) {
 
 
 timeseries_p <- crossing(wasp_resp = sort(unique(strong_weak_sims$wasp_resp)),
-         fxn = c(total_plotter, by_plant_plotter)) |>
+                         fxn = c(total_plotter, by_plant_plotter)) |>
     pmap(\(wasp_resp, fxn) {
         p <- fxn(wasp_resp) +
             theme(axis.text.x = element_markdown(size = 10),
@@ -287,14 +298,14 @@ timeseries_p <- crossing(wasp_resp = sort(unique(strong_weak_sims$wasp_resp)),
                 theme(axis.text.x = element_blank())
         return(p)
     }) |>
-    wrap_plots(design = "A#C\n###\nB#D", widths = c(1, 0.1, 1),
+    wrap_plots(design = "A#C\n###\nB#D", widths = c(1, 0.05, 1),
                heights = c(4, 0.35, 3), guides = "collect", axis_titles = "collect")
 # timeseries_p
 
 
 if (.overwrite) {
     save_plot("_plots/extremes/timeseries.pdf",
-              timeseries_p & illustrator_theme, width = 7, height = 6)
+              timeseries_p & illustrator_theme, width = 6.9, height = 6)
 }
 
 
@@ -319,13 +330,13 @@ z_pa_p_list <- strong_weak_sims |>
             summarize(z = max(aphids + alates), .groups = "drop_last") |>
             summarize(z = max(z)) |>
             mutate(ap = alate_prop(z))
-        max_z <- ceiling((max(bp_empty_data$density) * 1.15) / 100) * 100
+        max_z <- ceiling((100 * bp_empty_data$density[bp_empty_data$species == "aphids"] * 1.15) / 100) * 100
         tibble(z = 1:max_z, ap = alate_prop(z)) |>
             ggplot(aes(z, ap)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_line(linewidth = 1) +
-            geom_point(data = dd, aes(shape = n_pseudo), size = 4, stroke = 1) +
-            scale_shape_manual(values = np_shapes) +
+            geom_point(data = dd, aes(color = n_pseudo), size = 4, stroke = 1) +
+            scale_color_manual(values = np_pal) +
             scale_x_continuous(breaks = c(0, 500, 1000, 1500)) +
             theme(axis.text.x = element_markdown(size = 8),
                   axis.text.y = element_markdown(size = 8))
@@ -393,15 +404,15 @@ strong_weak_hist_list <- levels(large_sims$wasp_resp) |>
         dd |>
             ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
-            geom_point(aes(shape = n_pseudo), size = 2, stroke = 1) +
-            geom_line(aes(linetype = n_pseudo), linewidth = 1) +
+            geom_point(aes(color = n_pseudo), size = 2, stroke = 1) +
+            geom_line(aes(color = n_pseudo), linewidth = 1) +
             # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
             #                 linewidth = 1.5, size = 0.75, shape = 1) +
             geom_vline(data = dd_means,
-                       aes(xintercept = outbreak_size, linetype = n_pseudo),
-                       linewidth = 1) +
-            scale_shape_manual(values = np_shapes) +
-            scale_linetype_manual(values = np_linetypes) +
+                       aes(xintercept = outbreak_size, color = n_pseudo),
+                       linewidth = 1, linetype = "22") +
+            scale_color_manual(values = np_pal) +
+            # scale_linetype_manual(values = np_linetypes) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
@@ -434,11 +445,11 @@ strong_weak_bar_list <- levels(large_sims$wasp_resp) |>
             mutate(p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1))) |>
             ggplot(aes(p_emerge, n_pseudo)) +
             geom_vline(xintercept = 0, color = "gray70") +
-            geom_col(aes(fill = n_pseudo), color = "black", width = 0.45,
+            geom_col(aes(fill = n_pseudo), color = NA, width = 0.45,
                      linewidth = 0.75, linejoin = "mitre") +
             labs(x = "Prob. of emergence", y = "Number of Pseudo. plants") +
             coord_cartesian(xlim  = c(0, 1)) +
-            scale_fill_manual(values = c(`0` = "white", `3` = "black")) +
+            scale_fill_manual(values = np_pal) +
             theme(axis.text.y = element_markdown(color = NA))
     })
 

@@ -111,11 +111,10 @@ if (.overwrite || !file.exists(rds_files$extreme_manip)) {
 
 one_manip_plotter <- function(wasp_resp, par_name,
                               .og_vals = TRUE,
-                              .md_vals = TRUE,
                               .add_pts = TRUE) {
-    # wasp_resp = "strong"; par_name = "K"; .og_vals = TRUE; .md_vals = TRUE; .add_pts = TRUE
-    # rm(wasp_resp, par_name, .og_vals, .md_vals, dd, pv_og, dd_og, yvar_pal, .points_lines)
-    # rm(dd_md, p)
+    # wasp_resp = "strong"; par_name = "K"; .og_vals = TRUE; .add_pts = TRUE
+    # rm(wasp_resp, par_name, .og_vals, dd, dd_og, .points_lines, plot_list, p)
+
     dd <- manip_sims |>
         filter(wasp_resp == .env$wasp_resp, par_name == .env$par_name) |>
         mutate(n_pseudo = factor(n_pseudo)) |>
@@ -123,43 +122,25 @@ one_manip_plotter <- function(wasp_resp, par_name,
         # (n_infected - 2) / 7  below is to have them on the same scale for
         # plotting. Axes labels will show differences properly
         summarize(p_emerge = mean(n_infected > 1),
-                  outbreak_size = (mean(n_infected[n_infected > 1]) - 2) / 7,
+                  # outbreak_size = (mean(n_infected[n_infected > 1]) - 2) / 7,
+                  outbreak_size = mean(n_infected[n_infected > 1]),
                   .groups = "drop") |>
-        pivot_longer(p_emerge:outbreak_size, names_to = "outcome")
+        pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
+        mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size")))
     if (par_name == "K") dd$par_val <- carrying_capacity(K = dd$par_val, pred_surv = 1)
-    pv_og <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = 0, return_args = TRUE) |>
+    dd_og <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = 0, return_args = TRUE) |>
         getElement(par_name)
-    if (is.null(pv_og)) pv_og <- formals(lil_plantscape)[[par_name]]
-    if (is.null(pv_og)) pv_og <- eval(formals(sim_plantscape)[[par_name]])
-    if (is.null(pv_og)) pv_og <- eval(formals(make_insects_ptr)[[par_name]])
-    if (is.null(pv_og)) pv_og <- eval(formals(make_disease_ptr)[[par_name]])
-    if (par_name == "K") pv_og <- carrying_capacity(K = pv_og, pred_surv = 1)
-    dd_og <- tibble(par_val = pv_og)
+    if (is.null(dd_og)) dd_og <- formals(lil_plantscape)[[par_name]]
+    if (is.null(dd_og)) dd_og <- eval(formals(sim_plantscape)[[par_name]])
+    if (is.null(dd_og)) dd_og <- eval(formals(make_insects_ptr)[[par_name]])
+    if (is.null(dd_og)) dd_og <- eval(formals(make_disease_ptr)[[par_name]])
+    if (par_name == "K") dd_og <- carrying_capacity(K = dd_og, pred_surv = 1)
 
-    yvar_pal <- brewer.pal(8, "Dark2")[c(1,8)] |>  # viridis(100)[c(10, 70)] |>
-        set_names("outbreak_size", "p_emerge")
-
-    .points_lines <- list(geom_point(aes(shape = n_pseudo)),
-                          scale_shape_manual("Number of<br>*Pseudomonas*<br>plants",
-                                             values = np_shapes),
-                          geom_line(aes(linetype = n_pseudo), linewidth = 0.5),
-                          scale_linetype_manual("Number of<br>*Pseudomonas*<br>plants",
-                                                values = np_linetypes))
+    .points_lines <- list(geom_point(), geom_line(linewidth = 0.5))
     if (!.add_pts) {
-        .points_lines <- .points_lines[3:4]
+        .points_lines <- .points_lines[2]
         .points_lines[[1]][["aes_params"]][["linewidth"]] <- 1
     }
-
-    dd_md <- dd |>
-        group_by(outcome, par_val) |>
-        summarize(value0 = value[n_pseudo == 0L],
-                  value = value[n_pseudo != 0L],
-                  .groups = "drop_last") |>
-        mutate(max_diff = abs(value0 - value) == max(abs(value0 - value),
-                                                     na.rm = TRUE)) |>
-        ungroup() |>
-        filter(max_diff)
-
 
     if (par_name == "K") {
         x_lab <- paste("Aphid carrying capacity",
@@ -168,39 +149,39 @@ one_manip_plotter <- function(wasp_resp, par_name,
     } else x_lab <- pretty_params(par_name) |> first_cap()
 
 
-    p <- dd |>
+    plot_list <- dd |>
         filter(!is.na(value)) |>
-        ggplot(aes(par_val, value, color = outcome)) +
-        geom_hline(yintercept = c(0, 1), color = "gray70")
-    if (.og_vals) p <- p + geom_vline(data = dd_og[1,], aes(xintercept = par_val),
-                                    color = "gray70", linewidth = 0.75)
-    if (.md_vals) p <- p +
-        geom_linerange(data = dd_md,
-                      aes(x = par_val, ymin = value0, ymax = value),
-                      linetype = "21", linewidth = 1)
-    p +
-        .points_lines +
-        labs(x = x_lab, y = yvar_desc[["p_emerge"]] |> first_cap()) +
-        scale_y_continuous(breaks = 0:2/2,
-                           sec.axis = sec_axis(\(x) 7 * x + 2,
-                                               paste("Mean",
-                                                     yvar_desc[["outbreak_size"]]),
-                                               breaks = c(3,6,9))) +
-        coord_cartesian(ylim = c(0, 1)) +
-        scale_color_manual(values = yvar_pal, guide = "none") +
-        guides(shape = guide_legend(override.aes = list(color = "black"))) +
-        theme(axis.title.y.left = element_text(color = yvar_pal[["p_emerge"]]),
-              axis.text.y.left = element_text(color = yvar_pal[["p_emerge"]]),
-              axis.ticks.y.left = element_line(color = yvar_pal[["p_emerge"]]),
-              axis.title.y.right = element_text(color = yvar_pal[["outbreak_size"]]),
-              axis.text.y.right = element_text(color = yvar_pal[["outbreak_size"]]),
-              axis.ticks.y.right = element_line(color = yvar_pal[["outbreak_size"]]))
+        split(~ outcome) |>
+        map(\(ddd) {
+            yvar <- paste(ddd$outcome[[1]])
+            yl <- switch(yvar, p_emerge = c(0, 1), outbreak_size = c(2, 9))
+            yb <- switch(yvar, p_emerge = 0:2/2, outbreak_size = c(3,6,9))
+            yp <- switch(yvar, p_emerge = "left", outbreak_size = "right")
+            y_lab <- yvar_desc[[yvar]] |>
+                (\(x) ifelse(yvar == "outbreak_size", paste("mean", x), x))() |>
+                first_cap()
+            p <- ddd |>
+                ggplot(aes(par_val, value, color = n_pseudo)) +
+                geom_hline(yintercept = yl, color = "gray70")
+            if (.og_vals) p <- p + geom_vline(xintercept = dd_og, color = "gray70",
+                                              linetype = "33")
+            p +
+                .points_lines +
+                labs(x = x_lab, y = y_lab) +
+                scale_y_continuous(breaks = yb, position = yp) +
+                scale_color_manual(values = np_pal) +
+                coord_cartesian(xlim = range(dd$par_val)) +
+                theme(plot.margin = margin(0,0,0,0))
+        })
+
+    plot_list$p_emerge + plot_list$outbreak_size +
+        plot_layout(ncol = 1, guides = "collect", axes = "collect")
 }
 
 
 
 
-# one_manip_plotter("weak", "zeta", .og_vals = TRUE, .md_vals = FALSE, .add_pts = FALSE)
+# one_manip_plotter("weak", "zeta", .og_vals = TRUE, .add_pts = TRUE)
 
 
 
@@ -767,9 +748,8 @@ if (.overwrite) {
         }
         for (.v in c("K", "pseudo_surv", "zeta")) {
             .f <- sprintf("_plots/extremes-manip-subs/lines-%s-%s.pdf", .t, .v)
-            .p <- one_manip_plotter(.t, .v, .og_vals = TRUE, .md_vals = FALSE,
-                                    .add_pts = FALSE)
-            save_plot(.f, .p + illustrator_theme, 2.5, 1.25)
+            .p <- one_manip_plotter(.t, .v, .og_vals = TRUE, .add_pts = FALSE)
+            save_plot(.f, .p & illustrator_theme, 2.5, 1.25)
         }
     }; rm(.t, .f, .p, .v)
 }
