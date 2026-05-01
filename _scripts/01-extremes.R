@@ -28,7 +28,7 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 
 set.seed(259619623)
-large_sims <- crossing(wasp_resp = factor(1:2, labels = c("strong", "weak")),
+large_sims <- crossing(wasp_resp = factor(1:2, labels = c("weak", "strong")),
                        n_pseudo = c(0L, 3L)) |>
     mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
         run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo, large_sims = TRUE)
@@ -41,10 +41,10 @@ large_sims |>
     select(-sims)
 #   wasp_resp n_pseudo n_infected
 #   <fct>        <int>  <num:.3!>
-# 1 strong           0      3.686
-# 2 strong           3      2.096
-# 3 weak             0      3.671
-# 4 weak             3      6.551
+# 1 weak             0      3.686
+# 2 weak             3      6.491
+# 3 strong           0      3.671
+# 4 strong           3      2.141
 
 
 large_sims |>
@@ -55,8 +55,8 @@ large_sims |>
     mutate(n_infected = num(n_infected, digits = 3))
 #   wasp_resp n_infected
 #   <fct>      <num:.3!>
-# 1 strong        -1.590
-# 2 weak           2.880
+# 1 weak           2.805
+# 2 strong        -1.530
 
 
 # ============================================================================*
@@ -65,7 +65,7 @@ large_sims |>
 
 
 set.seed(1001450726)
-strong_weak_sims <- large_sims |>
+weak_strong_sims <- large_sims |>
     select(-sims) |>
     mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
         # wasp_resp = "weak"; n_pseudo = 3
@@ -115,16 +115,16 @@ strong_weak_sims <- large_sims |>
     })) |>
     unnest(sims)
 
-strong_weak_sims |>
+weak_strong_sims |>
     filter(is.na(plant)) |>
     group_by(wasp_resp, n_pseudo) |>
     summarize(n_infected = max(virus), .groups = "drop")
 #   wasp_resp n_pseudo n_infected
 #   <fct>        <int>      <dbl>
-# 1 strong           0          4
-# 2 strong           3          2
-# 3 weak             0          4
-# 4 weak             3          7
+# 1 weak             0       3.69
+# 2 weak             3       6.50
+# 3 strong           0       3.66
+# 4 strong           3       2.04
 
 
 
@@ -137,7 +137,7 @@ strong_weak_sims |>
 # -------------------------------------*
 
 # This is used to get the same axis max values across plots:
-tot_empty_data <- strong_weak_sims |>
+tot_empty_data <- weak_strong_sims |>
     filter(is.na(plant)) |>
     select(virus, aphids, alates, wasps) |>
     mutate(aphids = aphids / 100) |>
@@ -155,7 +155,7 @@ total_plotter <- function(wasp_resp, delay_virus = FALSE) {
     # wasp_resp = "weak"; delay_virus = FALSE
     # rm(wasp_resp, delay_virus, dd)
 
-    dd <- strong_weak_sims |>
+    dd <- weak_strong_sims |>
         filter(wasp_resp == .env$wasp_resp) |>
         filter(is.na(plant)) |>
         select(n_pseudo, time, virus, aphids, alates, wasps) |>
@@ -202,8 +202,8 @@ total_plotter <- function(wasp_resp, delay_virus = FALSE) {
 }
 
 
-# total_plotter("strong")
 # total_plotter("weak")
+# total_plotter("strong")
 
 
 
@@ -216,7 +216,7 @@ total_plotter <- function(wasp_resp, delay_virus = FALSE) {
 # -------------------------------------*
 
 # This is used to get the same axis max values across plots:
-bp_empty_data <- strong_weak_sims |>
+bp_empty_data <- weak_strong_sims |>
     filter(!is.na(plant)) |>
     select(aphids, alates, wasps) |>
     mutate(aphids = aphids / 100) |>
@@ -232,7 +232,7 @@ by_plant_plotter <- function(wasp_resp) {
     # wasp_resp = "weak"
     # rm(wasp_resp, dd)
 
-    dd <- strong_weak_sims |>
+    dd <- weak_strong_sims |>
         filter(wasp_resp == .env$wasp_resp) |>
         filter(!is.na(plant)) |>
         select(n_pseudo, plant, time, aphids, alates, wasps) |>
@@ -277,8 +277,8 @@ by_plant_plotter <- function(wasp_resp) {
 
 
 
-# by_plant_plotter("strong")
 # by_plant_plotter("weak")
+# by_plant_plotter("strong")
 
 
 
@@ -287,7 +287,7 @@ by_plant_plotter <- function(wasp_resp) {
 # -------------------------------------*
 
 
-timeseries_p <- crossing(wasp_resp = sort(unique(strong_weak_sims$wasp_resp)),
+timeseries_p <- crossing(wasp_resp = sort(unique(weak_strong_sims$wasp_resp)),
                          fxn = c(total_plotter, by_plant_plotter)) |>
     pmap(\(wasp_resp, fxn) {
         p <- fxn(wasp_resp) +
@@ -317,10 +317,10 @@ if (.overwrite) {
 # z --> Pr(alates) ----
 # ============================================================================*
 
-z_pa_p_list <- strong_weak_sims |>
+z_pa_p_list <- weak_strong_sims |>
     split(~ wasp_resp) |>
     map(\(x) {
-        # x = strong_weak_sims |> filter(wasp_resp == "strong")
+        # x = weak_strong_sims |> filter(wasp_resp == "strong")
         # rm(x, dd, max_z)
         dd <- x |>
             filter(!is.na(plant)) |>
@@ -377,7 +377,7 @@ if (.overwrite) {
 
 
 
-strong_weak_hist_list <- levels(large_sims$wasp_resp) |>
+weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
     set_names() |>
     map(\(tp) {
         # tp = "strong"
@@ -417,12 +417,12 @@ strong_weak_hist_list <- levels(large_sims$wasp_resp) |>
             labs(x = "Outbreak size", y = "Percent of simulations")
     })
 
-# wrap_plots(strong_weak_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(weak_strong_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
-    for (n in names(strong_weak_hist_list)) {
+    for (n in names(weak_strong_hist_list)) {
         save_plot(sprintf("_plots/extremes/histograms-%s.pdf", n),
-                  strong_weak_hist_list[[n]] + illustrator_theme,
+                  weak_strong_hist_list[[n]] + illustrator_theme,
                   width = 3.2, height = 1.5)
     }; rm(n)
 }
@@ -436,7 +436,7 @@ if (.overwrite) {
 # ============================================================================*
 
 
-strong_weak_bar_list <- levels(large_sims$wasp_resp) |>
+weak_strong_bar_list <- levels(large_sims$wasp_resp) |>
     set_names() |>
     map(\(tp) {
         large_sims |>
@@ -453,12 +453,12 @@ strong_weak_bar_list <- levels(large_sims$wasp_resp) |>
             theme(axis.text.y = element_markdown(color = NA))
     })
 
-# wrap_plots(strong_weak_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(weak_strong_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
 
 if (.overwrite) {
-    for (n in names(strong_weak_bar_list)) {
+    for (n in names(weak_strong_bar_list)) {
         save_plot(sprintf("_plots/extremes/barplots-%s.pdf", n),
-                  strong_weak_bar_list[[n]] + illustrator_theme,
+                  weak_strong_bar_list[[n]] + illustrator_theme,
                   width = 3.15, height = 1.5)
     }; rm(n)
 }
@@ -479,7 +479,7 @@ if (.overwrite) {
 # on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
 
 set.seed(1180209329)
-zeta_strong_weak_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
+zeta_weak_strong_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
         sims <- run_sim_combos(wasp_resp = "weak", n_pseudo = 3L, n_sims = 12L,
                                out_attack_surv = TRUE, zeta = zeta) |>
             filter(!is.na(x)) |>
@@ -505,7 +505,7 @@ zeta_strong_weak_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
 
 
 
-empir_zeta_p <- zeta_strong_weak_sims |>
+empir_zeta_p <- zeta_weak_strong_sims |>
     split(~ zeta + rep) |>
     map(\(x) {
         max_N_t <- x |>
