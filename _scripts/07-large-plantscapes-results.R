@@ -146,7 +146,8 @@ sim_df |>
 
 
 #
-# Add np = 0 for each landscape type. Used for plotting.
+# Add np = 0 for each landscape type. Used inside `big_land_plotter`
+# and `virus_attract_plotter`.
 #
 add_no_pseudo_points <- function(data_df) {
 
@@ -560,9 +561,9 @@ big_land_plotter <- function(yvar,
 if (! file.exists(rds_files$dens_sims) || .overwrite) {
     # Takes ~26 sec
     set.seed(314679353)
-    dens_sims <- crossing(ty = sort(unique(sim_df$wasp_resp)),
+    dens_sims <- crossing(wr = sort(unique(sim_df$wasp_resp)),
                           np = sort(unique(sim_df$n_pseudo))) |>
-        pmap(\(ty, np) {
+        pmap(\(wr, np) {
             if (np > 0) {
                 .landscape <- read_rds("_scripts/interm-data/large-landscapes.rds") |>
                     filter(n_pseudo == np,
@@ -574,11 +575,13 @@ if (! file.exists(rds_files$dens_sims) || .overwrite) {
             } else {
                 .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100, 100, 1))
             }
-            large_simmer(.landscape, wasp_resp = ty, sd_N = 0, virus_attract = 1,
+            large_simmer(.landscape, wasp_resp = wr, sd_N = 0, virus_attract = 1,
                          pseudo_repel = 1, outbreaks = "small",
-                         summ = "none", n_sims = dim(.landscape)[3],
-                         n_threads = 1L) |>
-                mutate(n_pseudo = np, wasp_resp = ty) |>
+                         summ = "none", out_stages = TRUE,
+                         n_sims = dim(.landscape)[3]) |>
+                mutate(aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,
+                       alates = alates_adu,
+                       n_pseudo = np, wasp_resp = wr) |>
                 select(wasp_resp, n_pseudo, everything())
         }) |>
         list_rbind()
@@ -595,7 +598,6 @@ if (! file.exists(rds_files$dens_sims) || .overwrite) {
 
 total_dens_blank <- dens_sims |>
     filter(is.na(x)) |>
-    mutate(aphids = aphids + parasitized) |>
     select(wasp_resp, n_pseudo, time, aphids, alates, wasps) |>
     pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
     mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
@@ -604,10 +606,9 @@ total_dens_blank <- dens_sims |>
     mutate(time = 50)
 max_plant_dens_blank <- dens_sims |>
     filter(!is.na(x)) |>
-    mutate(aphids = aphids + parasitized) |>
+    select(time, aphids, alates, wasps) |>
     group_by(time) |>
     summarize(across(aphids:wasps, max), .groups = "drop") |>
-    select(aphids, alates, wasps) |>
     pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
     mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
     group_by(species) |>
@@ -617,11 +618,10 @@ max_plant_dens_blank <- dens_sims |>
 
 total_dens_p_list <- levels(sim_df$wasp_resp) |>
     set_names() |>
-    map(\(ty) {
+    map(\(wr) {
         dens_sims |>
-            filter(wasp_resp == ty) |>
+            filter(wasp_resp == wr) |>
             filter(is.na(x)) |>
-            mutate(aphids = aphids + parasitized) |>
             select(n_pseudo, time, aphids, alates, wasps) |>
             pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
             mutate(species = factor(species, levels = c("aphids", "alates", "wasps")),
@@ -635,7 +635,7 @@ total_dens_p_list <- levels(sim_df$wasp_resp) |>
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
-                 title = scenario_title(ty, TRUE))
+                 title = scenario_title(wr, TRUE))
 
     })
 
@@ -645,15 +645,14 @@ total_dens_p_list <- levels(sim_df$wasp_resp) |>
 
 max_plant_dens_p_list <- levels(sim_df$wasp_resp) |>
     set_names() |>
-    map(\(ty) {
+    map(\(wr) {
         dens_sims |>
-            filter(wasp_resp == ty) |>
+            filter(wasp_resp == wr) |>
             filter(!is.na(x)) |>
-            mutate(n_pseudo = factor(n_pseudo),
-                   aphids = aphids + parasitized) |>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            select(n_pseudo, time, aphids, alates, wasps) |>
             group_by(n_pseudo, time) |>
             summarize(across(aphids:wasps, max), .groups = "drop") |>
-            select(n_pseudo, time, aphids, alates, wasps) |>
             pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
             mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
             ggplot(aes(time, density)) +
@@ -664,7 +663,7 @@ max_plant_dens_p_list <- levels(sim_df$wasp_resp) |>
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Maximum per-plant density",
-                 title = scenario_title(ty, TRUE))
+                 title = scenario_title(wr, TRUE))
 
     })
 
@@ -672,6 +671,8 @@ max_plant_dens_p_list <- levels(sim_df$wasp_resp) |>
 
 # wrap_plots(total_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
 # wrap_plots(max_plant_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
+
+
 
 
 
@@ -706,13 +707,20 @@ max_plant_dens_p_list <- levels(sim_df$wasp_resp) |>
 
 
 
-if (.overwrite) {
-    for (.t in c("strong", "weak")) {
 
-        .p <- total_dens_p_list[[.t]] & illustrator_theme &
-            theme(panel.spacing.y = unit(0.5, "lines"))
-        .f <- sprintf("_plots/densities-large-plantscapes-%s.pdf", .t)
-        save_plot(.f, .p, width = 3.25, height = 2)
+if (.overwrite) {
+
+    .p <- total_dens_p_list[[1]] +
+        (total_dens_p_list[[2]] + theme(axis.text.y = element_blank())) +
+        plot_layout(design = "A#B", widths = c(1, 0.05, 1),
+                    axis_titles = "collect", guides = "collect") &
+        illustrator_theme &
+        theme(panel.spacing.y = unit(0.5, "lines"),
+              plot.margin = margin(0,0,0,0))
+    save_plot("_plots/densities-large-plantscapes.pdf", .p,
+              width = 6.3, height = 2)
+
+    for (.t in c("strong", "weak")) {
 
         .p <- tibble(yvar = c("p_emerge", "outbreak_size")) |>
             mutate(virus_attract = map(1:n(), \(i) sort(unique(sim_df$virus_attract)))) |>
