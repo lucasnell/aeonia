@@ -20,19 +20,19 @@
 # I first moved this script over to bioHPC using the following:
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
-# scp 08-large-plantscapes-w1.sh \
-#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/08-large-plantscapes-w1/
+# scp 07-large-plantscapes-w1.sh \
+#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/07-large-plantscapes-w1/
 #
 # This was run on BioHPC in a non-interactive batch job started with the following:
 #
-# cd /home2/lan68/08-large-plantscapes-w1/
+# cd /home2/lan68/07-large-plantscapes-w1/
 # mkdir -p logs
-# sbatch 08-large-plantscapes-w1.sh
+# sbatch 07-large-plantscapes-w1.sh
 #
 # Then, when the jobs are done (assuming you're back on your desktop in
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# export RDS_DIR="/home2/lan68/08-large-plantscapes-w1"
+# export RDS_DIR="/home2/lan68/07-large-plantscapes-w1"
 # scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/large-plantscapes-w1*.rds \
 #     ./interm-data/
 #
