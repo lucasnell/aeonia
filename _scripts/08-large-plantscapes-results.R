@@ -82,6 +82,7 @@ sim_df <- list.files("_scripts/interm-data", "large-plantscapes-.?.?.rds",
            wasp_resp = factor(wasp_resp, levels = c("strong", "weak")))
 
 
+# from 07-large-plantscapes-w1.sh:
 sim_w1_df <- list.files("_scripts/interm-data", "large-plantscapes-w1-.?.?.rds",
                      full.names = TRUE) |>
     map(\(x) {
