@@ -37,26 +37,31 @@ large_sims <- crossing(wasp_resp = factor(1:2, labels = c("weak", "strong")),
 
 
 large_sims |>
-    mutate(n_infected = num(map_dbl(sims, \(x) mean(x$n_infected)), digits = 3)) |>
+    mutate(n_infected = num(map_dbl(sims, \(x) mean(x$n_infected)), digits = 3),
+           p_emerge = num(map_dbl(sims, \(x) mean(x$n_infected > 1)), digits = 3),
+           outbreak_size = num(map_dbl(sims, \(x) mean(x$n_infected[x$n_infected > 1])), digits = 3)) |>
     select(-sims)
-#   wasp_resp n_pseudo n_infected
-#   <fct>        <int>  <num:.3!>
-# 1 weak             0      3.686
-# 2 weak             3      6.491
-# 3 strong           0      3.671
-# 4 strong           3      2.141
+#   wasp_resp n_pseudo n_infected  p_emerge outbreak_size
+#   <fct>        <int>  <num:.3!> <num:.3!>     <num:.3!>
+# 1 weak             0      3.686     0.796         4.374
+# 2 weak             3      6.491     0.984         6.580
+# 3 strong           0      3.671     0.800         4.339
+# 4 strong           3      2.141     0.441         3.587
 
 
 large_sims |>
-    mutate(n_infected = map_dbl(sims, \(x) mean(x$n_infected))) |>
+    mutate(n_infected = map_dbl(sims, \(x) mean(x$n_infected)),
+           p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1)),
+           outbreak_size = map_dbl(sims, \(x) mean(x$n_infected[x$n_infected > 1]))) |>
     group_by(wasp_resp) |>
-    summarize(n_infected = n_infected[n_pseudo != 0] -
-                  n_infected[n_pseudo == 0]) |>
-    mutate(n_infected = num(n_infected, digits = 3))
-#   wasp_resp n_infected
-#   <fct>      <num:.3!>
-# 1 weak           2.805
-# 2 strong        -1.530
+    summarize(n_infected = n_infected[n_pseudo != 0] - n_infected[n_pseudo == 0],
+              p_emerge = p_emerge[n_pseudo != 0] - p_emerge[n_pseudo == 0],
+              outbreak_size = outbreak_size[n_pseudo != 0] - outbreak_size[n_pseudo == 0]) |>
+    mutate(across(n_infected:outbreak_size, \(x) num(x, digits = 3)))
+#   wasp_resp n_infected  p_emerge outbreak_size
+#   <fct>      <num:.3!> <num:.3!>     <num:.3!>
+# 1 weak           2.805     0.188         2.206
+# 2 strong        -1.530    -0.359        -0.751
 
 
 # ============================================================================*
@@ -372,9 +377,57 @@ if (.overwrite) {
 
 
 # ============================================================================*
-# Outbreak sizes - freq. polygons ----
+# Disease outcomes ----
 # ============================================================================*
 
+
+
+# -------------------------------------*
+# ... Pr(emergence) bar graphs ----
+# -------------------------------------*
+
+
+
+weak_strong_bar_list <- levels(large_sims$wasp_resp) |>
+    set_names() |>
+    map(\(tp) {
+        large_sims |>
+            filter(wasp_resp == tp)|>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            mutate(p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1))) |>
+            ggplot(aes(p_emerge, n_pseudo)) +
+            geom_vline(xintercept = 0, color = "gray70") +
+            geom_col(aes(fill = n_pseudo), color = NA, width = 0.45,
+                     linewidth = 0.75, linejoin = "mitre") +
+            labs(x = "Prob. of emergence", y = "Number of *Pseudo.* plants") +
+            coord_cartesian(xlim  = c(0, 1)) +
+            scale_fill_manual(values = np_pal) +
+            theme(axis.text.y = element_blank())
+    })
+
+# wrap_plots(weak_strong_bar_list, nrow = 1, guides = "collect", axis_titles = "collect")
+
+
+# -------------------------------------*
+# ... Outbreak sizes - freq. line graphs ----
+# -------------------------------------*
+
+hist_empty_data <- large_sims |>
+    mutate(outbreak_size = map(sims, \(x) x$n_infected)) |>
+    select(-sims) |>
+    unnest(outbreak_size) |>
+    filter(outbreak_size > 1) |>
+    mutate(outbreak_size = factor(outbreak_size, levels = 2:9)) |>
+    group_by(wasp_resp, n_pseudo, outbreak_size) |>
+    count(name = "n_obs", .drop = FALSE) |>
+    group_by(wasp_resp, n_pseudo) |>
+    mutate(perc = 100 * n_obs / sum(n_obs)) |>
+    ungroup() |>
+    mutate(outbreak_size = as.integer(paste(outbreak_size))) |>
+    filter(perc == max(perc)) |>
+    select(outbreak_size, perc) |>
+    mutate(n_pseudo = list(factor(unique(large_sims$n_pseudo)))) |>
+    unnest(n_pseudo)
 
 
 weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
@@ -401,9 +454,10 @@ weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
             group_by(n_pseudo) |>
             summarize(outbreak_size = mean(outbreak_size),
                       .groups = "drop")
-        dd |>
+        p <- dd |>
             ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
+            geom_blank(data = hist_empty_data) +
             geom_point(aes(color = n_pseudo), size = 2, stroke = 1) +
             geom_line(aes(color = n_pseudo), linewidth = 1) +
             # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
@@ -415,52 +469,28 @@ weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
             # scale_linetype_manual(values = np_linetypes) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             labs(x = "Outbreak size", y = "Percent of simulations")
+        if (tp == levels(large_sims$wasp_resp)[[2]]) p <- p + theme(axis.text.y = element_blank())
+        return(p)
     })
 
-# wrap_plots(weak_strong_hist_list, ncol = 1, guides = "collect", axis_titles = "collect")
+# wrap_plots(weak_strong_hist_list, nrow = 1, guides = "collect", axis_titles = "collect")
+
+
+
+# -------------------------------------*
+# ... stitch together ----
+# -------------------------------------*
+
 
 if (.overwrite) {
-    for (n in names(weak_strong_hist_list)) {
-        save_plot(sprintf("_plots/extremes/histograms-%s.pdf", n),
-                  weak_strong_hist_list[[n]] + illustrator_theme,
-                  width = 3.2, height = 1.5)
-    }; rm(n)
-}
-
-
-
-
-
-# ============================================================================*
-# Pr(emergence) bar graphs ----
-# ============================================================================*
-
-
-weak_strong_bar_list <- levels(large_sims$wasp_resp) |>
-    set_names() |>
-    map(\(tp) {
-        large_sims |>
-            filter(wasp_resp == tp)|>
-            mutate(n_pseudo = factor(n_pseudo)) |>
-            mutate(p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1))) |>
-            ggplot(aes(p_emerge, n_pseudo)) +
-            geom_vline(xintercept = 0, color = "gray70") +
-            geom_col(aes(fill = n_pseudo), color = NA, width = 0.45,
-                     linewidth = 0.75, linejoin = "mitre") +
-            labs(x = "Prob. of emergence", y = "Number of Pseudo. plants") +
-            coord_cartesian(xlim  = c(0, 1)) +
-            scale_fill_manual(values = np_pal) +
-            theme(axis.text.y = element_markdown(color = NA))
-    })
-
-# wrap_plots(weak_strong_bar_list, ncol = 1, guides = "collect", axis_titles = "collect")
-
-if (.overwrite) {
-    for (n in names(weak_strong_bar_list)) {
-        save_plot(sprintf("_plots/extremes/barplots-%s.pdf", n),
-                  weak_strong_bar_list[[n]] + illustrator_theme,
-                  width = 3.15, height = 1.5)
-    }; rm(n)
+    .p <- c(weak_strong_bar_list, weak_strong_hist_list) |>
+        wrap_plots(design = "A#B\n###\nC#D", widths = c(1, 0.1, 1),
+                   heights = c(1, 0.4, 1), guides = "collect",
+                   axis_titles = "collect") & illustrator_theme &
+        theme(plot.margin = margin(0,0,0,0))
+    save_plot("_plots/extremes/disease-outcomes.pdf", .p,
+              width = 6.2, height = 3.825)
+    rm(.p)
 }
 
 
