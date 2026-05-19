@@ -1,12 +1,14 @@
 #ifndef __AEONIA_UTIL_H
 #define __AEONIA_UTIL_H
 
+#include "aeonia_types.hpp"
+
+
 #include <RcppArmadillo.h>
 #include <vector>
 #include <string>
 #include <RcppThread.h>         // multithreading
 
-#include "aeonia_types.hpp"
 
 
 using namespace Rcpp;

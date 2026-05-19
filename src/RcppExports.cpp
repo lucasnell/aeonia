@@ -272,6 +272,19 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// booter
+NumericVector booter(const arma::vec& x, const int32& B, const double& alpha);
+RcppExport SEXP _aeonia_booter(SEXP xSEXP, SEXP BSEXP, SEXP alphaSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const int32& >::type B(BSEXP);
+    Rcpp::traits::input_parameter< const double& >::type alpha(alphaSEXP);
+    rcpp_result_gen = Rcpp::wrap(booter(x, B, alpha));
+    return rcpp_result_gen;
+END_RCPP
+}
 // make_wasps_ptr
 SEXP make_wasps_ptr(const arma::vec& rel_attack, const double& a, const double& k, const double& h, const double& sex_ratio, const double& s_y, const double& zeta, const double& sigma_y, const bool& demog_error);
 RcppExport SEXP _aeonia_make_wasps_ptr(SEXP rel_attackSEXP, SEXP aSEXP, SEXP kSEXP, SEXP hSEXP, SEXP sex_ratioSEXP, SEXP s_ySEXP, SEXP zetaSEXP, SEXP sigma_ySEXP, SEXP demog_errorSEXP) {
@@ -324,6 +337,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 20},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 13},
     {"_aeonia_land_cube2list", (DL_FUNC) &_aeonia_land_cube2list, 1},
+    {"_aeonia_booter", (DL_FUNC) &_aeonia_booter, 3},
     {"_aeonia_make_wasps_ptr", (DL_FUNC) &_aeonia_make_wasps_ptr, 9},
     {"_aeonia_make_mummies_ptr", (DL_FUNC) &_aeonia_make_mummies_ptr, 4},
     {NULL, NULL, 0}
