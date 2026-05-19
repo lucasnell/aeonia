@@ -28,31 +28,39 @@ if (! dir.exists("_plots/extremes")) dir.create("_plots/extremes")
 
 
 set.seed(259619623)
-large_sims <- crossing(wasp_resp = factor(1:2, labels = c("weak", "strong")),
+large_sims <- crossing(wasp_resp = factor(1:2, labels = levels(wasp_resp_fct)),
                        n_pseudo = c(0L, 3L)) |>
     mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
         run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo, large_sims = TRUE)
+    })) |>
+    mutate(n_infected = map_dbl(sims, \(x) mean(x$n_infected)),
+           p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1)),
+           outbreak_size = map_dbl(sims, \(x) mean(x$n_infected[x$n_infected > 1]))) |>
+    mutate(pe_boots = map(sims, \(x) {
+        ci <- booter(as.integer(x$n_infected > 1L))
+        return(ci[c("Lower", "Upper")] |> as.list() |> as_tibble())
+    }),
+    ob_boots = map(sims, \(x) {
+        z <- x$n_infected[x$n_infected > 1]
+        stopifnot(length(z) > 1)
+        ci <- booter(z)
+        return(ci[c("Lower", "Upper")] |> as.list() |> as_tibble())
     }))
 
 
 
 large_sims |>
-    mutate(n_infected = num(map_dbl(sims, \(x) mean(x$n_infected)), digits = 3),
-           p_emerge = num(map_dbl(sims, \(x) mean(x$n_infected > 1)), digits = 3),
-           outbreak_size = num(map_dbl(sims, \(x) mean(x$n_infected[x$n_infected > 1])), digits = 3)) |>
-    select(-sims)
+    select(wasp_resp, n_pseudo, n_infected:outbreak_size) |>
+    mutate(across(n_infected:outbreak_size, \(x) num(x, digits = 3)))
 #   wasp_resp n_pseudo n_infected  p_emerge outbreak_size
 #   <fct>        <int>  <num:.3!> <num:.3!>     <num:.3!>
 # 1 weak             0      3.686     0.796         4.374
-# 2 weak             3      6.491     0.984         6.580
+# 2 weak             3      8.273     1.000         8.273
 # 3 strong           0      3.671     0.800         4.339
 # 4 strong           3      2.141     0.441         3.587
 
 
 large_sims |>
-    mutate(n_infected = map_dbl(sims, \(x) mean(x$n_infected)),
-           p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1)),
-           outbreak_size = map_dbl(sims, \(x) mean(x$n_infected[x$n_infected > 1]))) |>
     group_by(wasp_resp) |>
     summarize(n_infected = n_infected[n_pseudo != 0] - n_infected[n_pseudo == 0],
               p_emerge = p_emerge[n_pseudo != 0] - p_emerge[n_pseudo == 0],
@@ -60,7 +68,7 @@ large_sims |>
     mutate(across(n_infected:outbreak_size, \(x) num(x, digits = 3)))
 #   wasp_resp n_infected  p_emerge outbreak_size
 #   <fct>      <num:.3!> <num:.3!>     <num:.3!>
-# 1 weak           2.805     0.188         2.206
+# 1 weak           4.587     0.204         3.899
 # 2 strong        -1.530    -0.359        -0.751
 
 
@@ -71,43 +79,13 @@ large_sims |>
 
 set.seed(1001450726)
 weak_strong_sims <- large_sims |>
-    select(-sims) |>
+    select(wasp_resp, n_pseudo) |>
     mutate(sims = map2(wasp_resp, n_pseudo, \(wasp_resp, n_pseudo) {
         # wasp_resp = "weak"; n_pseudo = 3
         # rm(wasp_resp, n_pseudo, sims, target, .rep, half_inf_times, hit_adiffs)
         sims <- run_sim_combos(wasp_resp, n_pseudo, n_sims = 1000L,
+                               zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
                                out_attack_surv = TRUE, out_stages = TRUE)
-        # target <- large_sims |>
-        #     filter(wasp_resp == .env$wasp_resp, n_pseudo == .env$n_pseudo) |>
-        #     getElement("sims") |>
-        #     map_dbl(\(x) mean(x$n_infected))
-        # # Choose a representative simulation:
-        # .rep <- sims |>
-        #     filter(is.na(x)) |>
-        #     group_by(rep) |>
-        #     summarize(n_infected = max(virus)) |>
-        #     filter(abs(n_infected - target) ==
-        #                min(abs(n_infected - target))) |>
-        #     getElement("rep")
-        # stopifnot(length(.rep) > 0)
-        # sims <- sims |>
-        #     filter(rep %in% .rep)
-        # # Now find rep with median time to halfway max infected:
-        # if (length(.rep) > 1) {
-        #     half_inf_times <- sims |>
-        #         split(~ rep) |>
-        #         map(\(x) {
-        #             max_inf <- max(x$virus)
-        #             tibble(rep = x$rep[[1]],
-        #                    time = min(x$time[is.na(x$x) & x$virus >= (max_inf / 2)]))
-        #         }) |>
-        #         list_rbind()
-        #     hit_adiffs <- abs(half_inf_times$time - median(half_inf_times$time))
-        #     .rep <- half_inf_times$rep[hit_adiffs == min(hit_adiffs)]
-        #     if (length(.rep) > 1) .rep <- sample(.rep, 1)
-        #     sims <- sims |>
-        #         filter(rep %in% .rep)
-        # }
         sims |>
             # filter(rep == .rep) |>
             mutate(plant = interaction(y, x),
@@ -127,7 +105,7 @@ weak_strong_sims |>
 #   wasp_resp n_pseudo n_infected
 #   <fct>        <int>      <dbl>
 # 1 weak             0       3.69
-# 2 weak             3       6.50
+# 2 weak             3       8.28
 # 3 strong           0       3.66
 # 4 strong           3       2.04
 
@@ -156,13 +134,16 @@ tot_empty_data <- weak_strong_sims |>
     arrange(desc(density))
 
 
-total_plotter <- function(wasp_resp, delay_virus = FALSE) {
+total_plotter <- function(wasp_resp,
+                          delay_virus = FALSE,
+                          .data_df = weak_strong_sims) {
     # wasp_resp = "weak"; delay_virus = FALSE
     # rm(wasp_resp, delay_virus, dd)
 
-    dd <- weak_strong_sims |>
-        filter(wasp_resp == .env$wasp_resp) |>
-        filter(is.na(plant)) |>
+    dd <- .data_df
+    if ("wasp_resp" %in% colnames(dd)) dd <- dd |> filter(wasp_resp == .env$wasp_resp)
+    if ("plant" %in% colnames(dd)) dd <- dd |> filter(is.na(plant))
+    dd <- dd |>
         select(n_pseudo, time, virus, aphids, alates, wasps) |>
         mutate(aphids = aphids / 100) |>
         pivot_longer(virus:wasps, names_to = "species",
@@ -180,9 +161,8 @@ total_plotter <- function(wasp_resp, delay_virus = FALSE) {
         mutate(n_pseudo = factor(n_pseudo)) |>
         ggplot(aes(time, density)) +
         geom_hline(yintercept = 0, color = "gray70") +
-        # geom_area(data = np_df, aes(fill = species), alpha = 0.4) +
-        # geom_line(aes(color = species), linewidth = 0.75) +
-        # geom_line(aes(color = species, linewidth = n_pseudo, linetype = n_pseudo)) +
+        geom_hline(data = filter(tot_empty_data, species == "virus"),
+                   aes(yintercept = density), color = "gray70") +
         geom_line(aes(color = n_pseudo), linewidth = 1.25) +
         geom_blank(data = tot_empty_data, aes(y = density * 1.15)) +
         # scale_color_manual(values = color_pal, aesthetics = c("color", "fill")) +
@@ -196,8 +176,8 @@ total_plotter <- function(wasp_resp, delay_virus = FALSE) {
                 return(c(0, 200, 400))
             } else if (max(x) >= 120) {# aphids (total)
                 return(c(0, 60, 120))
-            } else if (max(x) >= 50) {# alates (adult)
-                return(c(0, 25, 50))
+            } else if (max(x) >= 80) {# alates (adult)
+                return(c(0, 40, 80))
             } else return(c(1, 5, 9))# virus
         }) +
         coord_cartesian(clip = "off") +
@@ -233,11 +213,11 @@ bp_empty_data <- weak_strong_sims |>
     arrange(desc(density))
 
 
-by_plant_plotter <- function(wasp_resp) {
+by_plant_plotter <- function(wasp_resp, .data_df = weak_strong_sims) {
     # wasp_resp = "weak"
     # rm(wasp_resp, dd)
 
-    dd <- weak_strong_sims |>
+    dd <- .data_df |>
         filter(wasp_resp == .env$wasp_resp) |>
         filter(!is.na(plant)) |>
         select(n_pseudo, plant, time, aphids, alates, wasps) |>
@@ -298,7 +278,7 @@ timeseries_p <- crossing(wasp_resp = sort(unique(weak_strong_sims$wasp_resp)),
         p <- fxn(wasp_resp) +
             theme(axis.text.x = element_markdown(size = 10),
                   axis.text.y = element_markdown(size = 10))
-        if (wasp_resp == "weak") p <- p + theme(axis.text.y = element_blank())
+        if (wasp_resp == levels(wasp_resp_fct)[2]) p <- p + theme(axis.text.y = element_blank())
         if (identical(fxn, total_plotter)) p <- p +
                 theme(axis.text.x = element_blank())
         return(p)
@@ -388,17 +368,20 @@ if (.overwrite) {
 
 
 
-weak_strong_bar_list <- levels(large_sims$wasp_resp) |>
+weak_strong_bar_list <- levels(wasp_resp_fct) |>
     set_names() |>
-    map(\(tp) {
+    map(\(wr) {
         large_sims |>
-            filter(wasp_resp == tp)|>
+            filter(wasp_resp == wr)|>
+            select(n_pseudo, p_emerge, pe_boots) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
-            mutate(p_emerge = map_dbl(sims, \(x) mean(x$n_infected > 1))) |>
+            unnest(pe_boots) |>
             ggplot(aes(p_emerge, n_pseudo)) +
             geom_vline(xintercept = 0, color = "gray70") +
             geom_col(aes(fill = n_pseudo), color = NA, width = 0.45,
                      linewidth = 0.75, linejoin = "mitre") +
+            geom_errorbar(aes(xmin = Lower, xmax = Upper),
+                          width = 0.2, linewidth = 1, orientation = "y") +
             labs(x = "Prob. of emergence", y = "Number of *Pseudo.* plants") +
             coord_cartesian(xlim  = c(0, 1)) +
             scale_fill_manual(values = np_pal) +
@@ -430,19 +413,18 @@ hist_empty_data <- large_sims |>
     unnest(n_pseudo)
 
 
-weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
+weak_strong_hist_list <- levels(wasp_resp_fct) |>
     set_names() |>
-    map(\(tp) {
-        # tp = "strong"
-        # rm(tp, d, dd, dd_means)
-        d  <- large_sims |>
-            filter(wasp_resp == tp)|>
+    map(\(wr) {
+        # wr = "strong"
+        # rm(wr, dd, dd_means)
+        dd  <- large_sims |>
+            filter(wasp_resp == wr) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
             mutate(outbreak_size = map(sims, \(x) x$n_infected)) |>
-            select(-sims) |>
+            select(n_pseudo, outbreak_size) |>
             unnest(outbreak_size) |>
-            filter(outbreak_size > 1)
-        dd <- d |>
+            filter(outbreak_size > 1) |>
             mutate(outbreak_size = factor(outbreak_size, levels = 2:9)) |>
             group_by(n_pseudo, outbreak_size) |>
             count(name = "n_obs", .drop = FALSE) |>
@@ -450,26 +432,34 @@ weak_strong_hist_list <- levels(large_sims$wasp_resp) |>
             mutate(perc = 100 * n_obs / sum(n_obs)) |>
             ungroup() |>
             mutate(outbreak_size = as.integer(paste(outbreak_size)))
-        dd_means <- d |>
-            group_by(n_pseudo) |>
-            summarize(outbreak_size = mean(outbreak_size),
-                      .groups = "drop")
+        dd_means <- large_sims |>
+            filter(wasp_resp == wr) |>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            select(n_pseudo, outbreak_size, ob_boots) |>
+            unnest(ob_boots)
         p <- dd |>
             ggplot(aes(outbreak_size, perc)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_blank(data = hist_empty_data) +
             geom_point(aes(color = n_pseudo), size = 2, stroke = 1) +
             geom_line(aes(color = n_pseudo), linewidth = 1) +
-            # geom_pointrange(data = dd_means, aes(xmin = lo, xmax = hi),
-            #                 linewidth = 1.5, size = 0.75, shape = 1) +
             geom_vline(data = dd_means,
                        aes(xintercept = outbreak_size, color = n_pseudo),
                        linewidth = 1, linetype = "22") +
-            scale_color_manual(values = np_pal) +
-            # scale_linetype_manual(values = np_linetypes) +
+            geom_ribbon(data = dd_means |> crossing(perc = c(-Inf, Inf)),
+                       aes(y = perc,
+                           xmin = Lower, xmax = Upper, fill = n_pseudo),
+                       color = NA, alpha = 0.25) +
+            scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
+            scale_y_continuous(breaks = \(y) {
+                if (max(y) < 65 && max(y) > 50) {
+                    return(c(0, 25, 50))
+                } else return(scales::breaks_extended(n = 5)(y))
+            }) +
             labs(x = "Outbreak size", y = "Percent of simulations")
-        if (tp == levels(large_sims$wasp_resp)[[2]]) p <- p + theme(axis.text.y = element_blank())
+        if (wr == levels(large_sims$wasp_resp)[[2]])
+            p <- p + theme(axis.text.y = element_blank())
         return(p)
     })
 
@@ -549,12 +539,13 @@ empir_zeta_p <- zeta_weak_strong_sims |>
     select(zeta, rep, plant, wasps, pred_wasps) |>
     mutate(pseudo = factor(plant %in% c("3.1", "2.2", "1.3"),
                            levels = c(TRUE, FALSE),
-                           labels = c("*Pseudomonas*", "No *Pseudomonas*")),
+                           labels = c("Plants with<br>*Pseudomonas*",
+                                      "Plants without<br>*Pseudomonas*")),
            zeta = factor(zeta),
            rep = factor(rep),
            rel = wasps / pred_wasps) |>
     ggplot(aes(zeta, rel)) +
-    geom_jitter(aes(color = zeta), height = 0, width = 0.2, shape = 1, size = 2) +
+    geom_jitter(aes(color = zeta), height = 0, width = 0.2, shape = 1, size = 2, alpha = 0.5) +
     geom_hline(yintercept = 1, color = "black", linewidth = 1.5, linetype = "22") +
     # facet_wrap(~ plant, nrow = 3, scales = "free") +
     facet_wrap(~ pseudo, nrow = 1, scales = "free") +

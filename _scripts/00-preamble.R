@@ -63,6 +63,14 @@ np_linetypes <- c(`0` = "22", `3` = "solid")
 np_linewidths <- c(`0` = 1.25, `3` = 1)
 
 
+
+# Factor for parasitoid wasp responsiveness to aphid densities:
+wasp_resp_fct <- factor(1:2, labels = c("weak", "strong"))
+
+# Levels of Pseudomonas densities for large landscapes:
+n_pseudo_lvls <- as.integer(c(0, 0:4 * 2000 + 1000))
+
+
 serify <- function(prefix, x, suffix) {
     xx <- paste0("<span style=\"font-family: serif\">", x, "</span>")
     paste0(prefix, xx, suffix)
@@ -151,12 +159,15 @@ illustrator_theme <- theme(plot.title = element_blank(),
                            axis.title.y.right = element_blank(),
                            axis.title.y.left = element_blank(),
                            axis.title.x = element_blank(),
+                           axis.title.x.top = element_blank(),
+                           axis.title.x.bottom = element_blank(),
                            strip.text = element_blank(),
                            strip.text.x = element_blank(),
                            strip.text.y = element_blank(),
                            panel.background = element_rect(fill="transparent", color=NA),
                            plot.background = element_rect(fill="transparent", color=NA),
-                           strip.background = element_blank())
+                           strip.background = element_blank(),
+                           plot.margin = margin(0,0,0,0))
 
 # Nonparametric bootstrap CI:
 ci_booter <- function(n_infected, .outcomes) {
@@ -218,7 +229,7 @@ run_sim_combos <- function(wasp_resp,
         args[["summ"]]  <- "none"
     }
 
-    args[["zeta"]] <- ifelse(wasp_resp == "strong", 0.9, 0.4)
+    args[["zeta"]] <- ifelse(wasp_resp == "strong", 0.9, 0.1)
 
     args <- list_assign(args, ...)
 
