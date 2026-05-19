@@ -563,3 +563,237 @@ if (.overwrite) {
 
 
 
+# ============================================================================*
+# Density-dep. dispersal ----
+# ============================================================================*
+
+
+
+# Time series showing alate_p = 0.05 and 0.08 work best for high and low values
+# (when comparing to Figure 2 A,B):
+#
+# Takes just a couple of seconds
+#
+set.seed(1145518329)
+dd_disp_ts_sims <- crossing(alate_p = c(0.05, 0.08),
+                         wasp_resp = wasp_resp_fct,
+                         n_pseudo = c(0L, 3L)) |>
+    pmap(\(alate_p, wasp_resp, n_pseudo) {
+        run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo,
+                       large_sims = TRUE, summ = "time", out_stages = TRUE,
+                       alate_b1 = 0, alate_b0 = logit(alate_p)) |>
+            mutate(aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,
+                   alates = alates_adu) |>
+            select(rep, time, aphids, alates, wasps, virus) |>
+            group_by(time) |>
+            summarize(across(aphids:virus, mean), .groups = "drop") |>
+            mutate(alate_p = .env$alate_p,
+                   wasp_resp = .env$wasp_resp,
+                   n_pseudo = .env$n_pseudo) |>
+            select(alate_p, wasp_resp, n_pseudo, everything())
+    }) |>
+    list_rbind() |>
+    mutate(alate_p = factor(alate_p))
+
+
+
+dd_disp_ts_p <- dd_disp_ts_sims |>
+    pivot_longer(aphids:virus, names_to = "species",
+                 values_to = "density") |>
+    mutate(species = factor(species, levels =
+                                levels(tot_empty_data$species))) |>
+    left_join(weak_strong_sims |>
+                  filter(is.na(plant)) |>
+                  select(wasp_resp, n_pseudo, time, aphids, alates, wasps, virus) |>
+                  pivot_longer(aphids:virus, names_to = "species",
+                               values_to = "density") |>
+                  mutate(species = factor(species, levels =
+                                              levels(tot_empty_data$species))) |>
+                  rename(density_dd = density),
+              by = c("wasp_resp", "n_pseudo", "time", "species"),
+              relationship = "many-to-one") |>
+    pivot_longer(density:density_dd, names_to = "dd_disp",
+                 values_to = "density") |>
+    mutate(dd_disp = factor(dd_disp, levels = c("density", "density_dd"),
+                            labels = c("fixed", "dens.-dep.")),
+           wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct),
+                              labels = scenario_title(levels(wasp_resp_fct),
+                                                      TRUE, TRUE)),
+           n_pseudo = factor(n_pseudo)) |>
+    # mutate(density = ifelse(species == "aphids", density / 100, density),
+    #        density_dd = ifelse(species == "aphids", density_dd / 100, density_dd)) |>
+    split(~ alate_p) |>
+    map(\(xx) {
+        dd_empty_df <- xx |>
+            group_by(species) |>
+            summarize(density = max(density)) |>
+            mutate(time = 1,
+                   density = ifelse(species == "virus", 9, density))
+        p <- xx |>
+            ggplot(aes(time, density)) +
+            geom_hline(yintercept = 0, color = "gray70") +
+            geom_hline(data = filter(dd_empty_df, species == "virus"),
+                       aes(yintercept = density), color = "gray70") +
+            geom_blank(data = dd_empty_df) +
+            geom_line(aes(color = n_pseudo, linetype = dd_disp,
+                          linewidth = dd_disp)) +
+            labs(x = "Time (days)", y = "Total density",
+                 title = sprintf("Fixed alate proportion = %s",
+                                 paste(xx$alate_p[[1]]))) +
+            scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
+            scale_y_continuous(breaks = \(x) {
+                if (max(x) < 10) return(c(1, 5, 9))
+                scales::extended_breaks(n = 4)(x)}) +
+            scale_color_manual("*Pseudo.*<br>plants:", values = np_pal) +
+            scale_linetype_manual("Alate<br>production:",
+                                  values = c("solid", "22")) +
+            scale_linewidth_manual("Alate<br>production:",
+                                  values = c(0.75, 1)) +
+            facet_grid(species ~ wasp_resp, scales = "free_y",
+                       switch = "y") +
+            theme(strip.text.y.left = element_markdown(
+                size = 9, angle = 0, hjust = 1),
+                strip.placement = "outside") +
+            guides(color = guide_legend(override.aes = list(linewidth = 1)))
+        # if (paste(xx$alate_p[[1]]) == levels(xx$alate_p)[1]) {
+        #     p <- p +
+        #         geom_richtext(data = dd_empty_df[1,c("species", "density")] |>
+        #                           crossing(tibble(n_pseudo = sort(unique(xx$n_pseudo)))) |>
+        #                           mutate(time = 100, density = density * c(1, 0.2),
+        #                                  wasp_resp = tail(sort(unique(xx$wasp_resp)),1),
+        #                                  np_fct = fct_recode(n_pseudo,
+        #                                                      "0 *Pseudo.*" = "0",
+        #                                                      "3 *Pseudo.*" = "3")),
+        #                       aes(color = n_pseudo, label = np_fct),
+        #                       hjust = 1, vjust = c(1, 0), label.colour = NA, fill = NA,
+        #                       fontface = "bold")
+        # }
+        return(p)
+    }) |>
+    wrap_plots(nrow = 2, axis_titles = "collect", guides = "collect") +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"),
+          plot.tag.location = c("panel", "plot", "margin")[1],
+          plot.tag.position = c(0.05, 0.95),
+          legend.position = "bottom", legend.direction = "vertical",
+          legend.title.position = "left",
+          legend.title = element_markdown(hjust = 1))
+
+# dd_disp_ts_p
+
+if (.overwrite) {
+    save_plot("_plots/dens-dep-dispersal-densities.pdf", dd_disp_ts_p,
+              width = 6, height = 9)
+}
+
+
+
+if (.overwrite || !file.exists(rds_files$dd_disp_sims)) {
+
+    # Takes ~1 min
+    set.seed(1512618759)
+    dd_disp_sims <- crossing(disp = c(NA_real_, 0.05, 0.08),
+                             zeta = seq(0, 1, 0.05),
+                             n_pseudo = c(0L, 3L)) |>
+        pmap(\(disp, zeta, n_pseudo) {
+            b0 <- eval(formals(make_insects_ptr)[["alate_b0"]])
+            b1 <- eval(formals(make_insects_ptr)[["alate_b1"]])
+            if (!is.na(disp)) {
+                b0 <- disp |> logit()
+                b1 <- 0
+            } else disp <- 0 # << used for output
+            sims <- run_sim_combos(wasp_resp = "weak", # << this doesn't matter bc of zeta
+                                   n_pseudo = n_pseudo,
+                                   zeta = zeta,
+                                   large_sims = TRUE,
+                                   alate_b1 = b1, alate_b0 = b0)
+            pe <- as.integer(sims$n_infected > 1)
+            ob <- sims$n_infected[sims$n_infected > 1]
+            boots <- list(p_emerge = booter(pe),
+                          outbreak_size = booter(ob))
+            tibble(disp = .env$disp, zeta = .env$zeta,
+                   n_pseudo = .env$n_pseudo,
+                   p_emerge = mean(sims$n_infected > 1),
+                   outbreak_size = mean(sims$n_infected[sims$n_infected > 1]),
+                   ci = list(boots))
+        }, .progress = .prog_args) |>
+        list_rbind()
+
+    write_rds(dd_disp_sims, rds_files$dd_disp_sims, compress = "gz")
+
+} else {
+
+    dd_disp_sims <- read_rds(rds_files$dd_disp_sims)
+
+}
+
+
+
+
+dd_disp_p <- dd_disp_sims |>
+    mutate(n_pseudo = factor(n_pseudo),
+           disp = factor(disp,
+                         labels = c("density<br>dependent",
+                                    sprintf("fixed<br>prop = %.2f",
+                                            sort(unique(disp))[-1])))) |>
+    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
+    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"))) |>
+    filter(!is.na(value)) |>
+    mutate(lower = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Lower"]]),
+           upper = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Upper"]])) |>
+    select(-ci) |>
+    split(~ disp + outcome) |>
+    map(\(ddd) {
+        yvar <- paste(ddd$outcome[[1]])
+        .disp <- paste(ddd$disp[[1]])
+        yl <- switch(yvar, p_emerge = c(0, 1), outbreak_size = c(2, 9))
+        yb <- switch(yvar, p_emerge = 0:2/2, outbreak_size = c(3,6,9))
+        # .strip <- switch(yvar, p_emerge = element_markdown(),
+        #                  outbreak_size = element_blank())
+        .title <- switch(yvar, p_emerge = .disp, outbreak_size = waiver())
+        y_lab <- yvar_desc[[yvar]] |>
+            (\(x) ifelse(yvar == "outbreak_size", paste("mean", x), x))() |>
+            first_cap()
+        leg_pos <- ifelse(yvar == "p_emerge" && .disp == tail(levels(ddd$disp),1),
+                          list(c(0.5, 0.1)), list("none"))[[1]]
+        p <- ddd |>
+            ggplot(aes(zeta, value, color = n_pseudo)) +
+            geom_hline(yintercept = yl, color = "gray70") +
+            geom_vline(xintercept = c(0.1, 0.9), color = "gray70",
+                       linetype = "33") +
+            geom_ribbon(aes(ymin = lower, ymax = upper, fill = n_pseudo),
+                        color = NA, alpha = 0.25) +
+            geom_line(linewidth = 1) +
+            labs(x = pretty_params("zeta", cap1 = TRUE), y = y_lab,
+                 title = .title) +
+            scale_x_continuous(breaks = c(0, 0.5, 1)) +
+            scale_y_continuous(breaks = yb) +
+            scale_color_manual("*Pseudo.*<br>plants", values = np_pal,
+                               aesthetics = c("color","fill")) +
+            # facet_wrap(~ disp, nrow = 1) +
+            coord_cartesian(xlim = range(dd_disp_sims$zeta),
+                            ylim = yl * c(1, 1.1)) +
+            # theme(strip.text.x = .strip, panel.spacing = unit(1, "lines"))
+            theme(legend.position = leg_pos, legend.justification = c(0.5, 0))
+        if (.disp != levels(ddd$disp)[1]) {
+            p <- p + theme(axis.title.y = element_blank(),
+                           axis.text.y = element_blank())
+        }
+        if (yvar == "p_emerge") {
+            p <- p + theme(axis.title.x = element_blank(),
+                           axis.text.x = element_blank())
+        }
+        return(p)
+    }) |>
+    wrap_plots(nrow = 2, axis_titles = "collect") +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"),
+          plot.tag.location = c("panel", "plot", "margin")[1],
+          plot.tag.position = c(0.1, 0.95))
+
+# dd_disp_p
+
+if (.overwrite) {
+    save_plot("_plots/dens-dep-dispersal.pdf", dd_disp_p, width = 7.5, height = 6)
+}
+
