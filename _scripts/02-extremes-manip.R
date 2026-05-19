@@ -1,4 +1,3 @@
-
 #'
 #' Heatmaps and line graphs of outbreak sizes for simulations of two
 #' levels of wasp responsiveness to aphid densities:
@@ -72,7 +71,7 @@ if (.overwrite || !file.exists(rds_files$extreme_manip)) {
 
     # Takes ~6 min
     set.seed(1531497906)
-    manip_sims <- c("weak", "strong") |>
+    manip_sims <- levels(wasp_resp_fct) |>
         map(\(wasp_resp) {
             manip_pars |>
                 (\(x) {
@@ -89,7 +88,7 @@ if (.overwrite || !file.exists(rds_files$extreme_manip)) {
                 list_rbind()
         }) |>
         list_rbind() |>
-        mutate(wasp_resp = factor(wasp_resp, levels = c("weak", "strong")))
+        mutate(wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct)))
 
     write_rds(manip_sims, rds_files$extreme_manip, compress = "gz")
 
@@ -110,22 +109,38 @@ if (.overwrite || !file.exists(rds_files$extreme_manip)) {
 
 
 one_manip_plotter <- function(wasp_resp, par_name,
+                              outcomes = c("p_emerge", "outbreak_size", "n_infected"),
                               .og_vals = TRUE,
                               .add_pts = FALSE,
-                              .return_list = FALSE) {
-    # wasp_resp = c("weak", "strong"); par_name = "zeta"; .og_vals = TRUE; .add_pts = FALSE
-    # rm(wasp_resp, par_name, .og_vals, .add_pts, .both_og, dd, og_wasp_resp)
-    # rm(dd_og, .points_lines, plot_list, p)
+                              .return_list = FALSE,
+                              .x_pos = "bottom",
+                              .seed = NULL) {
+    # wasp_resp = "weak"; par_name = "zeta"; .og_vals = TRUE; .add_pts = FALSE
+    # outcomes = c("p_emerge", "outbreak_size", "n_infected")
+    # .return_list = FALSE; .x_pos = "bottom"
+    # rm(wasp_resp, par_name, outcomes, out_lvls, .og_vals, .add_pts, .return_list)
+    # rm(.x_pos, dd, dd_og, .points_lines, plot_list, x_lab)
+
+    if (!is.null(.seed)) set.seed(.seed)
+
+    out_lvls <- c("p_emerge", "outbreak_size", "n_infected") |>
+        keep(\(x) x %in% outcomes)
 
     dd <- manip_sims |>
         filter(wasp_resp %in% .env$wasp_resp, par_name == .env$par_name) |>
         mutate(n_pseudo = factor(n_pseudo)) |>
         group_by(n_pseudo, par_val) |>
-        summarize(p_emerge = mean(n_infected > 1),
+        summarize(boots = list(ci_booter(n_infected, outcomes)),
+                  p_emerge = mean(n_infected > 1),
                   outbreak_size = mean(n_infected[n_infected > 1]),
+                  n_infected = mean(n_infected),
                   .groups = "drop") |>
-        pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
-        mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size")))
+        pivot_longer(p_emerge:n_infected, names_to = "outcome") |>
+        filter(outcome %in% outcomes) |>
+        mutate(outcome = factor(outcome, levels = out_lvls),
+               lower = map2_dbl(boots, outcome, \(.b, .o) .b[[paste(.o)]][["Lower"]]),
+               upper = map2_dbl(boots, outcome, \(.b, .o) .b[[paste(.o)]][["Upper"]])) |>
+        select(-boots)
     if (par_name == "K") dd$par_val <- carrying_capacity(K = dd$par_val, pred_surv = 1)
 
     # Get original value(s)
@@ -158,11 +173,13 @@ one_manip_plotter <- function(wasp_resp, par_name,
         split(~ outcome) |>
         map(\(ddd) {
             yvar <- paste(ddd$outcome[[1]])
-            yl <- switch(yvar, p_emerge = c(0, 1), outbreak_size = c(2, 9))
-            yb <- switch(yvar, p_emerge = 0:2/2, outbreak_size = c(3,6,9))
+            yl <- switch(yvar, p_emerge = c(0, 1), outbreak_size = c(2, 9),
+                         n_infected = c(1,9))
+            yb <- switch(yvar, p_emerge = 0:2/2, outbreak_size = c(3,6,9),
+                         n_infected = c(1,5,9))
             # yp <- switch(yvar, p_emerge = "left", outbreak_size = "right")
             y_lab <- yvar_desc[[yvar]] |>
-                (\(x) ifelse(yvar == "outbreak_size", paste("mean", x), x))() |>
+                (\(x) ifelse(yvar == "p_emerge", x, paste("mean", x)))() |>
                 first_cap()
             p <- ddd |>
                 ggplot(aes(par_val, value, color = n_pseudo)) +
@@ -171,45 +188,87 @@ one_manip_plotter <- function(wasp_resp, par_name,
                                               linetype = "33")
             p +
                 .points_lines +
+                geom_ribbon(aes(ymin = lower, ymax = upper, fill = n_pseudo),
+                            alpha = 0.25, color = NA) +
                 labs(x = x_lab, y = y_lab) +
                 scale_y_continuous(breaks = yb) +
                 # scale_y_continuous(breaks = yb, position = yp) +
-                scale_color_manual("*Pseudo.*<br>plants",
-                                   values = np_pal) +
+                scale_x_continuous(position = .x_pos) +
+                scale_color_manual("*Pseudo.*<br>plants", values = np_pal,
+                                   aesthetics = c("color","fill")) +
                 coord_cartesian(xlim = range(dd$par_val)) +
-                theme(plot.margin = margin(0,0,0,0))
+                theme(plot.margin = margin(0,0,0,0),
+                      axis.title.x.top = element_markdown(color = "black", size = 11),
+                      axis.text.x.top = element_markdown(color = "black", size = 9))
         })
 
     if (.return_list) return(plot_list)
 
-    plot_list$p_emerge + plot_list$outbreak_size +
+    if (length(plot_list) == 1) return(plot_list[[1]])
+
+    wrap_plots(plot_list) +
         plot_layout(ncol = 1, guides = "collect", axes = "collect")
 }
 
 
 
 
-# one_manip_plotter("weak", "zeta", .og_vals = TRUE, .add_pts = TRUE)
+# one_manip_plotter("weak", "zeta", c("n_infected"))
 # one_manip_plotter(c("weak", "strong"), "zeta")
 
 # --------------------------------------------*
-# _ supp. plot ----
+# _ supp. plots ----
 # --------------------------------------------*
 
 
-K_manip_p <- map(c("weak", "strong"),
-    \(.t) {
-        pl <- one_manip_plotter(.t, "K", .return_list = TRUE)
+K_manip_p <- map2(levels(wasp_resp_fct), c(1609768752, 1975481712),
+    \(.t, seed) {
+        pl <- one_manip_plotter(.t, "K", c("p_emerge", "outbreak_size"),
+                                .return_list = TRUE, .seed = seed)
         pl[[1]] <- pl[[1]] + labs(title = scenario_title(.t, TRUE, TRUE))
         return(pl)
     }) |>
     do.call(what = c) |>
-    base::`[`(c(1,3,2,4)) |>
-    wrap_plots(nrow = 2, guides = "collect", axis_titles = "collect") +
+    (\(x) {
+        for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
+        list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
+    })() |>
+    wrap_plots(ncol = 2, guides = "collect", axis_titles = "collect",
+               heights = c(1, 0.05, 1)) +
     plot_annotation(tag_level = "A") &
-    theme(plot.tag = element_markdown(face = "bold"))
+    theme(plot.tag = element_markdown(face = "bold"),
+          plot.tag.location = c("panel", "plot", "margin")[1],
+          plot.tag.position = c(0.05, 1.05))
 
-# save_plot("_plots/extremes-manip-lines-K.pdf", K_manip_p, 6.5, 5)
+# K_manip_p
+
+if (.overwrite) {
+    save_plot("_plots/extremes-manip-lines-K.pdf", K_manip_p, 6.5, 5)
+}
+
+
+# Line plot for pseudo_surv, with fill split into prob. emergence and outbreak size
+ps_line_p <- map2(levels(wasp_resp_fct), c(),
+    \(wr, seed) {
+        one_manip_plotter(wr, "pseudo_surv",
+                          outcomes = c("p_emerge", "outbreak_size"),
+                          .return_list = TRUE, .seed = seed)
+    }) |>
+    wrap_plots(design = "A#B", widths = c(1, 0.05, 1),
+               guides = "collect", axes = "collect")
+
+# ps_manip_p
+
+# Line plot for zeta, with fill split into prob. emergence and outbreak size
+zeta_line_p <- one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
+                                 outcomes = c("p_emerge", "outbreak_size"),
+                                 .seed = 65130342)
+if (.overwrite) {
+    save_plot("_plots/extremes-manip-lines-zeta-all-outcomes.pdf", zeta_line_p, 5, 5)
+}
+
+
+
 
 
 # ============================================================================*
@@ -232,8 +291,8 @@ one_manip2_sim <- function(wasp_resp, par_name_a, par_val_a, par_name_b, par_val
 
     # wasp_resp = "strong"
     # par_name_a = "Y0"; par_val_a = manip_pars[[par_name_a]][[1]]
-    # par_name_b = "N0"; par_val_b = manip_pars[[par_name_b]][[1]]
-    # rm(wasp_resp, par_name_a, par_val_a, par_name_b, par_val_b, args, sims_p, sims_np, out)
+    # par_name_b = "N0"; par_val_b = manip_pars[[par_name_b]][[10]]
+    # rm(wasp_resp, par_name_a, par_val_a, par_name_b, par_val_b, args, out)
     #
 
     # In case these are factors:
@@ -251,8 +310,10 @@ one_manip2_sim <- function(wasp_resp, par_name_a, par_val_a, par_name_b, par_val
                 select(-rep) |>
                 mutate(p_emerge = as.integer(n_infected > 1),
                        outbreak_size = ifelse(n_infected > 1, n_infected, NA)) |>
-                summarize(across(everything(), \(x) mean(x, na.rm = TRUE))) |>
-                mutate(n_pseudo = .np)
+                summarize(boots = list(ci_booter(n_infected, "all")),
+                          across(-boots, \(x) mean(x, na.rm = TRUE))) |>
+                mutate(n_pseudo = .np) |>
+                relocate(boots, .after = last_col())
         }) |>
         list_rbind() |>
         mutate(wasp_resp = .env$wasp_resp,
@@ -271,11 +332,11 @@ one_manip2_sim <- function(wasp_resp, par_name_a, par_val_a, par_name_b, par_val
 
 if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
 
-    # Takes ~12 min
+    # Takes ~15 min
     set.seed(2025929231)
     manip2_sims <- tibble(par_name_a = "Y0",
                           par_name_b = "N0") |>
-        mutate(wasp_resp = list(c("weak", "strong"))) |>
+        mutate(wasp_resp = list(levels(wasp_resp_fct))) |>
         unnest(wasp_resp) |>
         mutate(vals = map2(par_name_a, par_name_b,
                            \(par_name_a, par_name_b) {
@@ -287,7 +348,7 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
         select(wasp_resp, par_name_a, par_val_a, par_name_b, par_val_b) |>
         pmap(one_manip2_sim, .progress = .prog_args) |>
         list_rbind() |>
-        mutate(wasp_resp = factor(wasp_resp, levels = c("weak", "strong"))) |>
+        mutate(wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct))) |>
         rename(Y0 = par_val_a, N0 = par_val_b) |>
         select(-starts_with("par_name_"))
 
@@ -298,6 +359,9 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
     manip2_sims <- read_rds(rds_files$extreme_manip2)
 
 }
+
+
+
 
 
 
@@ -343,28 +407,29 @@ manip2_sims |>
 set.seed(778424076)
 thresh_sims <- crossing(wasp_resp = sort(unique(manip_sims$wasp_resp)),
                         n_pseudo = c(0L, 3L),
-                        large_sims = FALSE,
                         ny = factor(0:1, labels = c("below", "above"))) |>
     pmap(\(wasp_resp, n_pseudo, large_sims, ny) {
         Y0  <- ifelse(ny == "below", 3, 1)
         N0 <- ifelse(ny == "below", 50, 150)
-        out <- run_sim_combos(wasp_resp = wasp_resp,
-                              n_pseudo = n_pseudo,
-                              large_sims = large_sims,
-                              Y0 = Y0,
-                              N0 = N0) |>
-            select(-rep) |>
+        out <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo,
+                              Y0 = Y0, N0 = N0,
+                              large_sims = TRUE, summ = "time",
+                              out_stages = TRUE) |>
+            mutate(aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,
+                   alates = alates_adu) |>
+            group_by(time) |>
+            summarize(across(c(aphids, alates, wasps, virus), mean),
+                      .groups = "drop") |>
             mutate(wasp_resp = .env$wasp_resp,
                    n_pseudo = .env$n_pseudo,
-                   thresh = ny)
+                   thresh = ny) |>
+            select(thresh, wasp_resp, n_pseudo, everything())
     }) |>
     list_rbind()
 
 
 thresh_empty_data <- thresh_sims |>
-    filter(is.na(x)) |>
-    mutate(aphids = aphids + parasitized) |>
-    select(aphids, alates, wasps, virus) |>
+    select(aphids:virus) |>
     pivot_longer(aphids:virus, names_to = "species", values_to = "density") |>
     mutate(species = factor(species, levels =
                                 c("aphids", "alates", "wasps", "virus"))) |>
@@ -385,13 +450,13 @@ thresh_p <- thresh_sims |>
         } else .title <- waiver()
         .subtitle <- serify("", "*Y*<sub>0</sub> / *N*<sub>0</sub>",
                            list(below = " too high", above = " too low")[[thresh]])
-        if (wasp_resp == "strong") {
+        # if (wasp_resp == levels(wasp_resp_fct)[1]) {
+        if (wasp_resp == levels(wasp_resp_fct)[2]) {
             .strip <- element_blank()
-        } else .strip <- element_markdown(size = 8)
+        } else .strip <- element_markdown(size = 9, angle = 0, hjust = 1)
         thresh_sims |>
-            filter(wasp_resp == .env$wasp_resp, thresh == .env$thresh, is.na(x)) |>
-            mutate(aphids = aphids + parasitized) |>
-            select(n_pseudo, time, aphids, alates, wasps, virus) |>
+            filter(wasp_resp == .env$wasp_resp, thresh == .env$thresh) |>
+            select(-wasp_resp, -thresh) |>
             pivot_longer(aphids:virus, names_to = "species",
                          values_to = "density") |>
             mutate(n_pseudo = factor(n_pseudo),
@@ -399,28 +464,31 @@ thresh_p <- thresh_sims |>
                                         c("aphids", "alates", "wasps", "virus"))) |>
             ggplot(aes(time, density)) +
             geom_hline(yintercept = 0, color = "gray70") +
+            geom_hline(data = filter(thresh_empty_data, species == "virus"),
+                       aes(yintercept = density), color = "gray70") +
             geom_blank(data = thresh_empty_data) +
-            geom_line(aes(color = species, linetype = n_pseudo,
-                          linewidth = n_pseudo)) +
-            scale_color_manual(values = color_pal, guide = "none") +
-            scale_linetype_manual("*Pseudo.*<br>plants", values = np_linetypes) +
-            scale_linewidth_manual("*Pseudo.*<br>plants", values = np_linewidths) +
+            geom_line(aes(color = n_pseudo), linewidth = 1) +
+            scale_color_manual("*Pseudo.*<br>plants", values = np_pal) +
+            # scale_linetype_manual("*Pseudo.*<br>plants", values = np_linetypes) +
+            # scale_linewidth_manual("*Pseudo.*<br>plants", values = np_linewidths) +
             labs(x = "Time (days)", y = "Density", title = .title,
                  subtitle = .subtitle) +
             scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
             coord_cartesian(clip = "off") +
             facet_wrap(~ species, ncol = 1, scales = "free_y",
-                       strip.position = "right") +
-            guides(linetype = guide_legend(
-                override.aes = list(color = "black"))) +
+                       strip.position = "left") +
             theme(strip.text.y = .strip,
+                  strip.text.y.left = .strip,
+                  strip.placement = "outside",
                   axis.text.x = element_markdown(size = 7),
                   axis.text.y = element_markdown(size = 7),
                   plot.subtitle = element_markdown())
     }) |>
     wrap_plots(ncol = 2, guides = "collect", axes = "collect") +
     plot_annotation(tag_levels = "A") &
-    theme(plot.tag = element_markdown(face = "bold"))
+    theme(plot.tag = element_markdown(face = "bold"),
+          plot.tag.location = c("panel", "plot", "margin")[1],
+          plot.tag.position = c(0.05, 0.95))
 
 # thresh_p
 
@@ -436,7 +504,7 @@ if (.overwrite) {
 
 
 # --------------------------------------*
-# _ supp. plots ----
+# _ heatmap fxns ----
 # --------------------------------------*
 
 
@@ -462,7 +530,7 @@ heatmaps_make_objs <- function(yvar,
         stop("\nCombination of wasp_resp, par_name_a, and par_name_b not found!")
     }
     dd <- dd |>
-        select(n_pseudo, all_of(c(par_name_a, par_name_b, yvar))) |>
+        select(n_pseudo, all_of(c(par_name_a, par_name_b, yvar, "p_emerge"))) |>
         mutate(n_pseudo = factor(n_pseudo))
 
     pars_og <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = 0,
@@ -471,8 +539,10 @@ heatmaps_make_objs <- function(yvar,
         as_tibble()
 
     .title <- waiver()
-    if (.add_title) {
-        .title <- scenario_title(wasp_resp)
+    if (is.character(.add_title)) {
+        .title <- .add_title
+    } else if (is.logical(.add_title) && .add_title) {
+        .title <- scenario_title(wasp_resp, TRUE, TRUE)
     }
 
     assign("par_name_a", par_name_a, envir = env)
@@ -539,7 +609,8 @@ heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_a
 
 
 
-# z is outbreak size or Pr(emerge), facets by n_pseudo:
+#' `yvar` is Pr(emerge), outbreak size, or # infected
+#' facets are by n_pseudo:
 outbreak_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
                              .contour_args = list(),
                              .tag = waiver(),
@@ -565,7 +636,14 @@ outbreak_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
         z_lab <- "Emergence<br>prob."
         z_breaks <- 0:4 * 0.25
         z_lims <- c(0, 1)
-    } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
+    } else if (yvar == "n_infected") {
+        z_lab <- "Infected<br>plants"
+        z_breaks <- c(1, 3, 5, 7, 9)
+        z_lims <- c(1, 9)
+    } else {
+        stop("\nonly yvar == \"p_emerge\", \"outbreak_size\", and ",
+             "\"n_infected\" are programmed")
+    }
     if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
         .contour_args$breaks <- z_breaks
     }
@@ -594,13 +672,16 @@ outbreak_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
 }
 
 
-# z is effect of n_pseudo on outbreak size or Pr(emerge):
-pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
-                               .contour_args = list(), .tag = waiver(),
-                               .add_title = FALSE, .shorten_K = FALSE) {
 
-    # yvar = "p_emerge"; wasp_resp = "strong"; par_name_a = "Y0"; par_name_b = "N0"
-    # .contour_args = list(); .tag = waiver(); .add_title = FALSE
+
+#' `yvar` is Pr(emerge), outbreak size, or # infected
+pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
+                               .contour_args = NA, .tag = waiver(),
+                               .add_title = FALSE, .shorten_K = FALSE,
+                               .z_pal = "bam") {
+
+    # yvar = "n_infected"; wasp_resp = "strong"; par_name_a = "Y0"; par_name_b = "N0"
+    # .contour_args = NA; .tag = waiver(); .add_title = FALSE
     # .shorten_K = FALSE
     # rm(yvar, wasp_resp, par_name_a, par_name_b, .contour_args, .tag, .add_title)
     # rm(.shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, y_summ)
@@ -609,19 +690,23 @@ pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
     heatmaps_make_objs(yvar, wasp_resp, par_name_a, par_name_b, .add_title,
                        environment())
 
+    z_dir = -1
     if (yvar == "outbreak_size") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
-        z_breaks <- -2:2 * 1.5
-        z_lim <- c(-1, 1) * 3
-        z_pal = "vik"
-        z_dir = 1
+        z_breaks <- -2:2 * 2
+        z_lim <- c(-1, 1) * 4
     } else if (yvar == "p_emerge") {
         z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
-        z_breaks <- -2:2 * 0.4
-        z_lim <- c(-1, 1) * 0.8
-        z_pal = "bam"
-        z_dir = -1
-    } else stop("only yvar == \"p_emerge\" or \"outbreak_size\" is programmed")
+        z_breaks <- -2:2 * 0.5
+        z_lim <- c(-1, 1) * 1
+    } else if (yvar == "n_infected") {
+        z_lab <- "Effect of<br>*Pseudomonas* on<br>infected plants"
+        z_breaks <- -1:2 * 2
+        z_lim <- c(-2.75, 5.2)
+    } else {
+        stop("\nonly yvar == \"p_emerge\", \"outbreak_size\", and ",
+             "\"n_infected\" are programmed")
+    }
     if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
         .contour_args$breaks <- z_breaks
     }
@@ -634,85 +719,176 @@ pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
         heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
                         .contour_args = .contour_args,
                         ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
-        scale_fill_scico(z_lab, palette = z_pal, midpoint = 0,
-                         direction = z_dir, breaks = z_breaks, limits = z_lim)
+        scale_fill_scico(z_lab, palette = .z_pal, midpoint = 0,
+                         direction = z_dir, breaks = z_breaks, limits = z_lim,
+                         guide = guide_colourbar(theme = theme(
+                             # legend.key.size = unit(12, "in"),
+                             legend.key.height = unit(1.2, "in"),
+                             legend.key.width  = unit(0.24, "in")
+                         ))) +
+        # This fixes a very annoying bug where using
+        # `legend.text = ggtext::element_markdown(...)` makes the legend
+        # really large and doesn't allow me to change its size
+        replace_theme(theme_get(),
+                      legend.text = element_text(color = "black", size = 9))
 }
 
 
 
 
+
+
+# #
+# # Minimum and maximums for the effect of Pseudomonas on each measure.
+# # Used for in `pseudo_eff_heatmap` above.
+# #
+# manip2_sims |>
+#     select(wasp_resp, Y0, N0, n_pseudo, n_infected:outbreak_size) |>
+#     group_by(wasp_resp, Y0, N0) |>
+#     summarize(across(n_infected:outbreak_size,
+#                      \(x) x[n_pseudo != "0"] - x[n_pseudo == "0"]),
+#               .groups = "drop") |>
+#     summarize(across(n_infected:outbreak_size,
+#                      \(x) list(range(x, na.rm = TRUE)))) |>
+#     unnest(n_infected:outbreak_size)
+# #   n_infected p_emerge outbreak_size
+# #        <dbl>    <dbl>         <dbl>
+# # 1      -2.70   -0.438         -2.29
+# # 2       5.18    0.96           3.97
+
+
+
+# outbreak_heatmap("p_emerge", "weak", "Y0", "N0") /
+#     outbreak_heatmap("p_emerge", "strong", "Y0", "N0") +
+#     plot_layout(guides = "collect")
+#
+# outbreak_heatmap("outbreak_size", "weak", "Y0", "N0") /
+#     outbreak_heatmap("outbreak_size", "strong", "Y0", "N0") +
+#     plot_layout(guides = "collect")
+#
+#
+# pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0") +
+#     pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0") +
+#     plot_layout(nrow = 1, guides = "collect")
+#
+# pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0") +
+#     pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0") +
+#     plot_layout(nrow = 1, guides = "collect")
+#
+# pseudo_eff_heatmap("n_infected", "weak", "Y0", "N0") +
+#     pseudo_eff_heatmap("n_infected", "strong", "Y0", "N0") +
+#     plot_layout(nrow = 1, guides = "collect")
+#
+# pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0") +
+#     pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0") +
+#     plot_layout(nrow = 1, guides = "collect")
+#
+# pseudo_eff_heatmap("n_infected", "weak", "Y0", "N0") +
+#     pseudo_eff_heatmap("n_infected", "strong", "Y0", "N0") +
+#     plot_layout(nrow = 1, guides = "collect")
+
+
+
+
+
+#
+# _ supp. plots ----
+#
+
+# Heatmaps of Y0 and N0, with fill split into prob. emergence and outbreak size
+yn_hm_p <- pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
+                              .add_title = scenario_title("weak", TRUE, TRUE)) +
+    pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0", .z_pal = "broc",
+                       .add_title = scenario_title("strong", TRUE, TRUE)) +
+    {pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0", .z_pal = "vik") +
+            geom_text(data = tibble(Y0 = 5.5, N0 = 60), aes(Y0, N0),
+                      label = "no outbreaks", inherit.aes = FALSE,
+                      hjust = 0.5, vjust = 0.5, color = "white",
+                      size.unit = "pt", size = 14)} +
+    pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0", .z_pal = "vik") +
+    plot_layout(nrow = 2, guides = "collect", axes = "collect") +
+    plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_markdown(face = "bold"),
+          plot.tag.location = "panel",
+          plot.tag.position = c(0.05, 1.0))
+
+if (.overwrite) {
+    save_plot("_plots/extremes-manip-Y0-N0-heatmaps.pdf", yn_hm_p, 6.5, 5.5)
+}
+
+
+
+# ============================================================================*
+# ============================================================================*
+# Histograms of 2D diffs ----
+# ============================================================================*
+# ============================================================================*
+
 manip2_sims |>
+    select(wasp_resp, Y0, N0, n_pseudo, p_emerge, outbreak_size) |>
     group_by(wasp_resp, Y0, N0) |>
-    summarize(outbreak_size = outbreak_size[n_pseudo != "0"] -
-                  outbreak_size[n_pseudo == "0"],
-              p_emerge = p_emerge[n_pseudo != "0"] -
-                  p_emerge[n_pseudo == "0"],
+    summarize(p_emerge = p_emerge[n_pseudo > 0] - p_emerge[n_pseudo == 0],
+              outbreak_size = outbreak_size[n_pseudo > 0] -
+                  outbreak_size[n_pseudo == 0],
               .groups = "drop") |>
-    summarize(os_min = min(outbreak_size, na.rm = TRUE),
-              os_max = max(outbreak_size, na.rm = TRUE),
-              pe_min = min(p_emerge),
-              pe_max = max(p_emerge))
-#   os_min os_max pe_min pe_max
-#    <dbl>  <dbl>  <dbl>  <dbl>
-# 1  -2.29   1.90 -0.452  0.641
-
-
-
-# outbreak_heatmap("p_emerge", "strong", "Y0", "N0") /
-#     outbreak_heatmap("p_emerge", "weak", "Y0", "N0") +
-#     plot_layout(guides = "collect")
-#
-# outbreak_heatmap("outbreak_size", "strong", "Y0", "N0") /
-#     outbreak_heatmap("outbreak_size", "weak", "Y0", "N0") +
-#     plot_layout(guides = "collect")
-#
-#
-# (pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0") |
-#     pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0")) +
-#     plot_layout(guides = "collect")
-#
-# (pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0") |
-#     pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0")) +
-#     plot_layout(guides = "collect")
-
-
-
-# ============================================================================*
-# ============================================================================*
-# Histograms of 2D diffs
-# ============================================================================*
-# ============================================================================*
-
-yvar <- "p_emerge"
-
-levels(manip2_sims$wasp_resp) |>
-    map(\(wasp_resp) {
-        y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
-        manip2_sims |>
-            filter(wasp_resp == .env$wasp_resp) |>
-            group_by(wasp_resp, Y0, N0) |>
-            summarize(diff = y_summ(.data[[yvar]], np = n_pseudo), .groups = "drop")
-    }) |>
-    list_rbind() |>
-    filter(!is.na(diff)) |>
+    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
+    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"),
+                            labels = c("Probabililty of emergence",
+                                       "Mean outbreak size"))) |>
+    filter(!is.na(value)) |>
     (\(x) {
         x |>
-            group_by(wasp_resp) |>
-            summarize(min = min(diff),
-                      mean = mean(diff),
-                      med = median(diff),
-                      max = max(diff)) |>
+            group_by(wasp_resp, outcome) |>
+            summarize(min = min(value),
+                      mean = mean(value),
+                      med = median(value),
+                      max = max(value), .groups = "drop") |>
             print()
         return(x)
     })() |>
-    ggplot(aes(diff, after_stat(density))) +
+    ggplot(aes(value, after_stat(density))) +
     geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +
+    geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
     geom_freqpoly(aes(color = wasp_resp, linetype = wasp_resp, linewidth = wasp_resp),
                   bins = 25) +
-    scale_linetype_manual(values = c(strong = "22", weak = "solid")) +
-    scale_linewidth_manual(values = c(strong = 1.25, weak = 1)) +
-    scale_color_manual(values = c(strong = "firebrick4", weak = "dodgerblue")) +
-    labs(x = paste("Effect of <i>Pseudomonas</i> on", yvar_desc[[yvar]]))
+    scale_linetype_manual("Parasitoid<br>responsiveness<br>to aphids",
+                          values = c(strong = "22", weak = "solid")) +
+    scale_linewidth_manual("Parasitoid<br>responsiveness<br>to aphids",
+                           values = c(strong = 1.25, weak = 1)) +
+    scale_color_manual("Parasitoid<br>responsiveness<br>to aphids",
+                       values = c(strong = "firebrick4", weak = "dodgerblue")) +
+    labs(x = "Effect of <i>Pseudomonas</i>") +
+    facet_wrap(~ outcome, ncol = 1, scales = "free")
+
+
+
+
+
+
+# ============================================================================*
+# ============================================================================*
+# zeta breakpoint ----
+# ============================================================================*
+# ============================================================================*
+
+manip_sims |>
+    filter(par_name == "zeta") |>
+    group_by(par_val, n_pseudo) |>
+    summarize(p_emerge = mean(n_infected > 1),
+              outbreak_size = mean(n_infected[n_infected > 1]),
+              .groups = "drop") |>
+    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
+    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"))) |>
+    group_by(par_val, outcome) |>
+    summarize(diff = value[n_pseudo > 0] - value[n_pseudo == 0],
+              .groups = "drop") |>
+    filter(par_val > 0.6, par_val < 0.8) |>
+    ggplot(aes(par_val, diff)) +
+    geom_hline(yintercept = 0, color = "gray70") +
+    geom_vline(xintercept = c(0.7, 0.688), color = "gray70", linetype = "22") +
+    geom_line() +
+    geom_point() +
+    facet_wrap(~ outcome, ncol = 1)
 
 
 
@@ -739,52 +915,70 @@ levels(manip2_sims$wasp_resp) |>
 
 if (!dir.exists("_plots/extremes-manip-subs")) dir.create("_plots/extremes-manip-subs")
 
+
+
+
+
 if (.overwrite) {
     # Line plot for zeta:
+    set.seed(65130342) # for bootstrapping
     save_plot("_plots/extremes-manip-subs/lines-zeta.pdf",
-              one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta") &
+              one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
+                                outcomes = "n_infected", .x_pos = "top") &
                   illustrator_theme,
-              4.1, 3)
+              width = 4, height = 2)
     # Heatmaps for N0 vs Y0:
-    for (.t in c("weak", "strong")) {
-        for (.v in c("outbreak_size", "p_emerge")) {
-            .f <- sprintf("_plots/extremes-manip-subs/heatmap-%s-%s-Y0-N0.pdf",
-                          list(outbreak_size = "obs", p_emerge = "pem")[[.v]], .t)
-            .p <- pseudo_eff_heatmap(.v, .t, "Y0", "N0", .contour_args = NA)
-            save_plot(.f, .p + illustrator_theme, 2, 2)
-        }
-    }; rm(.t, .f, .p, .v)
+    .p <- levels(wasp_resp_fct) |>
+        map(\(.wr) pseudo_eff_heatmap("n_infected", .wr, "Y0", "N0"))  |>
+        wrap_plots(design = "A#B", widths = c(1, 0.05, 1),
+                   guides = "collect", axes = "collect")
+    save_plot("_plots/extremes-manip-subs/heatmap-Y0-N0.pdf",
+              .p & illustrator_theme, width = 4.15, height = 2)
+    # save_plot("_plots/extremes-manip-subs/heatmap-Y0-N0-legend.pdf",
+    #           cowplot::get_legend(.p & theme(legend.title = element_blank())),
+    #           width = 1, height = 2)
+    rm(.p)
 }
 
 
 
-# for (.v in c("outbreak_size", "p_emerge")) {
-#     cowplot::get_legend(pseudo_eff_heatmap(.v, "strong", "Y0", "N0",
-#                                            .contour_args = NA)) |>
-#         save_plot(filename = sprintf("~/Desktop/legend-%s.pdf", .v), width = 1, height = 8)
-# }
 
 
-ps_manip_plots <- levels(manip_sims$wasp_resp) |>
-    set_names() |>
+ps_manip_p <- levels(wasp_resp_fct) |>
     map(\(.t) {
-        .pl <- one_manip_plotter(.t, "pseudo_surv")
-        if (.t == levels(manip_sims$wasp_resp)[[1]]) {
-            .pl <- .pl & theme(axis.text.y.right = element_blank())
-        } else .pl <- .pl & theme(axis.text.y.left = element_blank())
-        # .pl[[1]] <- .pl[[1]] + theme(axis.text.x = element_blank())
-        return(.pl)
+        one_manip_plotter(.t, "pseudo_surv", outcomes = "n_infected")
     }) |>
-    # do.call(what = c) |>
-    # base::`[`(c(1,3,2,4)) |>
-    # wrap_plots(design = "A#B\n###\nC#D", widths = c(1, 0.1, 1), heights = c(1, 0.2, 1),
-    #            nrow = 2, guides = "collect", axis_titles = "collect")
-    identity()
-# wrap_plots(ps_manip_plots, ncol = 2, guides = "collect", axis_titles = "collect")
+    wrap_plots(design = "A#B", widths = c(1, 0.05, 1),
+               guides = "collect", axes = "collect")
+
+# ps_manip_p
+
+
+
+
+
 
 if (.overwrite) {
-    for (n in names(ps_manip_plots)) {
-        save_plot(sprintf("_plots/extremes-manip-lines-pseudo_surv-%s.pdf", n),
-                  ps_manip_plots[[n]] & illustrator_theme, 3, 4)
-    }; rm(n)
+    save_plot("_plots/extremes-manip-lines-pseudo_surv.pdf",
+              ps_manip_p & illustrator_theme, width = 6, height = 2)
+    # psmp2 <- levels(wasp_resp_fct) |>
+    #     map(\(.t) {
+    #         .pl <- one_manip_plotter(.t, "pseudo_surv", .return_list = TRUE) |>
+    #             map(\(x) x + theme(axis.text.x = element_markdown(size = 7),
+    #                                axis.text.y = element_markdown(size = 7)))
+    #         if (.t != levels(wasp_resp_fct)[[1]]) {
+    #             .pl <- map(.pl, \(x) x + theme(axis.text.y = element_blank()))
+    #         }
+    #         .pl[[1]] <- .pl[[1]] + theme(axis.text.x = element_blank())
+    #         return(.pl)
+    #     }) |>
+    #     do.call(what = c) |>
+    #     base::`[`(c(1,3,2,4)) |>
+    #     wrap_plots(design = "A#B\nC#D", widths = c(1, 0.1, 1),
+    #                nrow = 2, guides = "collect", axis_titles = "collect") &
+    #     illustrator_theme
+    # save_plot("_plots/extremes-manip-lines-pseudo_surv.pdf",
+    #           psmp2 & illustrator_theme, width = 4, height = 2)
+    # rm(psmp2)
+
 }
