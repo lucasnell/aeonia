@@ -440,6 +440,20 @@ land_cube2list <- function(land_cube) {
     .Call(`_aeonia_land_cube2list`, land_cube)
 }
 
+#' Fast nonparametric bootstrapping
+#'
+#' @param x Vector to bootstrap
+#' @param B Number of bootstrapping replicates. Must be `>1` and `< 1e9`.
+#'     Defaults to `2000L`.
+#' @param alpha Confidence level is `100 * (1 - alpha)` percent.
+#'     Defaults to `0.05`.
+#'
+#' @export
+#'
+booter <- function(x, B = 2000L, alpha = 0.05) {
+    .Call(`_aeonia_booter`, x, B, alpha)
+}
+
 make_wasps_ptr <- function(rel_attack, a, k, h, sex_ratio, s_y, zeta, sigma_y, demog_error) {
     .Call(`_aeonia_make_wasps_ptr`, rel_attack, a, k, h, sex_ratio, s_y, zeta, sigma_y, demog_error)
 }

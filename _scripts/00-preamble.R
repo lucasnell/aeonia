@@ -159,12 +159,30 @@ illustrator_theme <- theme(plot.title = element_blank(),
                            strip.background = element_blank())
 
 # Nonparametric bootstrap CI:
-boot_ci <- function(x, alpha = 0.01, R = 2000L) {
-    b <- sapply(1:R, \(i) mean(sample(x, replace = TRUE), na.rm = TRUE))
-    ci <- tibble(lo = quantile(b, alpha/2),
-                 hi = quantile(b, 1-alpha/2))
-    return(ci)
+ci_booter <- function(n_infected, .outcomes) {
+    if (length(.outcomes) == 1L && .outcomes == "all")
+        .outcomes <- c("p_emerge", "outbreak_size", "n_infected")
+    out <- list()
+    if ("p_emerge" %in% .outcomes) {
+        out[["p_emerge"]] <- booter(as.integer(n_infected > 1))
+    }
+    if ("outbreak_size" %in% .outcomes) {
+        obs <- n_infected[n_infected > 1]
+        if (length(obs) < 2L) {
+            if (length(obs) == 0L) obs <- NA_real_
+            out[["outbreak_size"]] <- c(Lower = obs, Median = obs, Upper = obs)
+        } else out[["outbreak_size"]] <- booter(obs)
+    }
+    if ("n_infected" %in% .outcomes) {
+        out[["n_infected"]] <- booter(n_infected)
+    }
+    return(out)
 }
+
+
+
+
+
 
 
 

@@ -26,5 +26,6 @@
                        axis.ticks.y = ggplot2::element_line(color = "black"),
                        legend.background = ggplot2::element_blank(),
                        plot.title = .element_text(size = 14, hjust = 0.5),
-                       plot.tag = .element_text(size = 14)))
+                       plot.subtitle = .element_text(size = 14),
+                       plot.tag = .element_text(size = 14, face = "bold")))
 }

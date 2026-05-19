@@ -8,3 +8,5 @@
 ^vignettes/*_files$
 ^_scripts$
 ^_plots$
+^\.positai$
+^\.claude$
