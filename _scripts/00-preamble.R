@@ -8,12 +8,14 @@ suppressPackageStartupMessages({
     library(scico)
     library(viridisLite)
     library(RColorBrewer)
+    library(colorspace)
 })
 
 # RDS files with simulation output:
 rds_files <- list(extreme_manip = "extremes-manip-sims.rds",
                   extreme_manip2 = "extremes-manip2-sims.rds",
-                  dens_sims = "density-sims.rds") |>
+                  dens_sims = "density-sims.rds",
+                  dd_disp_sims = "dd_disp-sims.rds") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 
@@ -62,6 +64,18 @@ np_shapes <- c(`0` = 1, `3` = 19)
 np_linetypes <- c(`0` = "22", `3` = "solid")
 np_linewidths <- c(`0` = 1.25, `3` = 1)
 
+# For parameters:
+#
+# par_pal <- viridisLite::turbo(100)[c(25,50,85)] |>
+#     set_names("wt_vp", "pseudo_repel", "virus_attract")
+# # scales::show_col(par_pal[c(1:3,2)], labels = FALSE)
+#
+# To get the colors below (that play well in cmyk or rgb color models),
+# I inserted the colors from above into Illustrator, then pasted the new
+# hex codes below.
+par_pal <- c(wt_vp = "#3bb6e9", pseudo_repel = "#a9cf39", virus_attract = "#dc4126")
+
+
 
 
 # Factor for parasitoid wasp responsiveness to aphid densities:
@@ -97,7 +111,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "alate_max" ~ "<i>b</i><sub>max</sub>",
                          x == "n_pseudo" ~ "<i>n</i><sub>P</sub>",
                          x == "wt_vp" ~ "virus place.",
-                         x == "wt_pp" ~ "*Pseudo.* spacing",
+                         x == "wt_pp" ~ "<i>&tau;</i>",
                          .default = x)
         if (serif) {
             out <- serify("", out, "")
@@ -132,6 +146,7 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  sd_outbreak_size = "outbreak size SD",
                  p_emerge = "prob. emergence",
                  p_outbreak = "outbreak probability",
+                 n_infected = "number of infected plants",
                  p_alates = "mean alate proportion",
                  log_aphids = "mean log aphid abundance",
                  aphids = "mean aphid abundance",
