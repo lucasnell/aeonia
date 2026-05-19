@@ -263,3 +263,34 @@ scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE) {
     if (.cap1) out <- first_cap(out)
     return(out)
 }
+
+
+
+
+large_simmer <- function(landscape, wasp_resp, sd_N, virus_attract, pseudo_repel,
+                         outbreaks = "small", ...) {
+
+    N0 <- 55
+    p_load <- ifelse(outbreaks == "small", 0.05, 1)
+    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
+    Y0 <- ifelse(outbreaks == "big_zh", 200, 400)
+
+    args <- list(landscape = landscape,
+                 sd_N = sd_N,
+                 virus_attract = virus_attract,
+                 pseudo_repel = pseudo_repel,
+                 Y0 = Y0,
+                 N0 = N0,
+                 zeta = zeta,
+                 p_load_alate = p_load,
+                 p_load_plant = p_load,
+                 K = 12.5e3,
+                 pseudo_surv = 0.85,
+                 n_sims = 100L,
+                 summ = "all")
+
+    args <- list_assign(args, ...)
+
+    return(do.call(big_plantscape, args))
+
+}
