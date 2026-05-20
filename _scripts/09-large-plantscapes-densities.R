@@ -23,11 +23,12 @@ wasp_resp_fct <- factor(1:2, labels = c("weak", "strong"))
 # Levels of Pseudomonas densities for large landscapes:
 n_pseudo_lvls <- as.integer(c(0, 0:4 * 2000 + 1000))
 
-large_simmer <- function(landscape, wasp_resp, sd_N, virus_attract, pseudo_repel,
-                         outbreaks = "small", ...) {
+large_simmer <- function(landscape, wasp_resp, sd_N = 0,
+                         virus_attract = 1, pseudo_repel = 1,
+                         outbreaks = "small", p_load = NA, ...) {
 
     N0 <- 55
-    p_load <- ifelse(outbreaks == "small", 0.05, 1)
+    if (is.na(p_load)) p_load <- ifelse(outbreaks == "small", 0.05, 1)
     zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
     Y0 <- ifelse(outbreaks == "big_zh", 200, 400)
 
@@ -47,7 +48,12 @@ large_simmer <- function(landscape, wasp_resp, sd_N, virus_attract, pseudo_repel
 
     args <- list_assign(args, ...)
 
-    return(do.call(big_plantscape, args))
+    sims <- do.call(big_plantscape, args)
+
+    print(c(n_inf = mean(sims$n_infected),
+            p_e = mean(sims$n_infected > 1)))
+
+    return(sims)
 
 }
 
@@ -55,8 +61,9 @@ large_simmer <- function(landscape, wasp_resp, sd_N, virus_attract, pseudo_repel
 # Takes ~26 sec
 set.seed(314679353)
 dens_sims <- crossing(wr = wasp_resp_fct,
-                      np = n_pseudo_lvls) |>
-    pmap(\(wr, np) {
+                      np = n_pseudo_lvls,
+                      ob = c("small", "big")) |>
+    pmap(\(wr, np, ob) {
         if (np > 0) {
             .landscape <- sim_df |>
                 filter(n_pseudo == np,
@@ -72,7 +79,7 @@ dens_sims <- crossing(wr = wasp_resp_fct,
         maxxer <- function(x, p) max(x[!is.na(p)]) # max per plant
 
         large_simmer(.landscape, wasp_resp = paste(wr), sd_N = 0,
-                     virus_attract = 1, pseudo_repel = 1, outbreaks = "small",
+                     virus_attract = 1, pseudo_repel = 1, outbreaks = ob,
                      summ = "none", out_stages = TRUE,
                      n_sims = dim(.landscape)[3]) |>
             mutate(plant = interaction(y, x),
@@ -84,8 +91,8 @@ dens_sims <- crossing(wr = wasp_resp_fct,
                                                 max = \(x) maxxer(x, p = plant))),
                       .groups = "drop_last") |>
             summarize(across(aphids_sum:virus_max, mean), .groups = "drop") |>
-            mutate(wasp_resp = wr, n_pseudo = np) |>
-            select(wasp_resp, n_pseudo, everything())
+            mutate(wasp_resp = wr, n_pseudo = np, outbreaks = ob) |>
+            select(outbreaks, wasp_resp, n_pseudo, everything())
     }, .progress = list(clear = FALSE,
                         format = paste("{cli::pb_bar}",
                                        "{cli::pb_percent}",
