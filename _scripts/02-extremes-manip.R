@@ -221,50 +221,51 @@ one_manip_plotter <- function(wasp_resp, par_name,
 # --------------------------------------------*
 
 
-K_manip_p <- map2(levels(wasp_resp_fct), c(1609768752, 1975481712),
-    \(.t, seed) {
-        pl <- one_manip_plotter(.t, "K", c("p_emerge", "outbreak_size"),
-                                .return_list = TRUE, .seed = seed)
-        pl[[1]] <- pl[[1]] + labs(title = scenario_title(.t, TRUE, TRUE))
-        return(pl)
-    }) |>
-    do.call(what = c) |>
-    (\(x) {
-        for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
-        list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
-    })() |>
-    wrap_plots(ncol = 2, guides = "collect", axis_titles = "collect",
-               heights = c(1, 0.05, 1)) +
-    plot_annotation(tag_level = "A") &
-    theme(plot.tag = element_markdown(face = "bold"),
-          plot.tag.location = c("panel", "plot", "margin")[1],
-          plot.tag.position = c(0.05, 1.05))
-
-# K_manip_p
-
-if (.overwrite) {
-    save_plot("_plots/extremes-manip-lines-K.pdf", K_manip_p, 6.5, 5)
+# Line plot for a parameter, with fill split into prob. emergence and outbreak size
+supp_line_plotter <- function(par_name, seeds) {
+    stopifnot(length(par_name) == 1 && is.character(par_name))
+    stopifnot(length(seeds) == 2 && is.numeric(seeds))
+    map2(levels(wasp_resp_fct), seeds,
+                      \(wr, seed) {
+                          pl <- one_manip_plotter(wr, par_name,
+                                                  outcomes = c("p_emerge", "outbreak_size"),
+                                                  .return_list = TRUE, .seed = seed)
+                          pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr, TRUE, TRUE))
+                          return(pl)
+                      }) |>
+        do.call(what = c) |>
+        (\(x) {
+            for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
+            for (i in c(3,4)) x[[i]] <- x[[i]] + theme(axis.text.y=element_blank())
+            list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
+        })() |>
+        wrap_plots(ncol = 2, guides = "collect", axis_titles = "collect",
+                   heights = c(1, 0.05, 1)) +
+        plot_annotation(tag_level = "A") &
+        theme(plot.tag = element_markdown(face = "bold"),
+              plot.tag.location = "panel",
+              plot.tag.position = c(0.05, 1.05))
 }
 
 
-# Line plot for pseudo_surv, with fill split into prob. emergence and outbreak size
-ps_line_p <- map2(levels(wasp_resp_fct), c(),
-    \(wr, seed) {
-        one_manip_plotter(wr, "pseudo_surv",
-                          outcomes = c("p_emerge", "outbreak_size"),
-                          .return_list = TRUE, .seed = seed)
-    }) |>
-    wrap_plots(design = "A#B", widths = c(1, 0.05, 1),
-               guides = "collect", axes = "collect")
+# supp_line_plotter("K", c(1609768752, 1975481712))
+# supp_line_plotter("pseudo_surv", c(1546463762, 915602074))
 
-# ps_manip_p
 
-# Line plot for zeta, with fill split into prob. emergence and outbreak size
-zeta_line_p <- one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
-                                 outcomes = c("p_emerge", "outbreak_size"),
-                                 .seed = 65130342)
+
 if (.overwrite) {
-    save_plot("_plots/extremes-manip-lines-zeta-all-outcomes.pdf", zeta_line_p, 5, 5)
+    save_plot("_plots/extremes-manip-lines-K-all-outcomes.pdf",
+              supp_line_plotter("K", c(1609768752, 1975481712)),
+              width = 6.5, height = 5)
+    save_plot("_plots/extremes-manip-lines-pseudo_surv-all-outcomes.pdf",
+              supp_line_plotter("pseudo_surv", c(1546463762, 915602074)),
+              width = 6.5, height = 5)
+    # Because the `wasp_resp` only differs by zeta, we plot that differently:
+    save_plot("_plots/extremes-manip-lines-zeta-all-outcomes.pdf",
+              one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
+                                outcomes = c("p_emerge", "outbreak_size"),
+                                .seed = 65130342),
+              width = 3.5, height = 5)
 }
 
 
@@ -921,10 +922,10 @@ if (!dir.exists("_plots/extremes-manip-subs")) dir.create("_plots/extremes-manip
 
 if (.overwrite) {
     # Line plot for zeta:
-    set.seed(65130342) # for bootstrapping
     save_plot("_plots/extremes-manip-subs/lines-zeta.pdf",
               one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
-                                outcomes = "n_infected", .x_pos = "top") &
+                                outcomes = "n_infected", .x_pos = "top",
+                                .seed = 65130342) &
                   illustrator_theme,
               width = 4, height = 2)
     # Heatmaps for N0 vs Y0:
@@ -944,41 +945,17 @@ if (.overwrite) {
 
 
 
-ps_manip_p <- levels(wasp_resp_fct) |>
-    map(\(.t) {
-        one_manip_plotter(.t, "pseudo_surv", outcomes = "n_infected")
-    }) |>
+ps_manip_p <- map2(levels(wasp_resp_fct), c(188673947, 899304975),
+                   \(wr, seed) {
+                       one_manip_plotter(wr, "pseudo_surv",
+                                         outcomes = "n_infected",
+                                         .seed = seed)
+                   }) |>
     wrap_plots(design = "A#B", widths = c(1, 0.05, 1),
                guides = "collect", axes = "collect")
-
 # ps_manip_p
-
-
-
-
-
 
 if (.overwrite) {
     save_plot("_plots/extremes-manip-lines-pseudo_surv.pdf",
               ps_manip_p & illustrator_theme, width = 6, height = 2)
-    # psmp2 <- levels(wasp_resp_fct) |>
-    #     map(\(.t) {
-    #         .pl <- one_manip_plotter(.t, "pseudo_surv", .return_list = TRUE) |>
-    #             map(\(x) x + theme(axis.text.x = element_markdown(size = 7),
-    #                                axis.text.y = element_markdown(size = 7)))
-    #         if (.t != levels(wasp_resp_fct)[[1]]) {
-    #             .pl <- map(.pl, \(x) x + theme(axis.text.y = element_blank()))
-    #         }
-    #         .pl[[1]] <- .pl[[1]] + theme(axis.text.x = element_blank())
-    #         return(.pl)
-    #     }) |>
-    #     do.call(what = c) |>
-    #     base::`[`(c(1,3,2,4)) |>
-    #     wrap_plots(design = "A#B\nC#D", widths = c(1, 0.1, 1),
-    #                nrow = 2, guides = "collect", axis_titles = "collect") &
-    #     illustrator_theme
-    # save_plot("_plots/extremes-manip-lines-pseudo_surv.pdf",
-    #           psmp2 & illustrator_theme, width = 4, height = 2)
-    # rm(psmp2)
-
 }

@@ -1,5 +1,4 @@
 
-
 #'
 #' Time series and histograms for simulations of two levels of wasp
 #' responsiveness to aphid densities:
@@ -84,7 +83,6 @@ weak_strong_sims <- large_sims |>
         # wasp_resp = "weak"; n_pseudo = 3
         # rm(wasp_resp, n_pseudo, sims, target, .rep, half_inf_times, hit_adiffs)
         sims <- run_sim_combos(wasp_resp, n_pseudo, n_sims = 1000L,
-                               zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
                                out_attack_surv = TRUE, out_stages = TRUE)
         sims |>
             # filter(rep == .rep) |>
@@ -108,6 +106,13 @@ weak_strong_sims |>
 # 2 weak             3       8.28
 # 3 strong           0       3.66
 # 4 strong           3       2.04
+
+
+
+
+
+
+
 
 
 
