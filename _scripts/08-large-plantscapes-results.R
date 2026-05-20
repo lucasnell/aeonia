@@ -375,7 +375,7 @@ baseline_plotter <- function(filt_df, outcomes = "all",
 
 # =============================================================================*
 # =============================================================================*
-# Basic plot ----
+# Basic plot and supp. ----
 # =============================================================================*
 # =============================================================================*
 
@@ -383,15 +383,23 @@ large_outcomes_p <- sim_df |>
     filter(outbreaks == "small" & sd_N == 0 & virus_attract == 1 & pseudo_repel == 1 &
                ((wt_vp == "off *Pseudo.*" & wt_pp == "uniform") |
                     n_pseudo == 0)) |>
-    baseline_plotter(outcomes = "n_infected") &
-    illustrator_theme
+    baseline_plotter(outcomes = "n_infected")
+# large_outcomes_p
 
-
+large_all_outcomes_p <- sim_df |>
+    filter(outbreaks == "small" & sd_N == 0 & virus_attract == 1 & pseudo_repel == 1 &
+               ((wt_vp == "off *Pseudo.*" & wt_pp == "uniform") |
+                    n_pseudo == 0)) |>
+    baseline_plotter(outcomes = "all")
+# large_all_outcomes_p
 
 if (.overwrite) {
-    save_plot("_plots/large-plantscapes-outcomes.pdf", large_outcomes_p,
-              width = 4.88, height = 1.5)
+    save_plot("_plots/large-plantscapes-outcomes.pdf",
+              large_outcomes_p & illustrator_theme, width = 4.88, height = 1.5)
+    save_plot("_plots/large-plantscapes-outcomes-all.pdf", large_all_outcomes_p,
+              width = 5, height = 3)
 }
+
 
 
 
