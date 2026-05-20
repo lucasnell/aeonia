@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-3
+#SBATCH --array=1-6
 #SBATCH --cpus-per-task=25
 #SBATCH --mem=25G
 #SBATCH --time=20:00:00
@@ -21,6 +21,7 @@
 # I first moved this script over to bioHPC using the following:
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
+# scp 03-large-preamble.R lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
 # scp 04-large-plantscapes-par-vals.sh \
 #     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-plantscapes-par-vals/
 #
@@ -88,14 +89,17 @@ one_test <- function(p_load, Y0, N0, zeta) {
     tibble(n_pseudo = c(.n_pseudo, 0L),
            p_load = .env\$p_load, Y0 = .env\$Y0, N0 = .env\$N0, zeta = .env\$zeta,
            outbreak_size = c(mean(n_inf1[n_inf1 > 1]), mean(n_inf0[n_inf0 > 1])),
-           p_emerge = c(mean(n_inf1 > 1), mean(n_inf0 > 1)))
+           p_emerge = c(mean(n_inf1 > 1), mean(n_inf0 > 1)),
+           n_infected = c(mean(n_inf1), mean(n_inf0)))
 
 }
 
-test_sim_df <- crossing(p_load = round(seq(0.05, 0.15, 0.05), 2),
-                      Y0 = round(seq(100, 400, 25)),
-                      N0 = 55,
-                      zeta = c(0.1, 0.15, 0.3, 0.4, 0.9, 1))
+
+
+test_sim_df <- crossing(p_load = c(0.01, 0.05, 0.5),
+                        Y0 = round(seq(50, 500, 50)),
+                        N0 = 55,
+                        zeta = c(0.1, 0.9))
 
 # --------------*
 # Read inputs from job manager:
@@ -107,7 +111,7 @@ max_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_MAX")))
 if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
 
 # Get seed for this set of simulations:
-.seed <- c(769895830, 1692138374, 1774036889)[curr_idx]
+.seed <- c(769895830, 1692138374, 1774036889, 2036965360, 1974372476, 1538998712)[curr_idx]
 
 # Verify that indices align with 'test_sim_df' object:
 stopifnot(nrow(test_sim_df) %% max_idx == 0L)
@@ -125,7 +129,7 @@ test_sim_df <- test_sim_df[curr_start:curr_stop,]
 # --------------*
 # Run simulations:
 
-# Took ~2.4 hours per job, where each job processed 78 rows using 25 threads
+# Each job takes ~2 min per row using 25 threads
 t0 <- Sys.time()
 test_sim_df <- test_sim_df |>
     pmap(one_test, .progress = list(clear = FALSE,
