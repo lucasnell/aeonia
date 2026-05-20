@@ -1,7 +1,7 @@
 
 #'
 #' Find par values for larger landscape simulations
-#' 04-large-plantscapes-par-vals.sh must be run on the cluster first, then
+#' 04-large-par-vals.sh must be run on the cluster first, then
 #' its output sent to ./_scripts/interm-data/
 #'
 
@@ -17,8 +17,7 @@ library(viridisLite)
 # ============================================================================*
 
 
-test_sims <- list.files("_scripts/interm-data",
-                        "large-plantscapes-par-vals-.?.?.rds",
+test_sims <- list.files("_scripts/interm-data", "large-par-vals-.?.?.rds",
                         full.names = TRUE) |>
     map(read_rds) |>
     list_rbind() |>

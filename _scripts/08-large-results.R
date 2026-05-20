@@ -14,7 +14,7 @@ source("_scripts/00-preamble.R")
 #' Unsurprisingly, when we set `wt_vp = 100` and manually have them overlap,
 #' there is always overlap.
 #'
-# list.files("_scripts/interm-data", "large-plantscapes-.?.?.rds",
+# list.files("_scripts/interm-data", "large-main-.?.?.rds",
 #            full.names = TRUE) |>
 #     map(read_rds) |>
 #     list_rbind() |>
@@ -33,10 +33,10 @@ source("_scripts/00-preamble.R")
 
 
 
-# from 06-large-plantscapes.sh:
+# from 06-large-main.sh:
 # Takes ~5 sec
 set.seed(2120927824) # for bootstrapping
-sim_df <- list.files("_scripts/interm-data", "large-plantscapes-.?.?.rds",
+sim_df <- list.files("_scripts/interm-data", "large-main-.?.?.rds",
                      full.names = TRUE) |>
     map(\(x) {
         read_rds(x) |>
@@ -653,8 +653,8 @@ if (.overwrite) {
 
 
 
-# from 07-large-plantscapes-w1.sh:
-sim_w1_df <- list.files("_scripts/interm-data", "large-plantscapes-w1-.?.?.rds",
+# from 07-large-w1.sh:
+sim_w1_df <- list.files("_scripts/interm-data", "large-w1-.?.?.rds",
                         full.names = TRUE) |>
     map(\(x) {
         read_rds(x) |>
