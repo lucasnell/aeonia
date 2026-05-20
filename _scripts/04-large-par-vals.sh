@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=25
 #SBATCH --mem=25G
 #SBATCH --time=20:00:00
-#SBATCH --job-name=large-plantscapes-par-vals
-#SBATCH --output=logs/large-plantscapes-par-vals-%a.out
-#SBATCH --error=logs/large-plantscapes-par-vals-%a.err
+#SBATCH --job-name=large-par-vals
+#SBATCH --output=logs/large-par-vals-%a.out
+#SBATCH --error=logs/large-par-vals-%a.err
 #SBATCH --mail-user=lan68@cornell.edu
 #SBATCH --mail-type=END,FAIL
 
@@ -22,21 +22,21 @@
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
 # scp 03-large-preamble.R lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
-# scp 04-large-plantscapes-par-vals.sh \
-#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-plantscapes-par-vals/
+# scp 04-large-par-vals.sh \
+#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-par-vals/
 #
 # This was then run on BioHPC in a non-interactive job started with the following:
 #
-# cd /home2/lan68/04-large-plantscapes-par-vals/
+# cd /home2/lan68/04-large-par-vals/
 # mkdir -p logs
-# sbatch 04-large-plantscapes-par-vals.sh
+# sbatch 04-large-par-vals.sh
 #
 # Then, when the job is done (assuming you're still in `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-plantscapes-par-vals/large-plantscapes-par-vals*.rds \
+# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-par-vals/large-par-vals*.rds \
 #     ./interm-data/
 #
-# Then run script 05-large-plantscapes-par-vals.R for analysis
+# Then run script 05-large-par-vals.R for analysis
 #
 
 
@@ -141,7 +141,7 @@ test_sim_df <- test_sim_df |>
 t1 <- Sys.time()
 difftime(t1, t0, units = "min")
 
-write_rds(test_sim_df, sprintf("large-plantscapes-par-vals-%02i.rds", curr_idx), compress = "gz")
+write_rds(test_sim_df, sprintf("large-par-vals-%02i.rds", curr_idx), compress = "gz")
 
 cat("\nFINISHED!!\n\n")
 

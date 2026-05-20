@@ -6,9 +6,9 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=32G
 #SBATCH --time=04:00:00
-#SBATCH --job-name=large-plantscapes
-#SBATCH --output=logs/large-plantscapes-%a.out
-#SBATCH --error=logs/large-plantscapes-%a.err
+#SBATCH --job-name=large
+#SBATCH --output=logs/large-main-%a.out
+#SBATCH --error=logs/large-main-%a.err
 #SBATCH --mail-user=lan68@cornell.edu
 #SBATCH --mail-type=END,FAIL
 
@@ -21,19 +21,19 @@
 # cd ~/GitHub/Cornell/aeonia/_scripts
 # scp 03-large-preamble.R \
 #     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/
-# scp 06-large-plantscapes.sh \
-#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/06-large-plantscapes/
+# scp 06-large-main.sh \
+#     lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/06-large-main/
 #
 # This was then run on BioHPC in a non-interactive batch job started with the following:
 #
-# cd /home2/lan68/06-large-plantscapes/
+# cd /home2/lan68/06-large-main/
 # mkdir -p logs
-# sbatch 06-large-plantscapes.sh
+# sbatch 06-large-main.sh
 #
 # Then, when the jobs are done (assuming you're back on your desktop in
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/06-large-plantscapes/large-plantscapes*.rds \
+# scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/06-large-main/large-main*.rds \
 #     ./interm-data/
 #
 #
@@ -55,9 +55,9 @@ sim_df <- sim_df |>
                 landscape = list(array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L)))) |>
         # add other parameters:
         crossing(crossing(wasp_resp = c("strong", "weak"),
-                          outbreaks = c("small", "big_zl", "big_zh"),
+                          p_load = c(0.5, 0.01),
                           sd_N = c(0, 50),
-                          virus_attract = c(1, 5),
+                          virus_attract = c(1, 5, 100),
                           pseudo_repel = c(1, 5))) |>
         # placeholder for simulation output:
         mutate(sim = rep(list(NA), n()))
@@ -156,7 +156,7 @@ difftime(t1, t0, units = "min")
 cat("Writing output...\n")
 
 # Takes about 1 sec:
-write_rds(sim_df, sprintf("large-plantscapes-%02i.rds", curr_idx), compress = "gz")
+write_rds(sim_df, sprintf("large-main-%02i.rds", curr_idx), compress = "gz")
 
 
 

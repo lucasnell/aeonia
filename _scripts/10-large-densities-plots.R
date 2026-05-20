@@ -2,7 +2,7 @@
 #'
 #' Density plots for larger landscape simulations.
 #'
-#' Must run 09-large-plantscapes-densities.R on the cluster first.
+#' Must run 09-large-densities.R on the cluster first.
 #'
 
 
@@ -13,7 +13,7 @@ source("_scripts/00-preamble.R")
 .overwrite <- FALSE
 
 
-if (!file.exists(rds_files$dens_sims)) stop("Run 09-large-plantscapes-densities.R first!")
+if (!file.exists(rds_files$dens_sims)) stop("Run 09-large-densities.R first!")
 
 
 dens_sims <- read_rds(rds_files$dens_sims)
