@@ -11,11 +11,11 @@ suppressPackageStartupMessages({
     library(colorspace)
 })
 
-# RDS files with simulation output:
-rds_files <- list(extreme_manip = "extremes-manip-sims.rds",
-                  extreme_manip2 = "extremes-manip2-sims.rds",
-                  dens_sims = "density-sims.rds",
-                  dd_disp_sims = "dd_disp-sims.rds") |>
+# RDS / CSV files with simulation output:
+interm_files <- list(extreme_manip = "extremes-manip-sims.rds",
+                     extreme_manip2 = "extremes-manip2-sims.rds",
+                     dens_sims = "density-sims.csv",
+                     dd_disp_sims = "dd_disp-sims.csv") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 
@@ -66,14 +66,15 @@ np_linewidths <- c(`0` = 1.25, `3` = 1)
 
 # For parameters:
 #
-# par_pal <- viridisLite::turbo(100)[c(25,50,85)] |>
-#     set_names("wt_vp", "pseudo_repel", "virus_attract")
-# # scales::show_col(par_pal[c(1:3,2)], labels = FALSE)
+# par_pal <- viridisLite::turbo(100)[c(10, 30, 90, 70)] |>
+#     set_names("wt_vp", "pseudo_repel", "virus_attract", "sd_N")
+# # scales::show_col(par_pal, labels = FALSE)
 #
 # To get the colors below (that play well in cmyk or rgb color models),
-# I inserted the colors from above into Illustrator, then pasted the new
-# hex codes below.
-par_pal <- c(wt_vp = "#3bb6e9", pseudo_repel = "#a9cf39", virus_attract = "#dc4126")
+# I inserted the colors from above into Illustrator as new swatches,
+# then opened the (modified) swatches back up and pasted the hex codes below.
+par_pal <- c(wt_vp = "#4c5aa8", pseudo_repel = "#48c2c6",
+             virus_attract = "#c22c26", sd_N = "#faa733")
 
 
 
@@ -105,10 +106,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
                          x == "zeta" ~ "<i>&zeta;</i>",
                          x == "sd_N" ~ "<i>&sigma;</i><sub>N</sub>",
                          x == "Y0" ~ "<i>Y</i><sub>0</sub>",
-                         x == "mean_N" ~ "<i>&mu;</i><sub>N</sub>",
                          x == "N0" ~ "<i>N</i><sub>0</sub>",
-                         x == "alate_slope" ~ "<i>b</i><sub>slope</sub>",
-                         x == "alate_max" ~ "<i>b</i><sub>max</sub>",
                          x == "n_pseudo" ~ "<i>n</i><sub>P</sub>",
                          x == "wt_vp" ~ "virus place.",
                          x == "wt_pp" ~ "<i>&tau;</i>",
@@ -117,17 +115,14 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
             out <- serify("", out, "")
         }
     } else {
-        out <- case_when(x == "pseudo_surv" ~ serify("*Pseudomonas* survival (", "<i>&psi;</i>", ")"),
+        out <- case_when(x == "pseudo_surv" ~ serify("aphid *Pseudomonas* survival (", "<i>&psi;</i>", ")"),
                          x == "virus_attract" ~ serify("virus attraction (", "<i>&nu;</i>", ")"),
                          x == "pseudo_repel" ~ serify("*Pseudomonas* repellence (", "<i>&rho;</i>", ")"),
                          x == "epsilon" ~ serify("virus effect on staying (", "<i>&epsilon;</i>", ")"),
                          x == "zeta" ~ serify("parasitoid responsiveness to aphid density (", "<i>&zeta;</i>", ")"),
-                         x == "sd_N" ~ serify("initial aphid density SD (", "<i>&sigma;</i><sub>N</sub>", ")"),
-                         x == "Y0" ~ serify("initial wasp density (", "<i>Y</i><sub>0</sub>", ")"),
-                         x == "mean_N" ~ serify("initial aphid density mean (", "<i>&mu;</i><sub>N</sub>", ")"),
-                         x == "N0" ~ serify("initial aphid density (", "<i>N</i><sub>0</sub>", ")"),
-                         x == "alate_slope" ~ serify("slope for aphid density ~ alate offspring (", "<i>b</i><sub>slope</sub>", ")"),
-                         x == "alate_max" ~ serify("max alate proportion (", "<i>b</i><sub>max</sub>", ")"),
+                         x == "sd_N" ~ serify("starting aphid density SD (", "<i>&sigma;</i><sub>N</sub>", ")"),
+                         x == "Y0" ~ serify("starting parasitoid density (", "<i>Y</i><sub>0</sub>", ")"),
+                         x == "N0" ~ serify("starting aphid density (", "<i>N</i><sub>0</sub>", ")"),
                          x == "n_pseudo" ~ serify("number of *Pseudomonas* plants (", "<i>n</i><sub>P</sub>", ")"),
                          x == "K" ~ serify("aphid density dependence (", "<i>K</i>", ")"),
                          x == "wt_vp" ~ "virus placement",
@@ -146,7 +141,7 @@ yvar_desc <- list(infect_time = "days to 5 plants infected",
                  sd_outbreak_size = "outbreak size SD",
                  p_emerge = "prob. emergence",
                  p_outbreak = "outbreak probability",
-                 n_infected = "number of infected plants",
+                 n_infected = "infected plants",
                  p_alates = "mean alate proportion",
                  log_aphids = "mean log aphid abundance",
                  aphids = "mean aphid abundance",
@@ -256,14 +251,15 @@ run_sim_combos <- function(wasp_resp,
 
 
 
-scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE) {
+scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE, .nl = "<br>") {
     .fmt <- ifelse(.break, "%s parasitoid<br>responsiveness to<br>aphid densities",
                    "%s parasitoid responsiveness to aphid densities")
+    if (.break && .nl != "<br>") .fmt <- .fmt |>
+            str_replace_all("<br>", .nl)
     out <- sprintf(.fmt, .wasp_resp)
     if (.cap1) out <- first_cap(out)
     return(out)
 }
-
 
 
 

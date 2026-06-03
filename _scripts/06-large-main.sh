@@ -2,9 +2,9 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-16
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=32G
+#SBATCH --array=1-32
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=30G
 #SBATCH --time=04:00:00
 #SBATCH --job-name=large
 #SBATCH --output=logs/large-main-%a.out
@@ -33,7 +33,7 @@
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
 # scp biohpc:/home2/$USER/06-large-main/large-main*.rds \
-#     ./interm-data/
+#     ./interm-data/large-main/
 #
 #
 
@@ -50,13 +50,13 @@ source("../03-large-preamble.R")
 
 sim_df <- sim_df |>
         # add row for without *Pseudomonas*
-        add_row(n_pseudo = 0, wt_vp = NA, wt_pp = NA,
-                landscape = list(array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L)))) |>
+        add_row(n_pseudo = 0L, wt_vp = NA, wt_pp = NA,
+                landscape = list(array(c(1L, rep(0L, 9999L)), c(100L, 100L, 100L)))) |>
         # add other parameters:
         crossing(crossing(wasp_resp = c("strong", "weak"),
-                          p_load = c(0.5, 0.01),
+                          p_load = c(0.5, 0.05),
                           sd_N = c(0, 50),
-                          virus_attract = c(1, 5, 100),
+                          virus_attract = c(1, 5),
                           pseudo_repel = c(1, 5))) |>
         # placeholder for simulation output:
         mutate(sim = rep(list(NA), n()))
@@ -74,9 +74,12 @@ if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
 if (curr_idx > max_idx) stop("SLURM_ARRAY_TASK_ID cannot exceed SLURM_ARRAY_TASK_MAX")
 
 # Get seed for this set of simulations:
-.seed <- c(1409962309, 969620847, 693008744, 828602012, 1748673948, 788130188,
-           860067048, 406795366, 471844865, 244202211, 321868958, 122012710,
-           1101480883, 1938338393, 267503242, 1920906170)[curr_idx]
+.seed <- c(1409962309, 969620847,  693008744,  828602012,  1748673948, 788130188,
+           860067048,  406795366,  471844865,  244202211,  321868958,  122012710,
+           1101480883, 1938338393, 267503242,  1920906170, 484841308,  131703993,
+           1634187124, 871588671,  61978827,   1200565183, 1836251700, 199198284,
+           809307780,  915367227,  1723167327, 1633103401, 769499694,  779629787,
+           1168985096, 1533601621)[curr_idx]
 
 # Verify that indices align with 'sim_df':
 stopifnot(nrow(sim_df) %% max_idx == 0L)
@@ -102,23 +105,18 @@ large_simmer <- function(sim_df_row) {
 
     landscape <- sim_df[["landscape"]][[sim_df_row]]
     wasp_resp <- sim_df[["wasp_resp"]][[sim_df_row]]
-    outbreaks <- sim_df[["outbreaks"]][[sim_df_row]]
+    p_load <- sim_df[["p_load"]][[sim_df_row]]
     sd_N <- sim_df[["sd_N"]][[sim_df_row]]
     virus_attract <- sim_df[["virus_attract"]][[sim_df_row]]
     pseudo_repel <- sim_df[["pseudo_repel"]][[sim_df_row]]
-
-    N0 <- 55
-    p_load <- ifelse(outbreaks == "small", 0.05, 1)
-    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
-    Y0 <- ifelse(outbreaks == "big_zh", 200, 400)
 
     args <- list(landscape = landscape,
                  sd_N = sd_N,
                  virus_attract = virus_attract,
                  pseudo_repel = pseudo_repel,
-                 Y0 = Y0,
-                 N0 = N0,
-                 zeta = zeta,
+                 Y0 = 250,
+                 N0 = 55,
+                 zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
                  p_load_alate = p_load,
                  p_load_plant = p_load,
                  K = 12.5e3,
@@ -131,10 +129,7 @@ large_simmer <- function(sim_df_row) {
 }
 
 
-
-
-
-# Took ~2.25 hours per job, where each job processed 63 rows using 16 threads
+# Took ~100 min per job, where each job processed 63 rows using 8 threads
 
 cat("Starting simulations...\n")
 t0 <- Sys.time()
