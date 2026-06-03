@@ -13,10 +13,11 @@ source("_scripts/00-preamble.R")
 .overwrite <- FALSE
 
 
-if (!file.exists(rds_files$dens_sims)) stop("Run 09-large-densities.R first!")
+if (!file.exists(interm_files$dens_sims)) stop("Run 09-large-densities.R first!")
 
 
-dens_sims <- read_rds(rds_files$dens_sims)
+dens_sims <- read_csv(interm_files$dens_sims, col_types = "ciidddddddd") |>
+    mutate(wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct)))
 
 
 total_dens_blank <- dens_sims |>
@@ -53,11 +54,9 @@ total_dens_p_list <- levels(wasp_resp_fct) |>
             geom_hline(yintercept = 0, color = "gray70") +
             geom_blank(data = total_dens_blank) +
             geom_line(aes(color = n_pseudo), linewidth = 0.75) +
-            # scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
             scale_color_manual(values = full_np_pal) +
-            scale_y_continuous(n.breaks = 4L) +
+            scale_y_continuous(n.breaks = 4L, expand = expansion(c(0.05, 0.2))) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
-            # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
                  title = scenario_title(wr, TRUE))
     })
@@ -80,10 +79,8 @@ max_plant_dens_p_list <- levels(wasp_resp_fct) |>
             geom_hline(yintercept = 0, color = "gray70") +
             geom_blank(data = max_plant_dens_blank) +
             geom_line(aes(color = n_pseudo), linewidth = 0.75) +
-            # scale_color_viridis_d(begin = 0.1, end = 0.9, option = "plasma") +
             scale_color_manual(values = full_np_pal) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
-            # coord_cartesian(expand = FALSE, clip = FALSE) +
             labs(x = "Time (days)", y = "Maximum per-plant density",
                  title = scenario_title(wr, TRUE))
     })
@@ -91,6 +88,7 @@ max_plant_dens_p_list <- levels(wasp_resp_fct) |>
 
 
 # wrap_plots(total_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
+
 # wrap_plots(max_plant_dens_p_list, nrow = 1, guides = "collect", axes = "collect")
 
 
@@ -99,14 +97,11 @@ total_dens_p <- total_dens_p_list[[1]] +
     (total_dens_p_list[[2]] + theme(axis.text.y = element_blank())) +
     plot_layout(design = "A#B", widths = c(1, 0.05, 1),
                 axis_titles = "collect", guides = "collect") &
-    illustrator_theme &
-    theme(panel.spacing.y = unit(0.5, "lines"),
-          plot.margin = margin(0,0,0,0))
+    illustrator_theme
 # total_dens_p
 
 if (.overwrite) {
-    save_plot("_plots/densities-large-plantscapes.pdf", total_dens_p,
-              width = 5, height = 2)
+    save_plot("_plots/densities-large.pdf", total_dens_p, width = 5, height = 2)
 }
 
 
