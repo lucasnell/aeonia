@@ -6,10 +6,12 @@
 #'
 
 
-source("_scripts/03-large-preamble.R")
-library(patchwork)
-library(ggtext)
-library(viridisLite)
+# source("_scripts/03-large-preamble.R")
+# library(patchwork)
+# library(ggtext)
+# library(viridisLite)
+
+source("_scripts/00-preamble.R")
 
 
 # ============================================================================*
@@ -17,14 +19,11 @@ library(viridisLite)
 # ============================================================================*
 
 
-test_sims <- list.files("_scripts/interm-data", "large-par-vals-.?.?.rds",
+test_sims <- list.files("_scripts/interm-data/large-par-vals", "large-par-vals-.?.?.rds",
                         full.names = TRUE) |>
     map(read_rds) |>
     list_rbind() |>
-    # Because this doesn't vary:
-    select(-N0) |>
     pivot_longer(outbreak_size:n_infected, names_to = "outcome") |>
-    # filter(!is.na(value)) |>
     mutate(outcome = factor(outcome, levels = c("outbreak_size", "p_emerge",
                                                 "n_infected"),
                             labels = c("outbreak size", "prob. emerge",
@@ -33,8 +32,6 @@ test_sims <- list.files("_scripts/interm-data", "large-par-vals-.?.?.rds",
     arrange(p_load, Y0, outcome, n_pseudo)
 
 
-np_pal <- plasma(10, begin = 0.1, end = 0.9, direction = -1L)[c(1, 7)] |>
-    set_names(levels(test_sims$n_pseudo))
 
 # Potential value to use for Y0:
 Y0_line <- 250
@@ -51,15 +48,16 @@ test_plots <- levels(test_sims$outcome) |>
                     mutate(zeta_fct =
                                factor(zeta, labels = sprintf(
                                    "&zeta; = %.1f", sort(unique(test_sims$zeta)))))
+                y_lim <- NULL
                 if (str_detect(yvar, "prob")) {
                     y_line <- 0
-                    y_lim <- NULL
+                    # y_lim <- NULL
                 } else if (str_detect(yvar, "size")) {
                     y_line <- 2
-                    y_lim <- c(-0.3, NA)
+                    # y_lim <- c(-0.3, NA)
                 } else {
                     y_line <- 1
-                    y_lim <- c(-0.3, NA)
+                    # y_lim <- c(-0.3, NA)
                 }
                 p1 <- dd |>
                     group_by(zeta, zeta_fct, Y0) |>
@@ -86,7 +84,7 @@ test_plots <- levels(test_sims$outcome) |>
                     scale_x_continuous(breaks = c(100, 300, 500)) +
                     labs(x = "Y<sub>0</sub>", y = str_to_sentence(yvar)) +
                     # facet_wrap(~ zeta_fct, nrow = 1) +
-                    scale_color_manual("*Pseudo.*<br>plants", values = np_pal) +
+                    scale_color_manual("*Pseudo.*<br>plants", values = full_np_pal) +
                     scale_linetype_manual(NULL, values = c("solid", "22")) +
                     scale_linewidth_manual(NULL, values = c(0.75, 1))
                 return(list(p1, p2))
