@@ -2,7 +2,7 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-6
+#SBATCH --array=1-7
 #SBATCH --cpus-per-task=25
 #SBATCH --mem=25G
 #SBATCH --time=20:00:00
@@ -34,7 +34,7 @@
 # Then, when the job is done (assuming you're still in `~/GitHub/Cornell/aeonia/_scripts`):
 #
 # scp lan68@cbsugreischar.biohpc.cornell.edu:/home2/lan68/04-large-par-vals/large-par-vals*.rds \
-#     ./interm-data/
+#     ./interm-data/large-par-vals/
 #
 # Then run script 05-large-par-vals.R for analysis
 #
@@ -46,14 +46,14 @@ Rscript - << EOF
 source("../03-large-preamble.R")
 
 
-large_simmer <- function(landscape, Y0, N0, zeta, p_load) {
+large_simmer <- function(landscape, Y0, zeta, p_load) {
 
     args <- list(landscape = landscape,
                  sd_N = 0,
-                 virus_attract = 5,  # << because this maximizes p_emerge
+                 virus_attract = 1,
                  pseudo_repel = 1,
                  Y0 = Y0,
-                 N0 = N0,
+                 N0 = 55,
                  zeta = zeta,
                  p_load_alate = p_load,
                  p_load_plant = p_load,
@@ -77,17 +77,17 @@ landscape0 <- array(c(1L, rep(0L, 99999L)), c(100L, 100L, 1L))
 
 
 
-one_test <- function(p_load, Y0, N0, zeta) {
+one_test <- function(p_load, Y0, zeta) {
 
     n_inf1 <- large_simmer(landscape = landscape1,
-                          Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
+                          Y0 = Y0, zeta = zeta, p_load = p_load) |>
         getElement("n_infected")
     n_inf0 <- large_simmer(landscape = landscape0,
-                          Y0 = Y0, N0 = N0, zeta = zeta, p_load = p_load) |>
+                          Y0 = Y0, zeta = zeta, p_load = p_load) |>
         getElement("n_infected")
 
     tibble(n_pseudo = c(.n_pseudo, 0L),
-           p_load = .env\$p_load, Y0 = .env\$Y0, N0 = .env\$N0, zeta = .env\$zeta,
+           p_load = .env\$p_load, Y0 = .env\$Y0, zeta = .env\$zeta,
            outbreak_size = c(mean(n_inf1[n_inf1 > 1]), mean(n_inf0[n_inf0 > 1])),
            p_emerge = c(mean(n_inf1 > 1), mean(n_inf0 > 1)),
            n_infected = c(mean(n_inf1), mean(n_inf0)))
@@ -96,9 +96,8 @@ one_test <- function(p_load, Y0, N0, zeta) {
 
 
 
-test_sim_df <- crossing(p_load = c(0.01, 0.05, 0.5),
-                        Y0 = round(seq(50, 500, 50)),
-                        N0 = 55,
+test_sim_df <- crossing(p_load = c(0.02, 0.03, 0.04, 0.05, 0.5),
+                        Y0 = round(seq(200, 500, 50)),
                         zeta = c(0.1, 0.9))
 
 # --------------*
@@ -111,7 +110,8 @@ max_idx <- suppressWarnings(as.integer(Sys.getenv("SLURM_ARRAY_TASK_MAX")))
 if (is.na(max_idx)) stop("SLURM_ARRAY_TASK_MAX must be an integer")
 
 # Get seed for this set of simulations:
-.seed <- c(769895830, 1692138374, 1774036889, 2036965360, 1974372476, 1538998712)[curr_idx]
+.seed <- c(769895830, 1692138374, 1774036889, 2036965360, 1974372476,
+           1538998712, 1051077067)[curr_idx]
 
 # Verify that indices align with 'test_sim_df' object:
 stopifnot(nrow(test_sim_df) %% max_idx == 0L)

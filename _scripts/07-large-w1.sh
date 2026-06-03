@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --array=1-6
 #SBATCH --cpus-per-task=25
-#SBATCH --mem=25G
+#SBATCH --mem=40G
 #SBATCH --time=04:00:00
 #SBATCH --job-name=large-w1
 #SBATCH --output=logs/large-w1-%a.out
@@ -34,7 +34,7 @@
 #
 # export RDS_DIR="/home2/lan68/07-large-w1"
 # scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/large-w1*.rds \
-#     ./interm-data/
+#     ./interm-data/large-w1
 #
 #
 
@@ -50,14 +50,11 @@ source("../03-large-preamble.R")
 sim_df <- sim_df |>
         # add row for without *Pseudomonas*
         add_row(n_pseudo = 0, wt_vp = NA, wt_pp = NA,
-                landscape = list(array(0L, c(100L, 100L, 100L))) # << different from w = 0.2 sims
+                landscape = list(array(0L, c(100L, 100L, 100L)))
         ) |>
         # add other parameters:
         crossing(crossing(wasp_resp = c("strong", "weak"),
-                          # outbreaks = c("small", "big_zl", "big_zh"),  # << different from w = 0.2 sims
-                          # sd_N = c(0, 50),  # << different from w = 0.2 sims
-                          virus_attract = c(1, 5, 100),  # << different from w = 0.2 sims
-                          pseudo_repel = c(1, 5))) |>
+                          virus_attract = c(1, 5, 100))) |>
         # placeholder for simulation output:
         mutate(sim = rep(list(NA), n()))
 
@@ -66,6 +63,9 @@ sim_df <- sim_df |>
 # Adjust landscapes to start with 5 randomly located virus-infected plants:
 #
 # this whole section differs from w = 0.2 simulations
+
+# Number of virus-infected plants to start.
+n_inf <- 5L
 
 set.seed(1928347678)
 sim_df[["landscape"]] <- map2(sim_df[["landscape"]], sim_df[["wt_vp"]],
@@ -78,13 +78,13 @@ sim_df[["landscape"]] <- map2(sim_df[["landscape"]], sim_df[["wt_vp"]],
                                         tmp <- land[,,j]
                                         if (is.na(wt_vp) || wt_vp == 1) {
                                             # Totally random
-                                            idx <- sample.int(length(tmp), 5)
+                                            idx <- sample.int(length(tmp), n_inf)
                                         } else if (wt_vp < 1) {
                                             # NO overlap with Pseudomonas
-                                            idx <- sample(which(tmp == 0L), 5)
+                                            idx <- sample(which(tmp == 0L), n_inf)
                                         } else {
                                             # ALL overlap with Pseudomonas
-                                            idx <- sample(which(tmp == 2L), 5)
+                                            idx <- sample(which(tmp == 2L), n_inf)
                                         }
                                         tmp[idx] <- tmp[idx] + 1L
                                         land[,,j] <- tmp
@@ -131,25 +131,17 @@ large_simmer <- function(sim_df_row) {
 
     landscape <- sim_df[["landscape"]][[sim_df_row]]
     wasp_resp <- sim_df[["wasp_resp"]][[sim_df_row]]
-    # outbreaks <- sim_df[["outbreaks"]][[sim_df_row]]  # << different from w = 0.2 sims
-    # sd_N <- sim_df[["sd_N"]][[sim_df_row]]  # << different from w = 0.2 sims
     virus_attract <- sim_df[["virus_attract"]][[sim_df_row]]
-    pseudo_repel <- sim_df[["pseudo_repel"]][[sim_df_row]]
-
-    N0 <- 55
-    p_load <- 1  # << different from w = 0.2 sims
-    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
-    Y0 <- 200 # << different from w = 0.2 sims
 
     args <- list(landscape = landscape,
                  sd_N = 0,  # << different from w = 0.2 sims
                  virus_attract = virus_attract,
-                 pseudo_repel = pseudo_repel,
-                 Y0 = Y0,
-                 N0 = N0,
-                 zeta = zeta,
-                 p_load_alate = p_load,
-                 p_load_plant = p_load,
+                 pseudo_repel = 1,  # << different from w = 0.2 sims
+                 Y0 = 250,
+                 N0 = 55,
+                 zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
+                 p_load_alate = 1,  # << different from w = 0.2 sims
+                 p_load_plant = 1,  # << different from w = 0.2 sims
                  K = 12.5e3,
                  pseudo_surv = 0.85,
                  n_sims = 100L,
