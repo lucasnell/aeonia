@@ -67,7 +67,7 @@ one_manip_sim <- function(wasp_resp, x_name, x_val) {
 }
 
 
-if (.overwrite || !file.exists(rds_files$extreme_manip)) {
+if (.overwrite || !file.exists(interm_files$extreme_manip)) {
 
     # Takes ~6 min
     set.seed(1531497906)
@@ -90,11 +90,11 @@ if (.overwrite || !file.exists(rds_files$extreme_manip)) {
         list_rbind() |>
         mutate(wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct)))
 
-    write_rds(manip_sims, rds_files$extreme_manip, compress = "gz")
+    write_rds(manip_sims, interm_files$extreme_manip, compress = "gz")
 
 } else {
 
-    manip_sims <- read_rds(rds_files$extreme_manip)
+    manip_sims <- read_rds(interm_files$extreme_manip)
 
 }
 
@@ -222,25 +222,41 @@ one_manip_plotter <- function(wasp_resp, par_name,
 
 
 # Line plot for a parameter, with fill split into prob. emergence and outbreak size
+# If parameter is zeta, it doesn't split by wasp_resp bc that only differs by zeta.
 supp_line_plotter <- function(par_name, seeds) {
     stopifnot(length(par_name) == 1 && is.character(par_name))
-    stopifnot(length(seeds) == 2 && is.numeric(seeds))
-    map2(levels(wasp_resp_fct), seeds,
-                      \(wr, seed) {
-                          pl <- one_manip_plotter(wr, par_name,
-                                                  outcomes = c("p_emerge", "outbreak_size"),
-                                                  .return_list = TRUE, .seed = seed)
-                          pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr, TRUE, TRUE))
-                          return(pl)
-                      }) |>
-        do.call(what = c) |>
-        (\(x) {
-            for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
-            for (i in c(3,4)) x[[i]] <- x[[i]] + theme(axis.text.y=element_blank())
-            list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
-        })() |>
-        wrap_plots(ncol = 2, guides = "collect", axis_titles = "collect",
-                   heights = c(1, 0.05, 1)) +
+    stopifnot(is.numeric(seeds))
+    if (par_name != "zeta") {
+        stopifnot(length(seeds) == 2)
+        pl <- map2(levels(wasp_resp_fct), seeds,
+                   \(wr, seed) {
+                       pl <- one_manip_plotter(wr, par_name,
+                                               outcomes = c("p_emerge", "outbreak_size"),
+                                               .return_list = TRUE, .seed = seed)
+                       pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr, TRUE, TRUE))
+                       return(pl)
+                   }) |>
+            do.call(what = c) |>
+            (\(x) {
+                for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
+                for (i in c(3,4)) x[[i]] <- x[[i]] + theme(axis.text.y=element_blank())
+                list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
+            })()
+        hts <- c(1, 0.05, 1)
+    } else {
+        stopifnot(length(seeds) == 1)
+        pl <- one_manip_plotter(levels(wasp_resp_fct), par_name,
+                                outcomes = c("p_emerge", "outbreak_size"),
+                                .return_list = TRUE, .seed = seeds) |>
+            (\(x) {
+                x[[1]] <- x[[1]] + theme(axis.text.x=element_blank())
+                list(plot_spacer(), x[[1]], plot_spacer(), x[[2]])
+            })()
+        hts <- c(0.05, 1, 0.1, 1)
+    }
+    pl |>
+        wrap_plots(nrow = length(hts), guides = "collect", axis_titles = "collect",
+                   heights = hts) +
         plot_annotation(tag_level = "A") &
         theme(plot.tag = element_markdown(face = "bold"),
               plot.tag.location = "panel",
@@ -262,10 +278,8 @@ if (.overwrite) {
               width = 6.5, height = 5)
     # Because the `wasp_resp` only differs by zeta, we plot that differently:
     save_plot("_plots/extremes-manip-lines-zeta-all-outcomes.pdf",
-              one_manip_plotter(levels(manip2_sims$wasp_resp), "zeta",
-                                outcomes = c("p_emerge", "outbreak_size"),
-                                .seed = 65130342),
-              width = 3.5, height = 5)
+              supp_line_plotter("zeta", 65130342),
+              width = 4, height = 5)
 }
 
 
@@ -331,7 +345,7 @@ one_manip2_sim <- function(wasp_resp, par_name_a, par_val_a, par_name_b, par_val
 
 
 
-if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
+if (!file.exists(interm_files$extreme_manip2) || .overwrite) {
 
     # Takes ~15 min
     set.seed(2025929231)
@@ -353,11 +367,11 @@ if (!file.exists(rds_files$extreme_manip2) || .overwrite) {
         rename(Y0 = par_val_a, N0 = par_val_b) |>
         select(-starts_with("par_name_"))
 
-    write_rds(manip2_sims, rds_files$extreme_manip2, compress = "gz")
+    write_rds(manip2_sims, interm_files$extreme_manip2, compress = "gz")
 
 } else {
 
-    manip2_sims <- read_rds(rds_files$extreme_manip2)
+    manip2_sims <- read_rds(interm_files$extreme_manip2)
 
 }
 
@@ -509,233 +523,7 @@ if (.overwrite) {
 # --------------------------------------*
 
 
-
-
-# function to generate objects par_name_a, par_name_b, dd, pars_og, and .title,
-# used for all heatmaps:
-heatmaps_make_objs <- function(yvar,
-                               wasp_resp,
-                               par_name_a,
-                               par_name_b,
-                               .add_title,
-                               env) {
-
-    # In case these are factors:
-    par_name_a <- paste(par_name_a)
-    par_name_b <- paste(par_name_b)
-
-    stopifnot(!"par_name_a" %in% colnames(manip2_sims))
-    dd <- manip2_sims |>
-        filter(wasp_resp == .env$wasp_resp)
-    if (nrow(dd) == 0) {
-        stop("\nCombination of wasp_resp, par_name_a, and par_name_b not found!")
-    }
-    dd <- dd |>
-        select(n_pseudo, all_of(c(par_name_a, par_name_b, yvar, "p_emerge"))) |>
-        mutate(n_pseudo = factor(n_pseudo))
-
-    pars_og <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = 0,
-                              return_args = TRUE) |>
-        base::`[`(c(par_name_a, par_name_b)) |>
-        as_tibble()
-
-    .title <- waiver()
-    if (is.character(.add_title)) {
-        .title <- .add_title
-    } else if (is.logical(.add_title) && .add_title) {
-        .title <- scenario_title(wasp_resp, TRUE, TRUE)
-    }
-
-    assign("par_name_a", par_name_a, envir = env)
-    assign("par_name_b", par_name_b, envir = env)
-    assign("dd", dd, envir = env)
-    assign("pars_og", pars_og, envir = env)
-    assign(".title", .title, envir = env)
-
-    invisible(NULL)
-
-}
-
-
-# function to add shared plot parts for heatmaps:
-heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_args,
-                            ..tag = waiver(), ..title = waiver(),
-                            .shorten_K = FALSE) {
-
-    x_lab <- pretty_params(par_name_a) |> first_cap()
-    y_lab <- pretty_params(par_name_b) |> first_cap()
-    if (.shorten_K && (par_name_a == "K" || par_name_b == "K")) {
-        if (par_name_a == "K") {
-            d$par_val_a <- d$par_val_a / 1000
-            x_lab <- "K &divide; 1000"
-            pars_og[["par_val_a"]] <- pars_og[["par_val_a"]] / 1000
-        }
-        if (par_name_b == "K") {
-            d$par_val_b <- d$par_val_b / 1000
-            y_lab <- "K &divide; 1000"
-            pars_og[["par_val_b"]] <- pars_og[["par_val_b"]] / 1000
-        }
-    }
-
-
-    pp <- d |>
-        ggplot(aes(.data[[par_name_a]], .data[[par_name_b]])) +
-        geom_raster(aes(fill = .data[[yvar]]), na.rm = TRUE)
-    if (!isTRUE(is.na(.contour_args))) {
-        .contour_args$mapping <- aes(z = .data[[yvar]])
-        if (!"color" %in% names(.contour_args)) .contour_args$color <- "white"
-        if (!"na.rm" %in% names(.contour_args)) .contour_args$na.rm <- TRUE
-        # check for whether values in `d[[yvar]]` overlap >= 1 break
-        do_contours <- TRUE
-        if ("breaks" %in% names(.contour_args)) {
-            z_breaks <- .contour_args$breaks
-            min_d <- min(d[[yvar]], na.rm = TRUE)
-            max_d <- max(d[[yvar]], na.rm = TRUE)
-            do_contours <- sum(z_breaks <= max_d & z_breaks >= min_d) >= 1
-        }
-        # If this is the case (or if no breaks provided), add contours:
-        if (do_contours) pp <- pp + do.call(geom_contour, .contour_args)
-    }
-    pp <- pp +
-        # geom_vline(xintercept = pars_og[[par_name_a]], linetype = "22",
-        #            color = "white", linewidth = 1) +
-        # geom_hline(yintercept = pars_og[[par_name_b]], linetype = "22",
-        #            color = "white", linewidth = 1) +
-        geom_point(data = pars_og, size = 2, shape = 23, color = "black",
-                   fill = "white", stroke = 1) +
-        labs(x = x_lab, y = y_lab, tag = ..tag, title = ..title)
-
-    return(pp)
-}
-
-
-
-#' `yvar` is Pr(emerge), outbreak size, or # infected
-#' facets are by n_pseudo:
-outbreak_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
-                             .contour_args = list(),
-                             .tag = waiver(),
-                             .add_title = FALSE,
-                             .n_pseudo = NA,
-                             .shorten_K = FALSE) {
-
-    # yvar = "p_emerge"; wasp_resp = "strong"; par_name_a = "Y0"; par_name_b = "N0"
-    # .contour_args = list(); .tag = waiver(); .add_title = FALSE
-    # .n_pseudo = NA; .shorten_K = FALSE
-    # rm(yvar, wasp_resp, par_name_a, par_name_b, .contour_args, .tag, .add_title)
-    # rm(.n_pseudo, .shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, p)
-
-    # generate objects par_name_a, par_name_b, dd, pars_og, and .title
-    heatmaps_make_objs(yvar, wasp_resp, par_name_a, par_name_b, .add_title,
-                       environment())
-
-    if (yvar == "outbreak_size") {
-        z_lab <- "Outbreak<br>size"
-        z_breaks <- 1:4 * 2 + 1
-        z_lims <- c(2, 9)
-    } else if (yvar == "p_emerge") {
-        z_lab <- "Emergence<br>prob."
-        z_breaks <- 0:4 * 0.25
-        z_lims <- c(0, 1)
-    } else if (yvar == "n_infected") {
-        z_lab <- "Infected<br>plants"
-        z_breaks <- c(1, 3, 5, 7, 9)
-        z_lims <- c(1, 9)
-    } else {
-        stop("\nonly yvar == \"p_emerge\", \"outbreak_size\", and ",
-             "\"n_infected\" are programmed")
-    }
-    if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
-        .contour_args$breaks <- z_breaks
-    }
-
-    if (is.na(.n_pseudo)) {
-        p <- dd |>
-            mutate(n_pseudo = factor(paste(n_pseudo), levels = levels(n_pseudo),
-                                     labels = sprintf("n<sub>P</sub> = %s",
-                                                      levels(n_pseudo)))) |>
-            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
-                            .contour_args = .contour_args,
-                            ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
-            facet_wrap(~ n_pseudo, nrow = 1)
-    } else {
-        p <- dd |>
-            filter(n_pseudo == .n_pseudo) |>
-            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
-                            .contour_args = .contour_args,
-                            ..tag = .tag, ..title = .title, .shorten_K = .shorten_K)
-    }
-    p <- p +
-        scale_fill_scico(z_lab, limits = z_lims, breaks = z_breaks,
-                         palette = "tokyo", direction = -1)
-
-    return(p)
-}
-
-
-
-
-#' `yvar` is Pr(emerge), outbreak size, or # infected
-pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
-                               .contour_args = NA, .tag = waiver(),
-                               .add_title = FALSE, .shorten_K = FALSE,
-                               .z_pal = "bam") {
-
-    # yvar = "n_infected"; wasp_resp = "strong"; par_name_a = "Y0"; par_name_b = "N0"
-    # .contour_args = NA; .tag = waiver(); .add_title = FALSE
-    # .shorten_K = FALSE
-    # rm(yvar, wasp_resp, par_name_a, par_name_b, .contour_args, .tag, .add_title)
-    # rm(.shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, y_summ)
-
-    # generate objects par_name_a, par_name_b, dd, pars_og, and .title
-    heatmaps_make_objs(yvar, wasp_resp, par_name_a, par_name_b, .add_title,
-                       environment())
-
-    z_dir = -1
-    if (yvar == "outbreak_size") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
-        z_breaks <- -2:2 * 2
-        z_lim <- c(-1, 1) * 4
-    } else if (yvar == "p_emerge") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
-        z_breaks <- -2:2 * 0.5
-        z_lim <- c(-1, 1) * 1
-    } else if (yvar == "n_infected") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>infected plants"
-        z_breaks <- -1:2 * 2
-        z_lim <- c(-2.75, 5.2)
-    } else {
-        stop("\nonly yvar == \"p_emerge\", \"outbreak_size\", and ",
-             "\"n_infected\" are programmed")
-    }
-    if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
-        .contour_args$breaks <- z_breaks
-    }
-
-    y_summ <- \(y, np) round(y[np != "0"] - y[np == "0"], 3)
-    dd |>
-        group_by(across(all_of(c(par_name_a, par_name_b)))) |>
-        summarize(across(all_of(yvar), \(y) y_summ(y, np = n_pseudo)),
-                  .groups = "drop") |>
-        heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
-                        .contour_args = .contour_args,
-                        ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
-        scale_fill_scico(z_lab, palette = .z_pal, midpoint = 0,
-                         direction = z_dir, breaks = z_breaks, limits = z_lim,
-                         guide = guide_colourbar(theme = theme(
-                             # legend.key.size = unit(12, "in"),
-                             legend.key.height = unit(1.2, "in"),
-                             legend.key.width  = unit(0.24, "in")
-                         ))) +
-        # This fixes a very annoying bug where using
-        # `legend.text = ggtext::element_markdown(...)` makes the legend
-        # really large and doesn't allow me to change its size
-        replace_theme(theme_get(),
-                      legend.text = element_text(color = "black", size = 9))
-}
-
-
-
+source("_scripts/02b-heatmap-funs.R")
 
 
 
@@ -796,9 +584,25 @@ pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
 # _ supp. plots ----
 #
 
+
+
+
+
+
+
+
 # Heatmaps of Y0 and N0, with fill split into prob. emergence and outbreak size
-yn_hm_p <- pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
-                              .add_title = scenario_title("weak", TRUE, TRUE)) +
+yn_hm_p <- {pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
+                               .add_title = scenario_title("weak", TRUE, TRUE)) +
+        geom_segment(data = tibble(Y0 = 1, N0 = 75, Y0_s = Y0 + 0.5, N0_s = 150),
+                     aes(Y0_s, N0_s, xend = Y0, yend = N0),
+                     inherit.aes = FALSE,
+                     color = "black", linewidth = 2, linejoin = "mitre",
+                     arrow = arrow(type = "closed", length = unit(0.1, "inches"))) +
+        geom_text(data = tibble(Y0 = 1, N0 = 200), aes(Y0, N0),
+                  label = "original\nvalues", inherit.aes = FALSE,
+                  hjust = 0, vjust = 1, color = "black",
+                  size.unit = "pt", size = 14, lineheight = 0.7)} +
     pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0", .z_pal = "broc",
                        .add_title = scenario_title("strong", TRUE, TRUE)) +
     {pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0", .z_pal = "vik") +

@@ -44,6 +44,10 @@ large_sims <- crossing(wasp_resp = factor(1:2, labels = levels(wasp_resp_fct)),
         stopifnot(length(z) > 1)
         ci <- booter(z)
         return(ci[c("Lower", "Upper")] |> as.list() |> as_tibble())
+    }),
+    ni_boots = map(sims, \(x) {
+        ci <- booter(x$n_infected)
+        return(ci[c("Lower", "Upper")] |> as.list() |> as_tibble())
     }))
 
 
@@ -490,6 +494,89 @@ if (.overwrite) {
 
 
 
+# -------------------------------------*
+# ... Infected plants - freq. line graphs ----
+# -------------------------------------*
+
+ninf_hist_empty_data <- large_sims |>
+    mutate(n_infected = map(sims, \(x) x$n_infected)) |>
+    select(-sims) |>
+    unnest(n_infected) |>
+    mutate(n_infected = factor(n_infected, levels = 1:9)) |>
+    group_by(wasp_resp, n_pseudo, n_infected) |>
+    count(name = "n_obs", .drop = FALSE) |>
+    group_by(wasp_resp, n_pseudo) |>
+    mutate(perc = 100 * n_obs / sum(n_obs)) |>
+    ungroup() |>
+    mutate(n_infected = as.integer(paste(n_infected))) |>
+    filter(perc == max(perc)) |>
+    select(n_infected, perc) |>
+    mutate(n_pseudo = list(factor(unique(large_sims$n_pseudo)))) |>
+    unnest(n_pseudo)
+
+
+ninf_weak_strong_hist_list <- levels(wasp_resp_fct) |>
+    set_names() |>
+    map(\(wr) {
+        # wr = "strong"
+        # rm(wr, dd, dd_means)
+        dd <- large_sims |>
+            filter(wasp_resp == wr) |>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            mutate(n_infected = map(sims, \(x) x$n_infected)) |>
+            select(n_pseudo, n_infected) |>
+            unnest(n_infected) |>
+            mutate(n_infected = factor(n_infected, levels = 1:9)) |>
+            group_by(n_pseudo, n_infected) |>
+            count(name = "n_obs", .drop = FALSE) |>
+            group_by(n_pseudo) |>
+            mutate(perc = 100 * n_obs / sum(n_obs)) |>
+            ungroup() |>
+            mutate(n_infected = as.integer(paste(n_infected)))
+        dd_means <- large_sims |>
+            filter(wasp_resp == wr) |>
+            mutate(n_pseudo = factor(n_pseudo)) |>
+            select(n_pseudo, n_infected, ni_boots) |>
+            unnest(ni_boots)
+        p <- dd |>
+            ggplot(aes(n_infected, perc)) +
+            geom_hline(yintercept = 0, color = "gray70") +
+            geom_blank(data = ninf_hist_empty_data) +
+            geom_point(aes(color = n_pseudo), size = 2, stroke = 1) +
+            geom_line(aes(color = n_pseudo), linewidth = 1) +
+            geom_vline(data = dd_means,
+                       aes(xintercept = n_infected, color = n_pseudo),
+                       linewidth = 1, linetype = "22") +
+            geom_ribbon(data = dd_means |> crossing(perc = c(-Inf, Inf)),
+                        aes(y = perc,
+                            xmin = Lower, xmax = Upper, fill = n_pseudo),
+                        color = NA, alpha = 0.25) +
+            scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
+            scale_x_continuous(breaks = (0:4) * 2 + 1) +
+            scale_y_continuous(breaks = \(y) {
+                if (max(y) < 65 && max(y) > 50) {
+                    return(c(0, 25, 50))
+                } else return(scales::breaks_extended(n = 5)(y))
+            }) +
+            labs(x = "Infected plants", y = "Percent of simulations")
+        if (wr == tail(levels(large_sims$wasp_resp), 1))
+            p <- p + theme(axis.text.y = element_blank())
+        return(p)
+    })
+
+# wrap_plots(ninf_weak_strong_hist_list, nrow = 1, guides = "collect", axis_titles = "collect")
+
+
+if (.overwrite) {
+    .p <- ninf_weak_strong_hist_list |>
+        wrap_plots(design = "A#B", widths = c(1, 0.1, 1),
+                   guides = "collect", axis_titles = "collect") &
+        illustrator_theme
+    save_plot("_plots/extremes/disease-n_infected.pdf", .p,
+              width = 6.2, height = 1.9)
+    rm(.p)
+}
+
 
 
 # ============================================================================*
@@ -693,7 +780,7 @@ if (.overwrite) {
 
 
 
-if (.overwrite || !file.exists(rds_files$dd_disp_sims)) {
+if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
 
     # Takes ~1 min
     set.seed(1512618759)
@@ -724,11 +811,11 @@ if (.overwrite || !file.exists(rds_files$dd_disp_sims)) {
         }, .progress = .prog_args) |>
         list_rbind()
 
-    write_rds(dd_disp_sims, rds_files$dd_disp_sims, compress = "gz")
+    write_rds(dd_disp_sims, interm_files$dd_disp_sims, compress = "gz")
 
 } else {
 
-    dd_disp_sims <- read_rds(rds_files$dd_disp_sims)
+    dd_disp_sims <- read_rds(interm_files$dd_disp_sims)
 
 }
 
