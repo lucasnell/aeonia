@@ -21,6 +21,7 @@ if (grepl("biohpc.cornell.edu$", Sys.info()[["nodename"]]) &&
 }
 if (is.na(n_threads)) stop("n_threads cannot be NA")
 options("mc.cores" = n_threads)
+options("readr.num_threads" = n_threads)
 
 suppressPackageStartupMessages({
     library(tidyverse)
