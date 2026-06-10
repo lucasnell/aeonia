@@ -15,13 +15,17 @@ suppressPackageStartupMessages({
 interm_files <- list(extreme_manip = "extremes-manip-sims.rds",
                      extreme_manip2 = "extremes-manip2-sims.rds",
                      dens_sims = "density-sims.csv",
-                     dd_disp_sims = "dd_disp-sims.csv") |>
+                     dd_disp_sims = "dd_disp-sims.csv",
+                     large_zeta_sims = "large-zeta-sims.csv.gz") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 
 
 # Set threads for simulations:
 options("mc.cores" = max(1L, parallel::detectCores()-2L))
+# And for readr functions
+options("readr.num_threads" = max(1L, parallel::detectCores()-2L))
+
 
 # For purrr progress bar:
 .prog_args <- list(clear = FALSE,

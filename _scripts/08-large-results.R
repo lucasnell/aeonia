@@ -442,3 +442,93 @@ if (.overwrite) {
 
 
 
+# =============================================================================*
+# =============================================================================*
+# Empirical zeta ----
+# =============================================================================*
+# =============================================================================*
+
+
+
+
+
+# In Ives et al. (1999), they found that parasitoids spent ~3.76 more time
+# foraging at plants where they encountered an aphid.
+# Bestrong simulates our model with varying zeta, then compares the observed
+# wasp abundances to those predicted when parasitoids never encounter an aphid
+# on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
+
+if (!file.exists(interm_files$large_zeta_sims)) stop("Run 11-large-emp-zeta.R first!")
+
+zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddl",
+                      progress = FALSE)
+
+# Takes ~ 10 sec
+set.seed(1540192361)
+zeta_sim_summs <- zeta_sims |>
+    mutate(rel = wasps / pred_wasps) |>
+    group_by(zeta, n_pseudo, pseudo) |>
+    summarize(ci = list(booter(rel)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              min = min(rel), max = max(rel),
+              rel = mean(rel), .groups = "drop") |>
+    unnest(ci) |>
+    mutate(pseudo = factor(pseudo, levels = c(FALSE, TRUE),
+                           labels = c("Plants without<br>*Pseudomonas*",
+                                      "Plants with<br>*Pseudomonas*")),
+           n_pseudo_fct = factor(n_pseudo,
+                                 levels = n_pseudo_lvls[n_pseudo_lvls > 0],
+                                 labels = n_pseudo_lvls[n_pseudo_lvls > 0] |>
+                                     (\(x) x / 10e3 * 100)() |>
+                                     (\(x) sprintf("%.0f%% *Pseudo.*", x))()))
+
+
+# approximate using linear interpolation where lines equal 1:
+zeta_one_ests <- zeta_sim_summs |>
+    group_by(n_pseudo_fct, n_pseudo, pseudo) |>
+    summarize(zeta = (\(z, r) {
+        # Linear interpolation:
+        f <- approxfun(z, r)
+        # Find where it equals 1:
+        approx_z <- uniroot(function(x) f(x) - 1, range(z))$root
+        return(approx_z)
+    })(zeta, rel), .groups = "drop_last") |>
+    summarize(zeta_d = abs(diff(range(zeta))),
+              zeta = mean(zeta), .groups = "drop")
+
+# They are the same across whether Pseudomonas is on plant:
+zeta_one_ests$zeta_d |> max()
+
+zeta_one_ests |> select(n_pseudo, zeta)
+#   n_pseudo  zeta
+#      <int> <dbl>
+# 1     1000 0.749
+# 2     3000 0.698
+# 3     5000 0.626
+# 4     7000 0.509
+# 5     9000 0.296
+
+
+zeta_p <- zeta_sim_summs |>
+    ggplot(aes(zeta, rel, color = pseudo)) +
+    geom_hline(yintercept = 1, color = "gray70", linewidth = 1) +
+    geom_vline(data = zeta_one_ests, aes(xintercept = zeta),
+               color = "black", linetype = "22") +
+    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = pseudo),
+    # geom_ribbon(aes(ymin = min, ymax = max, fill = pseudo),
+                color = NA, alpha = 0.25) +
+    geom_line(linewidth = 0.75) +
+    facet_wrap(~ n_pseudo_fct, nrow = 2, axes = "all", axis.labels = "margins") +
+    labs(x = pretty_params("zeta", cap1 = TRUE),
+         y = "Observed / predicted parasitoid density") +
+    scale_color_manual(NULL, values = np_pal |> set_names(nm = NULL),
+                          aesthetics = c("color", "fill")) +
+    theme(legend.position = c(5/6, 1/4),
+          legend.justification = c(0.5, 0.5),
+          legend.key.spacing.y = unit(1, "lines"))
+
+# zeta_p
+
+if (.overwrite) {
+    save_plot("_plots/large-empirical-zeta.pdf", zeta_p, width = 6, height = 5)
+}
