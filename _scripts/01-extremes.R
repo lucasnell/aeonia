@@ -802,24 +802,35 @@ if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
             pe <- as.integer(sims$n_infected > 1)
             ob <- sims$n_infected[sims$n_infected > 1]
             boots <- list(p_emerge = booter(pe),
-                          outbreak_size = booter(ob))
+                          outbreak_size = booter(ob),
+                          n_infected = booter(sims$n_infected))
             tibble(disp = .env$disp, zeta = .env$zeta,
                    n_pseudo = .env$n_pseudo,
                    p_emerge = mean(sims$n_infected > 1),
                    outbreak_size = mean(sims$n_infected[sims$n_infected > 1]),
+                   n_infected = mean(sims$n_infected),
                    ci = list(boots))
         }, .progress = .prog_args) |>
-        list_rbind()
+        list_rbind() |>
+        pivot_longer(p_emerge:n_infected, names_to = "outcome") |>
+        filter(!is.na(value)) |>
+        mutate(lower = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Lower"]]),
+               upper = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Upper"]])) |>
+        select(-ci) |>
+        mutate(outcome = factor(outcome,
+                                levels = c("p_emerge", "outbreak_size",
+                                           "n_infected")))
 
-    write_rds(dd_disp_sims, interm_files$dd_disp_sims, compress = "gz")
+    write_csv(dd_disp_sims, interm_files$dd_disp_sims)
 
 } else {
 
-    dd_disp_sims <- read_rds(interm_files$dd_disp_sims)
+    dd_disp_sims <- read_csv(interm_files$dd_disp_sims, col_types = "ddicddd") |>
+        mutate(outcome = factor(outcome,
+                                levels = c("p_emerge", "outbreak_size",
+                                           "n_infected")))
 
 }
-
-
 
 
 dd_disp_p <- dd_disp_sims |>
@@ -828,12 +839,8 @@ dd_disp_p <- dd_disp_sims |>
                          labels = c("density<br>dependent",
                                     sprintf("fixed<br>prop = %.2f",
                                             sort(unique(disp))[-1])))) |>
-    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
-    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"))) |>
-    filter(!is.na(value)) |>
-    mutate(lower = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Lower"]]),
-           upper = map2_dbl(ci, outcome, \(.c, .o) .c[[.o]][["Upper"]])) |>
-    select(-ci) |>
+    filter(outcome != "n_infected") |>
+    mutate(outcome = fct_drop(outcome)) |>
     split(~ disp + outcome) |>
     map(\(ddd) {
         yvar <- paste(ddd$outcome[[1]])
