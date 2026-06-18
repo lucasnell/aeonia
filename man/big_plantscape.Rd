@@ -21,6 +21,7 @@ big_plantscape(
   radius = an_environ$radius,
   p_load_alate = 0.5,
   p_load_plant = 0.5,
+  force_disps = FALSE,
   ...
 )
 }
@@ -102,6 +103,11 @@ inoculated plant.}
 \item{p_load_plant}{Single numeric indicating the probability that an
 uninoculated plant is loaded with a virus if it interacts with an
 inoculated alate.}
+
+\item{force_disps}{Single logical for whether to force dispersals to be
+output even if \code{summ != "all"}. IMPORTANT: Only do this if you're sure
+you have enough memory. It will require a lot!
+Defaults to \code{FALSE}.}
 
 \item{...}{Other parameters for functions \code{\link[=sim_plantscape]{sim_plantscape()}},
 \code{\link[=make_disease_ptr]{make_disease_ptr()}}, or \code{\link[=make_insects_ptr]{make_insects_ptr()}}.}

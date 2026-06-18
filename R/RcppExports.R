@@ -59,7 +59,7 @@ logit <- function(p) {
     .Call(`_aeonia_logit`, p)
 }
 
-#' @describeIn logit
+#' @rdname logit
 #'
 #' @export
 #'

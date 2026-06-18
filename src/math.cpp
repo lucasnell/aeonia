@@ -26,7 +26,7 @@ NumericVector logit(NumericVector p) {
     }
     return out;
 }
-//' @describeIn logit
+//' @rdname logit
 //'
 //' @export
 //'
