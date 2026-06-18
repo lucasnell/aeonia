@@ -22,7 +22,7 @@ sim_plantscape(
   out_pseudo = FALSE,
   out_attack_surv = FALSE,
   out_stages = FALSE,
-  out_dispersals = FALSE,
+  out_dispersals = "none",
   show_progress = FALSE,
   n_threads = 0L
 )
@@ -136,12 +136,18 @@ Defaults to \code{FALSE}.}
 by juvenile vs adults.
 Defaults to \code{FALSE}.}
 
-\item{out_dispersals}{Single logical for whether to output a column list
+\item{out_dispersals}{String for whether / how to output dispersal info.
+If \code{out_dispersals = "all"}, dispersals are a column list
 containing matrices with the number of alate dispersals connecting
 plants. The column indicates the plant the alate came from,
 and the row indicates the plant the alate dispersed to.
+If \code{out_dispersals = "in"}, dispersals are a column list
+containing matrices with the number of incoming alate dispersals
+for each plants. The row indicates plant x coordinate,
+and the column indicates y.
+If \code{out_dispersals = "none"}, no dispersals are output.
 This argument only does something when \code{summ \%in\% c("time", "all")}.
-Defaults to \code{FALSE}.}
+Defaults to \code{"none"}.}
 
 \item{show_progress}{Single logical for whether to show progress bar.
 Defaults to \code{FALSE}.}

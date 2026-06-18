@@ -113,8 +113,10 @@ struct ScapeSimmer {
     uint32 n_x;
     uint32 n_y;
 
-    // Whether to output dispersals:
-    bool out_dispersals;
+    // Whether to output any dispersals:
+    bool out_any_dispersals;
+    // Whether to output all (vs just incoming) dispersals:
+    bool out_all_dispersals;
     // iterator for current dispersal matrix:
     std::vector<arma::umat>::iterator disp_iter;
 
@@ -134,7 +136,7 @@ struct ScapeSimmer {
                        const std::vector<uint64>& seeds,
                        const std::string& summ_,
                        const uint32& max_t_,
-                       const bool& out_dispersals_)
+                       const std::string& out_dispersals_)
         : scape(landscape_, disp_dis, insects, N0, W0, M0, Y0, wasp_attract_, seeds),
           output_dens(),
           output_ids(),
@@ -143,7 +145,8 @@ struct ScapeSimmer {
           max_t(max_t_),
           n_x(landscape_.n_rows),
           n_y(landscape_.n_cols),
-          out_dispersals(out_dispersals_),
+          out_any_dispersals(out_dispersals_ != "none"),
+          out_all_dispersals(out_dispersals_ == "all"),
           disp_iter(),
           dim_conv(n_x, n_y) {
 
@@ -154,20 +157,26 @@ struct ScapeSimmer {
         fill_output();
 
         // Optionally reserve `dispersals`:
-        if (summ != "time" && summ != "all") out_dispersals = false;
-        if (out_dispersals) {
+        if (summ != "time" && summ != "all") {
+            out_any_dispersals = false;
+            out_all_dispersals = false;
+        }
+        if (out_any_dispersals) {
+            uint32 n_disp_rows = (out_all_dispersals) ? n_x*n_y : n_x;
+            uint32 n_disp_cols = (out_all_dispersals) ? n_x*n_y : n_y;
+            if (out_all_dispersals) n_disp_cols = n_x*n_y;
             if (summ == "time") {
                 dispersals.reserve(max_t + 1);
                 for (uint32 i = 0; i < (max_t + 1); i++) {
-                    dispersals.emplace_back(n_x*n_y, n_x*n_y, arma::fill::zeros);
+                    dispersals.emplace_back(n_disp_rows, n_disp_cols, arma::fill::zeros);
                 }
             } else {
                 dispersals = std::vector<arma::umat>(1, arma::umat(
-                    n_x * n_y, n_x * n_y, arma::fill::zeros));
+                    n_disp_rows, n_disp_cols, arma::fill::zeros));
             }
         } else dispersals.push_back(arma::umat());
         disp_iter = dispersals.begin();
-        if (out_dispersals && summ == "time") disp_iter++;
+        if (out_any_dispersals && summ == "time") disp_iter++;
     }
 
 
