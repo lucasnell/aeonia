@@ -18,12 +18,12 @@ void ScapeSimmer::run(const bool& infect_stop,
     for (uint32 t = 0; t < max_t; t++) {
         all_infected = scape.iterate(*disp_iter);
         // Move to next dispersal matrix if necessary:
-        if (out_dispersals && summ == "time") disp_iter++;
+        if (out_any_dispersals && summ == "time") disp_iter++;
         // Fill `output` with current conditions:
         fill_output();
         if (infect_stop && all_infected) {
             // Shorten dispersals if stopping early bc of full infection:
-            if (out_dispersals && summ == "time" && disp_iter != dispersals.end()) {
+            if (out_any_dispersals && summ == "time" && disp_iter != dispersals.end()) {
                 // Note: no need to add one to `curr_size` bc line after
                 // `scape.iterate()` already iterates `disp_iter`
                 size_t curr_size = disp_iter - dispersals.begin();
@@ -291,6 +291,7 @@ void check_plantscape_args(const arma::ucube& landscapes,
                            uint32& infect_time_n,
                            const double& aphid_gone_thresh,
                            const double& wasp_gone_thresh,
+                           const std::string& out_dispersals,
                            uint32& n_threads) {
 
     uint32 n_x = landscapes.n_rows;
@@ -372,6 +373,12 @@ void check_plantscape_args(const arma::ucube& landscapes,
         }
         if (wpa_sum != 1) wasp_attract /= wpa_sum;
     } else wasp_attract.fill(1.0 / static_cast<double>(wasp_attract.n_elem));
+
+
+    std::vector<std::string> od_opts = {"all", "in", "none"};
+    if (std::find(od_opts.begin(), od_opts.end(), out_dispersals) == od_opts.end()) {
+        stop("`out_dispersals` must be \"all\", \"in\", or \"none\"");
+    }
 
     thread_check(n_threads); // Check that # threads isn't too high
 
@@ -535,12 +542,18 @@ void check_plantscape_args(const arma::ucube& landscapes,
 //' @param out_stages Single logical for whether to separate output for aphids
 //'     by juvenile vs adults.
 //'     Defaults to `FALSE`.
-//' @param out_dispersals Single logical for whether to output a column list
+//' @param out_dispersals String for whether / how to output dispersal info.
+//'     If `out_dispersals = "all"`, dispersals are a column list
 //'     containing matrices with the number of alate dispersals connecting
 //'     plants. The column indicates the plant the alate came from,
 //'     and the row indicates the plant the alate dispersed to.
+//'     If `out_dispersals = "in"`, dispersals are a column list
+//'     containing matrices with the number of incoming alate dispersals
+//'     for each plants. The row indicates plant x coordinate,
+//'     and the column indicates y.
+//'     If `out_dispersals = "none"`, no dispersals are output.
 //'     This argument only does something when `summ %in% c("time", "all")`.
-//'     Defaults to `FALSE`.
+//'     Defaults to `"none"`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.
 //' @param n_threads Single integer for the number of threads to use.
@@ -576,14 +589,15 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const bool& out_pseudo = false,
                          const bool& out_attack_surv = false,
                          const bool& out_stages = false,
-                         const bool& out_dispersals = false,
+                         const std::string& out_dispersals = "none",
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
 
     arma::mat wasp_attract;
     check_plantscape_args(landscapes, max_t, N0, W0, M0, Y0, wasp_attract,
                           wasp_plant_attract, summ, infect_time_n,
-                          aphid_gone_thresh, wasp_gone_thresh, n_threads);
+                          aphid_gone_thresh, wasp_gone_thresh, out_dispersals,
+                          n_threads);
 
     uint32 n_reps = landscapes.n_slices;
 

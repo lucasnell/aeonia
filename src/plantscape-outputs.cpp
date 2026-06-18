@@ -392,6 +392,8 @@ void ps_out_none(DataFrame& out_df,
  functions since those are the max possible rows.
  There can be a mismatch between these values when simulations
  stop once all plants are infected.
+
+ This first version is for outputting all dispersals.
  */
 List make_disp_col(const std::vector<ScapeSimmer>& simmers,
                    const uint32& n_actual_rows,
@@ -424,6 +426,37 @@ List make_disp_col(const std::vector<ScapeSimmer>& simmers,
     return disp_col;
 }
 
+// This version is for just outputting incoming alates
+List make_disp_col(const std::vector<ScapeSimmer>& simmers,
+                   const uint32& n_actual_rows,
+                   const uint32& n_x,
+                   const uint32& n_y) {
+
+    List disp_col(n_actual_rows);
+    // Make row and column names:
+    CharacterVector row_names(n_x);
+    CharacterVector col_names(n_y);
+    for (uint32 x = 0; x < n_x; x++) row_names[x] = std::to_string(x+1);
+    for (uint32 y = 0; y < n_y; y++) col_names[y] = std::to_string(y+1);
+
+    uint32 k = 0;
+    for (uint32 r = 0; r < simmers.size(); r++) {
+        for (const arma::umat& disps : simmers[r].dispersals) {
+            if (disps.n_rows != n_x || disps.n_cols != n_y) {
+                stop("INTERNAL ERROR: inconsistent plantscape dispersal objects");
+            }
+            IntegerMatrix m = wrap(disps);
+            rownames(m) = row_names;
+            colnames(m) = col_names;
+            if (k >= n_actual_rows) stop("k >= n_actual_rows");
+            disp_col[k] = m;
+            k++;
+        }
+    }
+
+    return disp_col;
+}
+
 
 
 
@@ -446,8 +479,9 @@ void ps_out_time(DataFrame& out_df,
 
     // Check if we need to also add dispersal events:
     uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
-    bool out_dispersals = simmers[0].dispersals[0].n_rows == n_plants;
-    if (out_dispersals) {
+    bool out_any_dispersals = simmers[0].out_any_dispersals;
+    bool out_all_dispersals = simmers[0].out_all_dispersals;
+    if (out_any_dispersals) {
         col_names.push_back("disps");
         n_cols++;
     }
@@ -478,7 +512,7 @@ void ps_out_time(DataFrame& out_df,
             tmp_list[k+2].push_back(out_dens.tot_wasps);        // wasps
 
             // Just filler for disps column:
-            if (out_dispersals) tmp_list.back().push_back(0);
+            if (out_any_dispersals) tmp_list.back().push_back(0);
 
         }
     }
@@ -488,9 +522,16 @@ void ps_out_time(DataFrame& out_df,
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
 
     // Now add dispersal events list column:
-    if (out_dispersals) {
-        List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
-        out_df["disps"] = disp_col;
+    if (out_any_dispersals) {
+        if (out_all_dispersals) {
+            List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
+            out_df["disps"] = disp_col;
+        } else {
+            List disp_col = make_disp_col(simmers, tmp_list.back().size(),
+                                          landscapes.n_rows,
+                                          landscapes.n_cols);
+            out_df["disps"] = disp_col;
+        }
     }
 
 
@@ -522,8 +563,9 @@ void ps_out_all(DataFrame& out_df,
 
     // Check if we need to also add dispersal events:
     uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
-    bool out_dispersals = simmers[0].dispersals[0].n_rows == n_plants;
-    if (out_dispersals) {
+    bool out_any_dispersals = simmers[0].out_any_dispersals;
+    bool out_all_dispersals = simmers[0].out_all_dispersals;
+    if (out_any_dispersals) {
         col_names.push_back("disps");
         n_cols++;
     }
@@ -534,7 +576,7 @@ void ps_out_all(DataFrame& out_df,
 
     uint32 infect_idx = n_cols - 2U;
     uint32 infected_idx = n_cols - 1U;
-    if (out_dispersals) {
+    if (out_any_dispersals) {
         infect_idx--;
         infected_idx--;
     }
@@ -614,9 +656,16 @@ void ps_out_all(DataFrame& out_df,
 
 
     // Now add dispersal events list column:
-    if (out_dispersals) {
-        List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
-        out_df["disps"] = disp_col;
+    if (out_any_dispersals) {
+        if (out_all_dispersals) {
+            List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
+            out_df["disps"] = disp_col;
+        } else {
+            List disp_col = make_disp_col(simmers, tmp_list.back().size(),
+                                          landscapes.n_rows,
+                                          landscapes.n_cols);
+            out_df["disps"] = disp_col;
+        }
     }
 
 

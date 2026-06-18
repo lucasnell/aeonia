@@ -316,12 +316,18 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' @param out_stages Single logical for whether to separate output for aphids
 #'     by juvenile vs adults.
 #'     Defaults to `FALSE`.
-#' @param out_dispersals Single logical for whether to output a column list
+#' @param out_dispersals String for whether / how to output dispersal info.
+#'     If `out_dispersals = "all"`, dispersals are a column list
 #'     containing matrices with the number of alate dispersals connecting
 #'     plants. The column indicates the plant the alate came from,
 #'     and the row indicates the plant the alate dispersed to.
+#'     If `out_dispersals = "in"`, dispersals are a column list
+#'     containing matrices with the number of incoming alate dispersals
+#'     for each plants. The row indicates plant x coordinate,
+#'     and the column indicates y.
+#'     If `out_dispersals = "none"`, no dispersals are output.
 #'     This argument only does something when `summ %in% c("time", "all")`.
-#'     Defaults to `FALSE`.
+#'     Defaults to `"none"`.
 #' @param show_progress Single logical for whether to show progress bar.
 #'     Defaults to `FALSE`.
 #' @param n_threads Single integer for the number of threads to use.
@@ -339,7 +345,7 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' @importFrom tibble as_tibble
 #'
 #'
-sim_plantscape <- function(landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract = NULL, max_t = 100L, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = FALSE, out_pseudo = FALSE, out_attack_surv = FALSE, out_stages = FALSE, out_dispersals = FALSE, show_progress = FALSE, n_threads = 0L) {
+sim_plantscape <- function(landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract = NULL, max_t = 100L, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = FALSE, out_pseudo = FALSE, out_attack_surv = FALSE, out_stages = FALSE, out_dispersals = "none", show_progress = FALSE, n_threads = 0L) {
     .Call(`_aeonia_sim_plantscape`, landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract, max_t, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_attack_surv, out_stages, out_dispersals, show_progress, n_threads)
 }
 

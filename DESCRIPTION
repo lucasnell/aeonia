@@ -1,6 +1,6 @@
 Package: aeonia
 Title: Alate Effects On Nonpersistent Infection Advancement
-Version: 0.0.1
+Version: 0.0.1.2
 Description: What the package does (one paragraph).
 Authors@R: person(c("Lucas", "A."), "Nell", email = "lucnell@gmail.com",
                   role = c("cph", "aut", "cre"),
@@ -42,4 +42,4 @@ GithubRepo: aeonia
 GithubUsername: lucasnell
 VignetteBuilder: quarto
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.0.0

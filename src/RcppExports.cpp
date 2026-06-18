@@ -209,7 +209,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, arma::cube N0, arma::cube W0, arma::cube M0, arma::vec Y0, SEXP insect_ptr, SEXP disease_ptr, Nullable<NumericMatrix> wasp_plant_attract, const uint32& max_t, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_attack_surv, const bool& out_stages, const bool& out_dispersals, const bool& show_progress, uint32 n_threads);
+DataFrame sim_plantscape(const arma::ucube& landscapes, arma::cube N0, arma::cube W0, arma::cube M0, arma::vec Y0, SEXP insect_ptr, SEXP disease_ptr, Nullable<NumericMatrix> wasp_plant_attract, const uint32& max_t, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_attack_surv, const bool& out_stages, const std::string& out_dispersals, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP M0SEXP, SEXP Y0SEXP, SEXP insect_ptrSEXP, SEXP disease_ptrSEXP, SEXP wasp_plant_attractSEXP, SEXP max_tSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP aphid_gone_threshSEXP, SEXP wasp_gone_threshSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP out_attack_survSEXP, SEXP out_stagesSEXP, SEXP out_dispersalsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -231,7 +231,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_attack_surv(out_attack_survSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_stages(out_stagesSEXP);
-    Rcpp::traits::input_parameter< const bool& >::type out_dispersals(out_dispersalsSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type out_dispersals(out_dispersalsSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
     rcpp_result_gen = Rcpp::wrap(sim_plantscape(landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract, max_t, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_attack_surv, out_stages, out_dispersals, show_progress, n_threads));
