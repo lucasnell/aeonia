@@ -80,7 +80,7 @@ For each item,
 \code{2} indicates a \emph{Pseudomonas}-infected plant (no virus), and
 \code{3} indicates a plant with both virus and \emph{Pseudomonas}.
 See \code{\link[=land_cube2list]{land_cube2list()}} for converting this to a list of length \code{n_lands},
-where each item is a \code{\link[tibble:tbl_df-class]{tibble}} with columns
+where each item is a \code{\link[tibble:tbl_df]{tibble}} with columns
 \code{x}, \code{y}, and \code{type}.
 }
 \description{

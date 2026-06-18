@@ -33,6 +33,10 @@
 #'     Must be >= 1.
 #'     See "Radius" section in the description for [lil_plantscape()] for details.
 #'     Defaults to `an_environ$radius`.
+#' @param force_disps Single logical for whether to force dispersals to be
+#'     output even if `summ != "all"`. IMPORTANT: Only do this if you're sure
+#'     you have enough memory. It will require a lot!
+#'     Defaults to `FALSE`.
 #' @param ... Other parameters for functions [sim_plantscape()],
 #'     [make_disease_ptr()], or [make_insects_ptr()].
 #' @inheritParams sim_plantscape
@@ -62,11 +66,14 @@ big_plantscape <- function(n_sims,
                            radius = an_environ$radius,
                            p_load_alate = 0.5,
                            p_load_plant = 0.5,
+                           force_disps = FALSE,
                            ...) {
 
     n_x <- 100L
     n_y <- 100L
     n_sims <- as.integer(n_sims)
+
+    single_logical(force_disps, "force_disps")
 
     # First check that it's a sensible input:
     is_landscape_array(landscape, "landscape", NULL)
@@ -95,7 +102,7 @@ big_plantscape <- function(n_sims,
         out_disp <- isTRUE(other_args[["out_dispersals"]])
         not_summ_all <- ! "summ" %in% names(other_args) ||
             isTRUE(other_args[["summ"]] != "all")
-        if (out_disp && not_summ_all) {
+        if (!force_disps && out_disp && not_summ_all) {
             stop("\nIf `out_dispersals` is `TRUE`, `summ` must be \"all\".\n",
                  "Otherwise, a memory-limit error will crash your computer.",
                  call. = FALSE)

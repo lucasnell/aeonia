@@ -12,8 +12,3 @@ inv_logit(a)
 \description{
 Logit and inverse logit functions.
 }
-\section{Functions}{
-\itemize{
-\item \code{inv_logit()}: 
-
-}}

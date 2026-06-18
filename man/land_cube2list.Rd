@@ -11,7 +11,7 @@ land_cube2list(land_cube)
 }
 \value{
 A list of length \code{dim(land_cube)[3]}, where each item is a
-\code{\link[tibble:tbl_df-class]{tibble}} with columns
+\code{\link[tibble:tbl_df]{tibble}} with columns
 \code{x}, \code{y}, and \code{type}.
 }
 \description{

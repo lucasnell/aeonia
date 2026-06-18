@@ -19,5 +19,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Lucas A. Nell \email{lucnell@gmail.com} (\href{https://orcid.org/0000-0003-3209-0517}{ORCID}) [copyright holder]
 
+Authors:
+\itemize{
+  \item Lucas A. Nell \email{lucnell@gmail.com} (\href{https://orcid.org/0000-0003-3209-0517}{ORCID}) [copyright holder]
+}
+
 }
 \keyword{internal}
