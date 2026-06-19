@@ -137,16 +137,21 @@ by juvenile vs adults.
 Defaults to \code{FALSE}.}
 
 \item{out_dispersals}{String for whether / how to output dispersal info.
-If \code{out_dispersals = "all"}, dispersals are a column list
+If \code{summ \%in\% c("time", "all")} and \code{out_dispersals = "all"},
+dispersals are a column list
 containing matrices with the number of alate dispersals connecting
 plants. The column indicates the plant the alate came from,
 and the row indicates the plant the alate dispersed to.
-If \code{out_dispersals = "in"}, dispersals are a column list
+If \code{summ \%in\% c("time", "all")} and \code{out_dispersals = "in"},
+dispersals are a column list
 containing matrices with the number of incoming alate dispersals
-for each plants. The row indicates plant x coordinate,
+for each plant. The row indicates plant x coordinate,
 and the column indicates y.
+If \code{summ == "none"} and \code{out_dispersals = "in"}, dispersals are an
+integer vector with the number of incoming alate dispersals
+for each plant.
+Will return an error if \code{summ == "none"} and \code{out_dispersals = "all"}.
 If \code{out_dispersals = "none"}, no dispersals are output.
-This argument only does something when \code{summ \%in\% c("time", "all")}.
 Defaults to \code{"none"}.}
 
 \item{show_progress}{Single logical for whether to show progress bar.

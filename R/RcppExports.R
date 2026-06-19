@@ -317,16 +317,21 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #'     by juvenile vs adults.
 #'     Defaults to `FALSE`.
 #' @param out_dispersals String for whether / how to output dispersal info.
-#'     If `out_dispersals = "all"`, dispersals are a column list
+#'     If `summ %in% c("time", "all")` and `out_dispersals = "all"`,
+#'     dispersals are a column list
 #'     containing matrices with the number of alate dispersals connecting
 #'     plants. The column indicates the plant the alate came from,
 #'     and the row indicates the plant the alate dispersed to.
-#'     If `out_dispersals = "in"`, dispersals are a column list
+#'     If `summ %in% c("time", "all")` and `out_dispersals = "in"`,
+#'     dispersals are a column list
 #'     containing matrices with the number of incoming alate dispersals
-#'     for each plants. The row indicates plant x coordinate,
+#'     for each plant. The row indicates plant x coordinate,
 #'     and the column indicates y.
+#'     If `summ == "none"` and `out_dispersals = "in"`, dispersals are an
+#'     integer vector with the number of incoming alate dispersals
+#'     for each plant.
+#'     Will return an error if `summ == "none"` and `out_dispersals = "all"`.
 #'     If `out_dispersals = "none"`, no dispersals are output.
-#'     This argument only does something when `summ %in% c("time", "all")`.
 #'     Defaults to `"none"`.
 #' @param show_progress Single logical for whether to show progress bar.
 #'     Defaults to `FALSE`.

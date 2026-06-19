@@ -97,14 +97,14 @@ big_plantscape <- function(n_sims,
     # Provide useful error message if requesting dispersal output by time
     # (which will use all memory and give unhelpful "kill: 9" error)
     other_args <- list(...)
-    if ("out_dispersals" %in% names(other_args)) {
+    if (!force_disps && "out_dispersals" %in% names(other_args)) {
         single_string(other_args[["out_dispersals"]], "out_dispersals")
         if (!isTRUE(other_args[["out_dispersals"]] %in% c("all", "in", "none")))
             err_msg(other_args[["out_dispersals"]], "\"all\", \"in\", or \"none\"")
         out_disp <- ! isTRUE(other_args[["out_dispersals"]] == "none")
         not_summ_all <- ! "summ" %in% names(other_args) ||
             ! isTRUE(other_args[["summ"]] == "all")
-        if (!force_disps && out_disp && not_summ_all) {
+        if (out_disp && not_summ_all) {
             stop("\nIf `out_dispersals` is not `\"none\"`, `summ` must be \"all\".\n",
                  "Otherwise, a memory-limit error will likely crash your computer.",
                  call. = FALSE)
