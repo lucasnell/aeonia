@@ -18,12 +18,12 @@ void ScapeSimmer::run(const bool& infect_stop,
     for (uint32 t = 0; t < max_t; t++) {
         all_infected = scape.iterate(*disp_iter);
         // Move to next dispersal matrix if necessary:
-        if (out_any_dispersals && summ != "none") disp_iter++;
+        if (out_any_dispersals) disp_iter++;
         // Fill `output` with current conditions:
         fill_output();
         if (infect_stop && all_infected) {
             // Shorten dispersals if stopping early bc of full infection:
-            if (out_any_dispersals && summ != "none" && disp_iter != dispersals.end()) {
+            if (out_any_dispersals && disp_iter != dispersals.end()) {
                 // Note: no need to add one to `curr_size` bc line after
                 // `scape.iterate()` already iterates `disp_iter`
                 size_t curr_size = disp_iter - dispersals.begin();
