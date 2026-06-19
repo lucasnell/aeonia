@@ -1,6 +1,6 @@
 Package: aeonia
 Title: Alate Effects On Nonpersistent Infection Advancement
-Version: 0.0.2
+Version: 0.0.2.1
 Description: What the package does (one paragraph).
 Authors@R: person(c("Lucas", "A."), "Nell", email = "lucnell@gmail.com",
                   role = c("cph", "aut", "cre"),
