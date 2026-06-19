@@ -157,15 +157,10 @@ struct ScapeSimmer {
         fill_output();
 
         // Optionally reserve `dispersals`:
-        if (summ != "time" && summ != "all") {
-            out_any_dispersals = false;
-            out_all_dispersals = false;
-        }
         if (out_any_dispersals) {
             uint32 n_disp_rows = (out_all_dispersals) ? n_x*n_y : n_x;
             uint32 n_disp_cols = (out_all_dispersals) ? n_x*n_y : n_y;
-            if (out_all_dispersals) n_disp_cols = n_x*n_y;
-            if (summ == "time") {
+            if (summ != "all") {
                 dispersals.reserve(max_t + 1);
                 for (uint32 i = 0; i < (max_t + 1); i++) {
                     dispersals.emplace_back(n_disp_rows, n_disp_cols, arma::fill::zeros);
@@ -176,7 +171,7 @@ struct ScapeSimmer {
             }
         } else dispersals.push_back(arma::umat());
         disp_iter = dispersals.begin();
-        if (out_any_dispersals && summ == "time") disp_iter++;
+        if (out_any_dispersals && summ != "all") disp_iter++;
     }
 
 

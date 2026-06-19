@@ -239,7 +239,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
     if (alate_plants.empty()) return;
 
     // Store bool for whether to update `dispersals`:
-    bool update_disps = dispersals.n_rows == n_plants || dispersals.n_rows == n_x;
+    bool update_any_disps = dispersals.n_rows == n_plants || dispersals.n_rows == n_x;
     // Also store whether to record where alates came from:
     bool update_all_disps = dispersals.n_rows == n_plants;
 
@@ -306,7 +306,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                 // Sample for new location (alate always leaves first plant)
                 k_new = sample(k_old, eng);
                 dim_conv.to_2d(x_new, y_new, k_new);
-                if (update_disps) {
+                if (update_any_disps) {
                     if (update_all_disps) {
                         dispersals(k_new, k_old)++;
                     } else dispersals(x_new, y_new)++;
@@ -342,7 +342,7 @@ void AlateFlightInfo::infest(const double& p_load_alate,
                     // Sample for new location
                     k_new = sample(k_old, eng);
                     dim_conv.to_2d(x_new, y_new, k_new);
-                    if (update_disps) {
+                    if (update_any_disps) {
                         if (update_all_disps) {
                             dispersals(k_new, k_old)++;
                         } else dispersals(x_new, y_new)++;

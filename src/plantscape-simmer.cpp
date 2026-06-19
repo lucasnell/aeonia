@@ -18,12 +18,12 @@ void ScapeSimmer::run(const bool& infect_stop,
     for (uint32 t = 0; t < max_t; t++) {
         all_infected = scape.iterate(*disp_iter);
         // Move to next dispersal matrix if necessary:
-        if (out_any_dispersals && summ == "time") disp_iter++;
+        if (out_any_dispersals && summ != "none") disp_iter++;
         // Fill `output` with current conditions:
         fill_output();
         if (infect_stop && all_infected) {
             // Shorten dispersals if stopping early bc of full infection:
-            if (out_any_dispersals && summ == "time" && disp_iter != dispersals.end()) {
+            if (out_any_dispersals && summ != "none" && disp_iter != dispersals.end()) {
                 // Note: no need to add one to `curr_size` bc line after
                 // `scape.iterate()` already iterates `disp_iter`
                 size_t curr_size = disp_iter - dispersals.begin();
@@ -379,6 +379,9 @@ void check_plantscape_args(const arma::ucube& landscapes,
     if (std::find(od_opts.begin(), od_opts.end(), out_dispersals) == od_opts.end()) {
         stop("`out_dispersals` must be \"all\", \"in\", or \"none\"");
     }
+    if (summ == "none" && out_dispersals == "all") {
+        stop("`out_dispersals` cannot be \"all\" if `summ` is \"none\"");
+    }
 
     thread_check(n_threads); // Check that # threads isn't too high
 
@@ -543,16 +546,21 @@ void check_plantscape_args(const arma::ucube& landscapes,
 //'     by juvenile vs adults.
 //'     Defaults to `FALSE`.
 //' @param out_dispersals String for whether / how to output dispersal info.
-//'     If `out_dispersals = "all"`, dispersals are a column list
+//'     If `summ %in% c("time", "all")` and `out_dispersals = "all"`,
+//'     dispersals are a column list
 //'     containing matrices with the number of alate dispersals connecting
 //'     plants. The column indicates the plant the alate came from,
 //'     and the row indicates the plant the alate dispersed to.
-//'     If `out_dispersals = "in"`, dispersals are a column list
+//'     If `summ %in% c("time", "all")` and `out_dispersals = "in"`,
+//'     dispersals are a column list
 //'     containing matrices with the number of incoming alate dispersals
-//'     for each plants. The row indicates plant x coordinate,
+//'     for each plant. The row indicates plant x coordinate,
 //'     and the column indicates y.
+//'     If `summ == "none"` and `out_dispersals = "in"`, dispersals are an
+//'     integer vector with the number of incoming alate dispersals
+//'     for each plant.
+//'     Will return an error if `summ == "none"` and `out_dispersals = "all"`.
 //'     If `out_dispersals = "none"`, no dispersals are output.
-//'     This argument only does something when `summ %in% c("time", "all")`.
 //'     Defaults to `"none"`.
 //' @param show_progress Single logical for whether to show progress bar.
 //'     Defaults to `FALSE`.

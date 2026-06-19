@@ -259,6 +259,16 @@ void ps_out_none(DataFrame& out_df,
                                               out_attack_surv, out_stages,
                                               n_cols);
 
+    // Check if we need to also add dispersal events:
+    uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
+    bool out_any_dispersals = simmers[0].out_any_dispersals;
+    if (simmers[0].out_all_dispersals)
+        stop("Cannot output all dispersals when summ = \"none\"");
+    if (out_any_dispersals) {
+        col_names.push_back("disps");
+        n_cols++;
+    }
+
     std::vector<std::vector<double>> tmp_list(n_cols);
     for (std::vector<double>& x : tmp_list) x.reserve(n_rows);
 
@@ -268,7 +278,7 @@ void ps_out_none(DataFrame& out_df,
 
     // Used if attack survivals are output:
     arma::vec X, A_surv, A_surv_apt;
-    double x, A;
+    double x, A, D, tot_D;
     const arma::vec& attack_surv(aphid_pop.attack_surv);
 
     // make spans for summing by desired stages:
@@ -285,6 +295,7 @@ void ps_out_none(DataFrame& out_df,
             tot_aphids.zeros();
             tot_parasitized = 0;
             tot_mummies = 0;
+            tot_D = 0;
 
             // Aphid densities:
             for (uint32 i = 0; i < out_dens.size(); i++) {
@@ -334,6 +345,16 @@ void ps_out_none(DataFrame& out_df,
                 tmp_list[k+0].push_back(out_dens.parasitized[i]);
                 tmp_list[k+1].push_back(out_dens.mummies[i]);
                 tmp_list[k+2].push_back(out_dens.wasps[i]);
+                k += 3;
+
+                if (out_any_dispersals) {
+                    const arma::umat& dispersals(simmers[r].dispersals[t]);
+                    D = dispersals.at(out_ids.at(i,0)-(uint32)1,
+                                      out_ids.at(i,1)-(uint32)1);
+                    tmp_list[k].push_back(D);    // dispersals
+                    tot_D += D;
+                    k++;
+                }
 
                 tot_parasitized += out_dens.parasitized[i];
                 tot_mummies += out_dens.mummies[i];
@@ -365,6 +386,11 @@ void ps_out_none(DataFrame& out_df,
             tmp_list[k+0].push_back(tot_parasitized);
             tmp_list[k+1].push_back(tot_mummies);
             tmp_list[k+2].push_back(out_dens.tot_wasps);
+            k += 3;
+            if (out_any_dispersals) {
+                tmp_list[k].push_back(tot_D);    // dispersals
+                k++;
+            }
 
         }
     }
@@ -375,6 +401,7 @@ void ps_out_none(DataFrame& out_df,
     std::vector<std::string> int_cols;
     int_cols = {"rep", "time", "x", "y"};
     if (out_pseudo) int_cols.push_back("pseudo");
+    if (out_any_dispersals) int_cols.push_back("disps");
     for (std::string& s : int_cols) out_df[s] = as<IntegerVector>(out_df[s]);
 
 
@@ -393,56 +420,44 @@ void ps_out_none(DataFrame& out_df,
  There can be a mismatch between these values when simulations
  stop once all plants are infected.
 
- This first version is for outputting all dispersals.
+ This works for outputting all dispersals or just inputs,
+ and works for summ == all or time.
  */
 List make_disp_col(const std::vector<ScapeSimmer>& simmers,
-                   const uint32& n_actual_rows,
-                   const uint32& n_plants) {
+                   const uint32& n_actual_rows) {
 
     List disp_col(n_actual_rows);
-    // Make row and column names:
-    CharacterVector mat_names(n_plants);
-    uint32 x,y;
-    for (uint32 k = 0; k < n_plants; k++) {
-        simmers[0].to_2d(x, y, k);
-        mat_names[k] = std::to_string(x+1) + "_" + std::to_string(y+1);
-    }
 
-    uint32 k = 0;
-    for (uint32 r = 0; r < simmers.size(); r++) {
-        for (const arma::umat& disps : simmers[r].dispersals) {
-            if (disps.n_rows != n_plants || disps.n_cols != n_plants) {
-                stop("INTERNAL ERROR: inconsistent plantscape dispersal objects");
-            }
-            IntegerMatrix m = wrap(disps);
-            rownames(m) = mat_names;
-            colnames(m) = mat_names;
-            if (k >= n_actual_rows) stop("k >= n_actual_rows");
-            disp_col[k] = m;
-            k++;
+    // Whether to output any dispersals:
+    const bool& out_any_dispersals(simmers[0].out_any_dispersals);
+    // Whether to output all (vs just incoming) dispersals:
+    const bool& out_all_dispersals(simmers[0].out_all_dispersals);
+
+    const uint32& n_x(simmers[0].n_x);
+    const uint32& n_y(simmers[0].n_y);
+
+    // Make row and column names:
+    uint32 n_disp_rows = (out_all_dispersals) ? n_x*n_y : n_x;
+    uint32 n_disp_cols = (out_all_dispersals) ? n_x*n_y : n_y;
+    CharacterVector row_names(n_disp_rows);
+    CharacterVector col_names(n_disp_cols);
+    if (out_all_dispersals) {
+        uint32 x,y;
+        for (uint32 k = 0; k < n_x*n_y; k++) {
+            simmers[0].to_2d(x, y, k);
+            row_names[k] = std::to_string(x+1) + "_" + std::to_string(y+1);
+            col_names[k] = std::to_string(x+1) + "_" + std::to_string(y+1);
         }
+    } else {
+        for (uint32 x = 0; x < n_x; x++) row_names[x] = std::to_string(x+1);
+        for (uint32 y = 0; y < n_y; y++) col_names[y] = std::to_string(y+1);
     }
 
-    return disp_col;
-}
-
-// This version is for just outputting incoming alates
-List make_disp_col(const std::vector<ScapeSimmer>& simmers,
-                   const uint32& n_actual_rows,
-                   const uint32& n_x,
-                   const uint32& n_y) {
-
-    List disp_col(n_actual_rows);
-    // Make row and column names:
-    CharacterVector row_names(n_x);
-    CharacterVector col_names(n_y);
-    for (uint32 x = 0; x < n_x; x++) row_names[x] = std::to_string(x+1);
-    for (uint32 y = 0; y < n_y; y++) col_names[y] = std::to_string(y+1);
 
     uint32 k = 0;
     for (uint32 r = 0; r < simmers.size(); r++) {
         for (const arma::umat& disps : simmers[r].dispersals) {
-            if (disps.n_rows != n_x || disps.n_cols != n_y) {
+            if (disps.n_rows != n_disp_rows || disps.n_cols != n_disp_cols) {
                 stop("INTERNAL ERROR: inconsistent plantscape dispersal objects");
             }
             IntegerMatrix m = wrap(disps);
@@ -456,7 +471,6 @@ List make_disp_col(const std::vector<ScapeSimmer>& simmers,
 
     return disp_col;
 }
-
 
 
 
@@ -523,15 +537,8 @@ void ps_out_time(DataFrame& out_df,
 
     // Now add dispersal events list column:
     if (out_any_dispersals) {
-        if (out_all_dispersals) {
-            List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
-            out_df["disps"] = disp_col;
-        } else {
-            List disp_col = make_disp_col(simmers, tmp_list.back().size(),
-                                          landscapes.n_rows,
-                                          landscapes.n_cols);
-            out_df["disps"] = disp_col;
-        }
+        List disp_col = make_disp_col(simmers, tmp_list.back().size());
+        out_df["disps"] = disp_col;
     }
 
 
@@ -657,15 +664,8 @@ void ps_out_all(DataFrame& out_df,
 
     // Now add dispersal events list column:
     if (out_any_dispersals) {
-        if (out_all_dispersals) {
-            List disp_col = make_disp_col(simmers, tmp_list.back().size(), n_plants);
-            out_df["disps"] = disp_col;
-        } else {
-            List disp_col = make_disp_col(simmers, tmp_list.back().size(),
-                                          landscapes.n_rows,
-                                          landscapes.n_cols);
-            out_df["disps"] = disp_col;
-        }
+        List disp_col = make_disp_col(simmers, tmp_list.back().size());
+        out_df["disps"] = disp_col;
     }
 
 
