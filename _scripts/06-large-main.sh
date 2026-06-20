@@ -2,9 +2,9 @@
 
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --array=1-32
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=30G
+#SBATCH --array=1-16
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=50G
 #SBATCH --time=04:00:00
 #SBATCH --job-name=large
 #SBATCH --output=logs/large-main-%a.out
@@ -57,7 +57,7 @@ sim_df <- sim_df |>
         crossing(crossing(wasp_resp = c("strong", "weak"),
                           p_load = c(0.5, 0.05),
                           sd_N = c(0, 50),
-                          virus_attract = c(1, 5),
+                          virus_attract = c(1, 5, 100),
                           pseudo_repel = c(1, 5))) |>
         # placeholder for simulation output:
         mutate(sim = rep(list(NA), n()))
@@ -130,7 +130,7 @@ large_simmer <- function(sim_df_row) {
 }
 
 
-# Took ~100 min per job, where each job processed 63 rows using 8 threads
+# Took ~2 hrs per job, where each job processed 63 rows using 16 threads
 
 cat("Starting simulations...\n")
 t0 <- Sys.time()

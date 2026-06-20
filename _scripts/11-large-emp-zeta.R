@@ -8,7 +8,7 @@
 #'
 #' Instead run on cluster using an interactive job:
 #' cd /home2/lan68/11-large-emp-zeta
-#' srun -N 1 -n 1 -c 14 --mem=200G --time=20:00:00 --job-name="lp-zeta" --pty R --vanilla
+#' srun -N 1 -n 1 -c 50 --mem=200G --time=20:00:00 --job-name="lp-zeta" --pty R --vanilla
 #'
 #' Then, when the jobs are done (assuming you're back on your desktop in
 #' directory `~/GitHub/Cornell/aeonia/_scripts`):
@@ -20,8 +20,10 @@
 
 source("../03-large-preamble.R")
 
-# Levels of Pseudomonas densities for large landscapes (not including no Pseudo.):
-n_pseudo_lvls <- as.integer(0:4 * 2000 + 1000)
+# Levels of Pseudomonas densities for large landscapes:
+n_pseudo_lvls <- as.integer(c(0, 0:4 * 2000 + 1000))
+
+.n_sims <- 100L
 
 
 large_simmer <- function(landscape,
@@ -40,7 +42,7 @@ large_simmer <- function(landscape,
                  p_load_plant = p_load,
                  K = 12.5e3,
                  pseudo_surv = 0.85,
-                 n_sims = 12L,
+                 n_sims = dim(landscape)[3],
                  summ = "none")
 
     args <- list_assign(args, ...)
@@ -61,9 +63,9 @@ one_emp_zeta_sim <- function(np, zeta) {
                    wt_pp == 1, wt_vp < 1) |>
             getElement("landscape") |>
             getElement(1) |>
-            base::`[`(,,1:12)
+            base::`[`(,,1:.n_sims)
     } else {
-        .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100L, 100L, 12L))
+        .landscape <- array(c(1L, rep(0L, 100L*100L-1L)), c(100L, 100L, .n_sims))
     }
 
     sims <- large_simmer(landscape = .landscape, zeta = zeta) |>
@@ -73,6 +75,10 @@ one_emp_zeta_sim <- function(np, zeta) {
         select(rep, plant, time, virus, aphids, alates, wasps) |>
         split(~ rep) |>
         map(\(x) {
+            # First add # virus-infected plants at max time in case it's useful:
+            virus <- x |>
+                filter(time == max(time)) |>
+                getElement("virus")
             # Filter for time at which max aphid density occurs.
             # If I don't do this now, resulting data frame will be too large
             max_N_t <- x |>
@@ -94,6 +100,8 @@ one_emp_zeta_sim <- function(np, zeta) {
             pred_wasps <- Y * pred_wasps / sum(pred_wasps)
             x[["pred_wasps"]] <- pred_wasps
             x[["pseudo"]] <- pseudo
+            stopifnot(length(virus) == length(pseudo))
+            x[["max_virus"]] <- virus
             return(x)
         }) |>
         list_rbind() |>
@@ -106,10 +114,10 @@ one_emp_zeta_sim <- function(np, zeta) {
 
 
 
-# Takes ~10 min
+# Takes ~1 hour
 set.seed(1974555786)
 emp_zeta_sims <- crossing(np = n_pseudo_lvls,
-                          zeta = 2:9 / 10) |>
+                          zeta = 1:9 / 10) |>
     pmap(one_emp_zeta_sim,
          .progress = list(clear = FALSE,
                         format = paste("{cli::pb_bar}",
@@ -119,5 +127,5 @@ emp_zeta_sims <- crossing(np = n_pseudo_lvls,
     list_rbind()
 
 
-# Compressing this one bc it's pretty large (>300 MB) uncompressed
+# Compressing this one bc it's pretty large (>5 GB) uncompressed
 write_csv(emp_zeta_sims, "large-zeta-sims.csv.gz")

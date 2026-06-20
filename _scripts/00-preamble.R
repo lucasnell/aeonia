@@ -137,6 +137,7 @@ pretty_params <- function(x, short = FALSE, cap1 = FALSE, serif = FALSE) {
     return(out)
 }
 
+# yvar_desc ----
 # Descriptions for each y variable:
 yvar_desc <- list(infect_time = "days to 5 plants infected",
                  infect_time_Inf = "percent where ≥ 5 plants were infected",
@@ -267,26 +268,22 @@ scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE, .nl = "<br
 
 
 
-large_simmer <- function(landscape, wasp_resp, sd_N, virus_attract, pseudo_repel,
-                         outbreaks = "small", ...) {
 
-    N0 <- 55
-    p_load <- ifelse(outbreaks == "small", 0.05, 1)
-    zeta <- ifelse(wasp_resp == "weak", 0.1, 0.9)
-    Y0 <- ifelse(outbreaks == "big_zh", 200, 400)
+large_simmer <- function(landscape, wasp_resp, p_load, sd_N,
+                         virus_attract, pseudo_repel, ...) {
 
     args <- list(landscape = landscape,
                  sd_N = sd_N,
                  virus_attract = virus_attract,
                  pseudo_repel = pseudo_repel,
-                 Y0 = Y0,
-                 N0 = N0,
-                 zeta = zeta,
+                 Y0 = 250,
+                 N0 = 55,
+                 zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
                  p_load_alate = p_load,
                  p_load_plant = p_load,
                  K = 12.5e3,
                  pseudo_surv = 0.85,
-                 n_sims = 100L,
+                 n_sims = dim(landscape)[3],
                  summ = "all")
 
     args <- list_assign(args, ...)

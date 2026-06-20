@@ -380,7 +380,7 @@ if (.overwrite) {
 weak_strong_bar_list <- levels(wasp_resp_fct) |>
     set_names() |>
     map(\(wr) {
-        large_sims |>
+        p <- large_sims |>
             filter(wasp_resp == wr)|>
             select(n_pseudo, p_emerge, pe_boots) |>
             mutate(n_pseudo = factor(n_pseudo)) |>
@@ -391,10 +391,13 @@ weak_strong_bar_list <- levels(wasp_resp_fct) |>
                      linewidth = 0.75, linejoin = "mitre") +
             geom_errorbar(aes(xmin = Lower, xmax = Upper),
                           width = 0.2, linewidth = 1, orientation = "y") +
-            labs(x = "Prob. of emergence", y = "Number of *Pseudo.* plants") +
+            labs(x = "Probability of emergence", y = "*Pseudo.* plants",
+                 title = scenario_title(wr, TRUE, TRUE)) +
             coord_cartesian(xlim  = c(0, 1)) +
-            scale_fill_manual(values = np_pal) +
-            theme(axis.text.y = element_blank())
+            scale_fill_manual("*Pseudo.*<br>plants", values = np_pal)
+        if (wr == levels(large_sims$wasp_resp)[[2]])
+            p <- p + theme(axis.text.y = element_blank())
+        return(p)
     })
 
 # wrap_plots(weak_strong_bar_list, nrow = 1, guides = "collect", axis_titles = "collect")
@@ -459,7 +462,8 @@ weak_strong_hist_list <- levels(wasp_resp_fct) |>
                        aes(y = perc,
                            xmin = Lower, xmax = Upper, fill = n_pseudo),
                        color = NA, alpha = 0.25) +
-            scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
+            scale_color_manual("*Pseudo.*<br>plants", values = np_pal,
+                               aesthetics = c("color", "fill")) +
             scale_x_continuous(breaks = (0:4) * 2 + 1) +
             scale_y_continuous(breaks = \(y) {
                 if (max(y) < 65 && max(y) > 50) {
@@ -484,11 +488,14 @@ weak_strong_hist_list <- levels(wasp_resp_fct) |>
 if (.overwrite) {
     .p <- c(weak_strong_bar_list, weak_strong_hist_list) |>
         wrap_plots(design = "A#B\n###\nC#D", widths = c(1, 0.1, 1),
-                   heights = c(1, 0.4, 1), guides = "collect",
-                   axis_titles = "collect") & illustrator_theme &
-        theme(plot.margin = margin(0,0,0,0))
-    save_plot("_plots/extremes/disease-outcomes.pdf", .p,
-              width = 6.2, height = 3.825)
+                   heights = c(1, 0.2, 1), guides = "collect",
+                   axis_titles = "collect") +
+        plot_annotation(tag_levels = "A") &
+        theme(plot.tag = element_markdown(face = "bold"),
+              plot.tag.location = "panel",
+              plot.tag.position = c(0.1, 1))
+    save_plot("_plots/extremes-disease-outcomes.pdf", .p,
+              width = 6.5, height = 4.5)
     rm(.p)
 }
 
@@ -503,7 +510,7 @@ ninf_hist_empty_data <- large_sims |>
     select(-sims) |>
     unnest(n_infected) |>
     mutate(n_infected = factor(n_infected, levels = 1:9)) |>
-    group_by(wasp_resp, n_pseudo, n_infected) |>
+    group_by(wasp_resp, n_pseudo, n_infected, .drop = FALSE) |>
     count(name = "n_obs", .drop = FALSE) |>
     group_by(wasp_resp, n_pseudo) |>
     mutate(perc = 100 * n_obs / sum(n_obs)) |>
@@ -527,7 +534,7 @@ ninf_weak_strong_hist_list <- levels(wasp_resp_fct) |>
             select(n_pseudo, n_infected) |>
             unnest(n_infected) |>
             mutate(n_infected = factor(n_infected, levels = 1:9)) |>
-            group_by(n_pseudo, n_infected) |>
+            group_by(n_pseudo, n_infected, .drop = FALSE) |>
             count(name = "n_obs", .drop = FALSE) |>
             group_by(n_pseudo) |>
             mutate(perc = 100 * n_obs / sum(n_obs)) |>
@@ -895,4 +902,5 @@ dd_disp_p <- dd_disp_sims |>
 if (.overwrite) {
     save_plot("_plots/dens-dep-dispersal.pdf", dd_disp_p, width = 7.5, height = 6)
 }
+
 

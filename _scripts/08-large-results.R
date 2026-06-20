@@ -3,8 +3,7 @@
 #'
 
 source("_scripts/00-preamble.R")
-library("grid")
-library("gridtext")
+
 
 # Plotting and data functions:
 source("_scripts/08b-large-plot-funs.R")
@@ -86,14 +85,14 @@ sim_df |>
     arrange(wasp_resp, p_load, n_pseudo)
 #   wasp_resp p_load n_pseudo n_infected
 #   <fct>      <dbl>    <int>      <dbl>
-# 1 weak        0.05        0       2.42
-# 2 weak        0.05     7000       4.46
-# 3 weak        0.5         0    2020.
-# 4 weak        0.5      7000    4612.
+# 1 weak        0.05        0       2.58
+# 2 weak        0.05     7000       4.23
+# 3 weak        0.5         0    2151.
+# 4 weak        0.5      7000    4574.
 # 5 strong      0.05        0       2.55
-# 6 strong      0.05     7000       1.51
-# 7 strong      0.5         0    2041.
-# 8 strong      0.5      7000     452.
+# 6 strong      0.05     7000       1.46
+# 7 strong      0.5         0    2100.
+# 8 strong      0.5      7000     454.
 
 
 
@@ -166,6 +165,36 @@ large_manip_clust_p <- crossing(wr = wasp_resp_fct,
           plot.tag.position = c(0.05, 1.05),
           legend.position = "top", legend.title.position = "top")
 
+# # If you want to combine by `wasp_resp`:
+#
+# # Effects (or lack thereof) of clustering vs uniform Pseudomonas:
+# large_manip_clust_p <- tibble(wr = levels(wasp_resp_fct)) |>
+#     # Used for tags:
+#     mutate(tg = LETTERS[1:n()]) |>
+#     pmap(\(wr, tg) {
+#         p <- baseline_plotter(outcomes = "n_infected", col_fct = "wt_pp",
+#                               lty_fct = "wt_vp",
+#                               color_vals = c("black", "dodgerblue"),
+#                               incl_vals = TRUE,
+#                               obs_breaks = 0:2 * 2000, obs_max = 4900,
+#                               data_df = sim_df |> filter(wasp_resp == wr),
+#                               multiline_col_title = FALSE,
+#                               p_tag = tg,
+#                               p_title = scenario_title(wr, TRUE, TRUE))
+#         if (wr != levels(wasp_resp_fct)[1]) {
+#             p <- p + theme(axis.text.y = element_blank())
+#         }
+#         return(p)
+#     }) |>
+#     # add_top_labels(add_bot_labs = FALSE) |>
+#     (\(x) c(guide_area(), x))() |>
+#     wrap_plots(design = "AAA\nB#C",
+#                guides = "collect", axis_titles = "collect",
+#                widths = c(1, 0.05, 1), heights = c(0.2, 1)) &
+#     theme(plot.tag.location = "panel",
+#           plot.tag.position = c(0.05, 1.05),
+#           legend.position = "top", legend.title.position = "top")
+
 
 
 # large_manip_clust_p
@@ -184,11 +213,13 @@ large_manip_plots <- crossing(cf = c("pseudo_repel", "virus_attract", "sd_N") |>
     # Bc factors behave weird sometimes (but are needed for sorting crossing):
     mutate(across(where(is.factor), paste)) |>
     pmap(\(cf, wr, onp) {
-        non_defs <- list()
         col_pal <- c("black", par_pal[[cf]])
+        if (cf == "virus_attract") {
+            col_pal <- c("black", lighten(par_pal[[cf]], 0.4), par_pal[[cf]])
+        }
+        non_defs <- list()
         if (onp) {
             non_defs <- list(wt_vp = "on *Pseudo.*")
-            # col_pal[1] <- par_pal[["wt_vp"]]
         }
         p <- baseline_plotter(outcomes = "n_infected", col_fct = cf,
                               color_vals = col_pal, non_defaults = non_defs,
@@ -204,18 +235,57 @@ large_manip_plots <- crossing(cf = c("pseudo_repel", "virus_attract", "sd_N") |>
             if (cf == "sd_N") out <- list(p)
             else out <- c(list(p), rep(list(plot_spacer()), 7))
         } else out <- list(p, plot_spacer())
+        return(out)
     }) |>
     do.call(what = c)
 
+wrap_plots(large_manip_plots, ncol = 7, guides = "collect", axes = "collect",
+           widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
+           heights = c(1, 0.05, 1, 0.05, 1)) &
+    illustrator_theme
 
-# wrap_plots(large_manip_plots, ncol = 7, guides = "collect", axes = "collect",
-#            widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
+
+# # If you want to combine by `wasp_resp`:
+#
+# large_manip_plots <- crossing(cf = c("pseudo_repel", "virus_attract", "sd_N") |>
+#                                   (\(x) factor(x, levels = x))(),
+#                               wr = wasp_resp_fct) |>
+#     # Bc factors behave weird sometimes (but are needed for sorting crossing):
+#     mutate(across(where(is.factor), paste)) |>
+#     pmap(\(cf, wr) {
+#         col_pal <- c("black", par_pal[[cf]])
+#         obs_max <- ifelse(wr == levels(wasp_resp_fct)[1], 7400, 4200)
+#         obs_breaks <- ifelse(wr == levels(wasp_resp_fct)[1],
+#                              list(0:2 * 3000), list(0:2 * 2000))[[1]]
+#         p <- baseline_plotter(outcomes = "n_infected", col_fct = cf,
+#                               lty_fct = "wt_vp",
+#                               color_vals = col_pal,
+#                               obs_breaks = obs_breaks, obs_max = obs_max,
+#                               data_df = sim_df |> filter(wasp_resp == wr))
+#         # if (wr != levels(wasp_resp_fct)[1]) {
+#         #     p <- p + theme(axis.text.y = element_blank())
+#         # }
+#         if (cf != "sd_N") {
+#             p <- p + theme(axis.text.x = element_blank())
+#         }
+#         if (wr == tail(levels(wasp_resp_fct), 1)) {
+#             if (cf == "sd_N") out <- list(p)
+#             else out <- c(list(p), rep(list(plot_spacer()), 3))
+#         } else out <- list(p, plot_spacer())
+#         return(out)
+#     }) |>
+#     do.call(what = c)
+#
+# wrap_plots(large_manip_plots, ncol = 3, guides = "collect", axis_titles = "collect",
+#            widths = c(1, 0.2, 1),
 #            heights = c(1, 0.05, 1, 0.05, 1)) &
 #     illustrator_theme
 
+
 if (.overwrite) {
     save_plot("_plots/large-baselines.pdf",
-              wrap_plots(large_manip_plots, ncol = 7, guides = "collect", axes = "collect",
+              wrap_plots(large_manip_plots, ncol = 7, guides = "collect",
+                         axis_titles = "collect",
                          widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
                          heights = c(1, 0.05, 1, 0.05, 1)) &
                   illustrator_theme,
@@ -271,62 +341,99 @@ if (.overwrite) {
 }
 
 
-large_small_outs_plots <- c("off", "on") |>
-    set_names() |>
-    map(\(pos) {
-        wt_vp <- sprintf("%s *Pseudo.*", pos)
-        title <- paste("Virus starts on",
-                       ifelse(pos == "off", "uninhabited", "*Pseudomonas*"),
-                       "plant")
-        c(`1` = "pseudo_repel", `3` = "virus_attract", `5` = "sd_N") |>
-            imap(\(n, i) {
-                i <- as.integer(i)
-                titles <- list(waiver())
-                if (i == 1) {
-                    titles <- c(map(levels(wasp_resp_fct),
-                                    \(wr) scenario_title(wr, TRUE, TRUE)),
-                                rep(list(waiver()), 4))
-                }
-                non_defs <- list(p_load = 0.05)
-                if (pos == "on") non_defs <- c(non_defs, list("wt_vp" = wt_vp))
-                pl <- baseline_plotter(outcomes = "all", col_fct = n,
-                                       color_vals = c("black", par_pal[[n]]),
-                                       non_defaults = non_defs,
-                                       multiline_ylab = TRUE,
-                                       p_tag = c(as.list(LETTERS[i:(i+1)]),
-                                                 rep(list(waiver()), 4)),
-                                       p_title = titles,
-                                       obs_breaks = scales::breaks_extended(n = 5))
-                if (i < 5) {
-                    pl <- pl & theme(axis.title.x.bottom = element_blank(),
-                                     axis.text.x = element_blank())
-                    pl <- list(pl, plot_spacer())
-                } else pl <- list(pl)
-                return(pl)
-            }) |>
-            do.call(what = c) |>
-            wrap_plots(ncol = 1, guides = "collect", axes = "collect",
-                       heights = c(1, 0.05, 1, 0.05, 1))  +
-            plot_annotation(title = title,
-                            theme = theme(plot.title = element_markdown(
-                                face = "bold", size = 16))) &
-            theme(plot.tag.location = "panel",
-                  plot.tag.position = c(0.05, 1.05),
-                  axis.title.y = element_markdown(size = 10, angle = 0,
-                                                  hjust = 1, vjust = 0.5))
-    })
+large_small_outs_main_p <- crossing(cf = c("pseudo_repel", "virus_attract", "sd_N") |>
+             (\(x) factor(x, levels = x))(),
+         ou = c("p_emerge", "outbreak_size", "n_infected") |>
+             (\(x) factor(x, levels = x))(),
+         wr = wasp_resp_fct,
+         onp = c(FALSE, TRUE)) |>
+    # Bc factors behave weird sometimes (but are needed for sorting crossing):
+    mutate(across(where(is.factor), paste)) |>
+    # Used for tags:
+    mutate(tg = map(1:n(), \(i) {
+        if (((i-1L) %% 12L) <= 3L) {
+            j <- i %% 12L
+            k <- i %/% 12L * 4L
+            return(LETTERS[j+k])
+        }
+        return(waiver())
+    })) |>
+    pmap(\(cf, ou, wr, onp, tg) {
+        col_pal <- c("black", par_pal[[cf]])
+        non_defs <- list(p_load = 0.05)
+        if (onp) non_defs <- c(non_defs, list(wt_vp = "on *Pseudo.*"))
+        obs_max <- case_when(cf == "pseudo_repel" ~ 11.5,
+                             cf == "virus_attract" ~ 36.5,
+                             cf == "sd_N" ~ 7)
+        obs_breaks <- case_when(cf == "pseudo_repel" ~ list(c(1, 6, 11)),
+                                cf == "virus_attract" ~ list(c(1, 18, 35)),
+                                cf == "sd_N" ~ list(c(1, 4, 7)))[[1]]
+        if (ou == "outbreak_size") obs_breaks[1] <- 2
+        p <- baseline_plotter(outcomes = ou, col_fct = cf,
+                              color_vals = col_pal, non_defaults = non_defs,
+                              multiline_ylab = TRUE,
+                              obs_breaks = obs_breaks,
+                              obs_max = obs_max,
+                              data_df = sim_df |> filter(wasp_resp == wr),
+                              p_tag = list(tg))
+        stopifnot(is_ggplot(p))
+        if (wr != levels(wasp_resp_fct)[1] || onp) {
+            p <- p + theme(axis.text.y = element_blank())
+        }
+        if (!(cf == "sd_N" && ou == "n_infected")) {
+            p <- p + theme(axis.text.x = element_blank())
+        }
+        if (cf == "pseudo_repel" && ou == "p_emerge") {
+            p <- p + labs(title = paste0("Virus starts on<br>",
+                                         ifelse(onp, "*Pseudomonas*", "uninhabited"),
+                                         "<br>plant")) +
+                theme(plot.title = element_markdown(size = 10, lineheight = 0.8))
+        }
+        pl <- list(p)
+        out <- pl
+        # Last column of last outcome (except for last row) gets vertical spacers:
+        if (wr == tail(levels(wasp_resp_fct), 1) && onp) {
+            if (ou == "n_infected") {
+                if (cf == "sd_N") out <- pl
+                else out <- c(pl, rep(list(plot_spacer()), 7))
+            }
+        } else {
+            # First two columns get horizontal spacers:
+            out <- c(pl, list(plot_spacer()))
+        }
+        return(out)
+    }) |>
+    do.call(what = c) |>
+    # Add space for titles before first row:
+    (\(x) c(rep(list(plot_spacer()), 7), x))() |>
+    wrap_plots(ncol = 7, guides = "collect", axis_titles = "collect",
+               widths = c(1, 0.01, 1, 0.05, 1, 0.01, 1),
+               heights = c(1, head(rep(c(1, 1, 1, 0.05), 3), -1))) &
+    theme(axis.title.y = element_markdown(hjust = 1, vjust = 0.5, angle = 0),
+          plot.margin = margin(0,0,0,0))
 
-
-# large_small_outs_plots
-
+large_small_outs_p <- function() {
+    grid.newpage()
+    grid.draw(patchworkGrob(large_small_outs_main_p))
+    pushViewport(viewport(x = 0.17, y = 1, width = 1/3, height = 0.1, name = "top-left",
+                          just = c("left", "top")))
+    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[1], TRUE, TRUE),
+                            gp = gpar(fontsize = 13, lineheight = 0.8)))
+    popViewport()
+    pushViewport(viewport(x = 0.54, y = 1, width = 1/3, height = 0.1, name = "top-right",
+                          just = c("left", "top")))
+    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[2], TRUE, TRUE),
+                            gp = gpar(fontsize = 13, lineheight = 0.8)))
+    popViewport()
+}
 
 
 if (.overwrite) {
-    for (n in names(large_small_outs_plots)) {
-        f <- sprintf("_plots/large-small-manips-%s-pseudo.pdf", n)
-        save_plot(f, large_small_outs_plots[[n]], width = 6.5, height = 9)
-    }; rm(n, f)
+    save_plot("_plots/large-small-manips.pdf", large_small_outs_p,
+              width = 8, height = 9)
 }
+
+
 
 
 
@@ -411,7 +518,7 @@ large_w1_manip_p <- crossing(wr = wasp_resp_fct,
     pmap(\(wr, onp, tg) {
         cf <- "virus_attract"
         non_defs <- list()
-        col_pal <- c("black", par_pal[[cf]], lighten(par_pal[[cf]], 0.4))
+        col_pal <- c("black", lighten(par_pal[[cf]], 0.4), par_pal[[cf]])
         if (onp) {
             non_defs <- list(wt_vp = "on *Pseudo.*")
         }
@@ -460,10 +567,9 @@ if (.overwrite) {
 
 if (!file.exists(interm_files$large_zeta_sims)) stop("Run 11-large-emp-zeta.R first!")
 
-zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddl",
-                      progress = FALSE)
+zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddld")
 
-# Takes ~ 10 sec
+# Takes ~ 2 min
 set.seed(1540192361)
 zeta_sim_summs <- zeta_sims |>
     mutate(rel = wasps / pred_wasps) |>
@@ -477,14 +583,15 @@ zeta_sim_summs <- zeta_sims |>
                            labels = c("Plants without<br>*Pseudomonas*",
                                       "Plants with<br>*Pseudomonas*")),
            n_pseudo_fct = factor(n_pseudo,
-                                 levels = n_pseudo_lvls[n_pseudo_lvls > 0],
-                                 labels = n_pseudo_lvls[n_pseudo_lvls > 0] |>
+                                 levels = n_pseudo_lvls,
+                                 labels = n_pseudo_lvls |>
                                      (\(x) x / 10e3 * 100)() |>
                                      (\(x) sprintf("%.0f%% *Pseudo.*", x))()))
 
 
 # approximate using linear interpolation where lines equal 1:
 zeta_one_ests <- zeta_sim_summs |>
+    filter(n_pseudo > 0) |>
     group_by(n_pseudo_fct, n_pseudo, pseudo) |>
     summarize(zeta = (\(z, r) {
         # Linear interpolation:
@@ -504,12 +611,13 @@ zeta_one_ests |> select(n_pseudo, zeta)
 #      <int> <dbl>
 # 1     1000 0.749
 # 2     3000 0.698
-# 3     5000 0.626
+# 3     5000 0.625
 # 4     7000 0.509
 # 5     9000 0.296
 
 
 zeta_p <- zeta_sim_summs |>
+    filter(n_pseudo > 0) |>
     ggplot(aes(zeta, rel, color = pseudo)) +
     geom_hline(yintercept = 1, color = "gray70", linewidth = 1) +
     geom_vline(data = zeta_one_ests, aes(xintercept = zeta),
@@ -531,4 +639,70 @@ zeta_p <- zeta_sim_summs |>
 
 if (.overwrite) {
     save_plot("_plots/large-empirical-zeta.pdf", zeta_p, width = 6, height = 5)
+}
+
+
+
+# Now plot for zeta ~ n_infected plants
+set.seed(19813000)
+zeta_ninf_sim_summs <- zeta_sims |>
+    filter(n_pseudo > 0) |>
+    group_by(zeta, n_pseudo, rep) |>
+    summarize(n_infected = sum(max_virus), .groups = "drop_last") |>
+    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              n_infected = mean(n_infected), .groups = "drop") |>
+    unnest(ci)
+
+set.seed(694769807)
+no_pseudo_df <- zeta_sims |>
+    filter(n_pseudo == 0) |>
+    group_by(zeta, rep) |>
+    summarize(n_infected = sum(max_virus), .groups = "drop") |>
+    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              n_infected = mean(n_infected), .groups = "drop") |>
+    unnest(ci)
+
+
+zeta_ninf_p <- zeta_ninf_sim_summs |>
+    filter(n_pseudo > 0) |>
+    mutate(n_pseudo = factor(n_pseudo, levels = n_pseudo_lvls,
+                             labels = sprintf("%.0f%%", n_pseudo_lvls / 10e3 * 100))) |>
+    ggplot(aes(zeta, n_infected, color = n_pseudo)) +
+    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo), alpha = 0.25, color = NA) +
+    geom_line() +
+    geom_hline(yintercept = no_pseudo_df$n_infected) +
+    geom_hline(yintercept = as.numeric(no_pseudo_df[,c("Lower", "Upper")]),
+               linetype = "22") +
+    scale_color_manual("*Pseudo.*<br>plants",
+                       values = full_np_pal[paste(n_pseudo_lvls)] |>
+                           set_names(sprintf("%.0f%%", n_pseudo_lvls / 10e3 * 100)),
+                       aesthetics = c("color", "fill")) +
+    labs(x = pretty_params("zeta", cap1 = TRUE),
+         y = "Mean number of infected plants")
+
+# zeta_ninf_p
+
+
+# What proportion are above # infected when no Pseudomonas?
+zeta_ninf_sim_summs |>
+    getElement("n_infected") |>
+    (\(x) mean(x > no_pseudo_df$n_infected))()
+# [1] 0.4222222
+
+zeta_ninf_sim_summs |>
+    filter(n_pseudo < 9000) |>
+    getElement("n_infected") |>
+    (\(x) mean(x > no_pseudo_df$n_infected))()
+# [1] 0.5
+
+zeta_ninf_sim_summs |>
+    filter(n_pseudo == 5000) |>
+    getElement("n_infected") |>
+    (\(x) mean(x > no_pseudo_df$n_infected))()
+# [1] 0.4444444
+
+if (.overwrite) {
+    save_plot("_plots/large-zeta-n_infected.pdf", zeta_ninf_p, width = 6, height = 4)
 }

@@ -1,4 +1,9 @@
 
+suppressPackageStartupMessages({
+    library(grid)
+    library(gridtext)
+})
+
 #
 # Add np = 0 for each landscape type.
 # Doing this to dataframes below allows filtering by wt_vp and wt_pp and
@@ -6,7 +11,8 @@
 #
 add_no_pseudo_points <- function(data_df) {
     stopifnot(all(c("wt_vp", "wt_pp") %in% colnames(data_df)))
-    split_cols <- c("wasp_resp", "p_load", "sd_N", "virus_attract", "pseudo_repel") |>
+    split_cols <- c("wasp_resp", "p_load", "sd_N", "virus_attract",
+                    "pseudo_repel", "fly_p") |>
         keep(\(x) x %in% colnames(data_df))
     stopifnot(length(split_cols) >= 1)
     split_form <- paste("~", paste(split_cols, collapse = "+")) |> as.formula()
@@ -29,12 +35,15 @@ add_no_pseudo_points <- function(data_df) {
 
 
 
+
+
 #
 # Create color scale and geom objects for `baseline_plotter`.
 # Used inside `make_baseline_objs`.
 #
 make_baseline_col_geom <- function(def_vals,
                                    col_fct,
+                                   lty_fct,
                                    color_vals,
                                    filt_df,
                                    inters,
@@ -42,23 +51,12 @@ make_baseline_col_geom <- function(def_vals,
                                    multiline_col_title,
                                    env) {
 
-    col_scale <- NULL
-    line_geom <- list(geom_line(linewidth = 0.5),
-                      geom_ribbon(aes(ymin = lower, ymax = upper),
-                                  fill = "black", alpha = 0.25, color = NA))
-    if (is.null(col_fct)) {
-        assign("col_scale", col_scale, envir = env)
-        assign("line_geom", line_geom, envir = env)
-        return(filt_df)
-    }
+    if (!is.null(lty_fct)) stopifnot(length(lty_fct) == 1 && lty_fct %in% colnames(filt_df))
+    if (!is.null(col_fct)) stopifnot(all(col_fct %in% colnames(filt_df)))
 
-    stopifnot(all(col_fct %in% colnames(filt_df)))
-
-    if (length(col_fct) == 1L) {
-
-        if (!is.factor(filt_df[[col_fct]]))
-            filt_df[[col_fct]] <- factor(filt_df[[col_fct]])
-        col_title <- pretty_params(col_fct, cap1 = TRUE) |>
+    title_maker <- function(varbl) {
+        varbl |>
+            pretty_params(cap1 = TRUE) |>
             str_replace_all("Pseudomonas", "Pseudo.") |>
             (\(x) {
                 if (!multiline_col_title) return(x)
@@ -66,6 +64,39 @@ make_baseline_col_geom <- function(def_vals,
                 xs[1] <- str_replace_all(xs[1], " ", "<br>")
                 return(str_c(xs, collapse = "("))
             })()
+    }
+    add_lty <- function(line_geom, lty_fct) {
+        if (!is.null(lty_fct)) {
+            line_geom[[1]][["mapping"]][["linetype"]] <- quo(.data[[lty_fct]])
+            if (!is.null(col_fct)) {
+                line_geom[[2]][["mapping"]][["group"]] <- quo(interaction(.data[[lty_fct]],
+                                                                          .data[[col_fct]]))
+            } else {
+                line_geom[[2]][["mapping"]][["group"]] <- quo(.data[[lty_fct]])
+            }
+            line_geom[[3]] <- scale_linetype(title_maker(lty_fct))
+        }
+        return(line_geom)
+    }
+
+
+    col_scale <- NULL
+    line_geom <- list(geom_line(linewidth = 0.5),
+                      geom_ribbon(aes(ymin = lower, ymax = upper),
+                                  fill = "black", alpha = 0.25, color = NA))
+    if (is.null(col_fct)) {
+        line_geom <- add_lty(line_geom, lty_fct)
+        assign("col_scale", col_scale, envir = env)
+        assign("line_geom", line_geom, envir = env)
+        return(filt_df)
+    }
+
+
+    if (length(col_fct) == 1L) {
+
+        if (!is.factor(filt_df[[col_fct]]))
+            filt_df[[col_fct]] <- factor(filt_df[[col_fct]])
+        col_title <- title_maker(col_fct)
         if (!is.null(color_vals)) {
             stopifnot(length(color_vals) == length(levels(filt_df[[col_fct]])))
             col_scale <- scale_color_manual(col_title, values = color_vals,
@@ -163,6 +194,8 @@ make_baseline_col_geom <- function(def_vals,
 
     }
 
+    line_geom <- add_lty(line_geom, lty_fct)
+
     assign("col_scale", col_scale, envir = env)
     assign("line_geom", line_geom, envir = env)
     assign("col_fct", col_fct, envir = env)
@@ -179,6 +212,7 @@ make_baseline_objs <- function(data_df,
                                obs_breaks,
                                outcomes,
                                col_fct,
+                               lty_fct,
                                color_vals,
                                inters,
                                incl_vals,
@@ -198,6 +232,7 @@ make_baseline_objs <- function(data_df,
     stopifnot(all(c("wasp_resp", "n_pseudo", outcomes, "boots") %in% colnames(data_df)))
 
     def_vals <- list(p_load = 0.5,
+                     fly_p = 0.1,
                      sd_N = 0,
                      virus_attract = 1,
                      pseudo_repel = 1,
@@ -207,13 +242,14 @@ make_baseline_objs <- function(data_df,
     if (length(non_defaults) > 0) {
         stopifnot(is.list(non_defaults) && !is.null(names(non_defaults)))
         stopifnot(!any(names(non_defaults) %in% col_fct))
+        stopifnot(!any(names(non_defaults) %in% lty_fct))
         stopifnot(all(names(non_defaults) %in% names(def_vals)))
         def_vals[names(non_defaults)] <- non_defaults
     }
 
     filt_df <- data_df
     for (x in names(def_vals)) {
-        if (x %in% col_fct) next
+        if (x %in% col_fct || x %in% lty_fct) next
         if (x %in% colnames(filt_df)) {
             stopifnot(def_vals[[x]] %in% filt_df[[x]])
             filt_df <- filt_df[filt_df[[x]] == def_vals[[x]], ]
@@ -222,8 +258,14 @@ make_baseline_objs <- function(data_df,
 
     # Plot panel rows, columns, respectively:
     panel_dims <- c(length(outcomes), length(unique(filt_df$wasp_resp)))
-    if (!prod(panel_dims) %in% c(1L,2L,4L,6L))
-        stop("\n# of unique outcomes-wasp_resp combos must be 1, 2, 4, or 6")
+    if (!panel_dims[1] %in% 1:3){
+        stop("\n# of unique outcomes must be 1, 2, or 3. You have ",
+             panel_dims[1], ".")
+    }
+    if (!panel_dims[2] %in% 1:2){
+        stop("\n# of unique wasp_resp levels must be 1 or 2. You have ",
+             panel_dims[2], ".")
+    }
     dsn <- map(1:panel_dims[1], \(i)
                paste(LETTERS[((i-1L)*panel_dims[2]+1L):(i*panel_dims[2])],
                      collapse = "#")) |>
@@ -237,6 +279,10 @@ make_baseline_objs <- function(data_df,
     if (length(p_subtitle) == 1) p_subtitle <- rep(p_subtitle, prod(panel_dims))
     stopifnot(length(p_subtitle) == prod(panel_dims))
     if (length(p_tag) == 1) p_tag <- rep(p_tag, prod(panel_dims))
+    if (length(p_tag) != prod(panel_dims)) {
+        cat("length(p_tag) = ", length(p_tag), "\n")
+        cat("prod(panel_dims) = ", prod(panel_dims), "\n")
+    }
     stopifnot(length(p_tag) == prod(panel_dims))
 
 
@@ -245,12 +291,13 @@ make_baseline_objs <- function(data_df,
     assign("panel_dims", panel_dims, envir = env)
     assign("patchwork_layout", patchwork_layout, envir = env)
 
-    filt_df <- make_baseline_col_geom(def_vals, col_fct, color_vals, filt_df,
+    filt_df <- make_baseline_col_geom(def_vals, col_fct, lty_fct, color_vals, filt_df,
                                       inters, incl_vals, multiline_col_title,
                                       env)
 
     filt_df <- filt_df |>
-        select(wasp_resp, n_pseudo, all_of(env$col_fct), all_of(outcomes), boots) |>
+        select(wasp_resp, n_pseudo, all_of(env$col_fct), all_of(env$lty_fct),
+               all_of(outcomes), boots) |>
         pivot_longer(all_of(outcomes), names_to = "outcome") |>
         mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size",
                                                     "n_infected") |>
@@ -293,6 +340,7 @@ make_baseline_objs <- function(data_df,
 
 
 baseline_plotter <- function(col_fct = NULL,
+                             lty_fct = NULL,
                              outcomes = "all",
                              color_vals = NULL,
                              inters = FALSE,
@@ -310,6 +358,7 @@ baseline_plotter <- function(col_fct = NULL,
                              data_df = sim_df) {
 
     # col_fct = NULL
+    # lty_fct = NULL
     # # col_fct = c("sd_N", "wt_pp")
     # outcomes = "n_infected"
     # color_vals = NULL
@@ -334,7 +383,7 @@ baseline_plotter <- function(col_fct = NULL,
     #
     # Edits objects `obs_breaks`, `outcomes`, `p_title`, `p_subtitle`, `p_tag`,
     # `obs_max`, and (optionally) `col_fct`
-    make_baseline_objs(data_df, obs_breaks, outcomes, col_fct, color_vals,
+    make_baseline_objs(data_df, obs_breaks, outcomes, col_fct, lty_fct, color_vals,
                        inters, incl_vals, obs_max, p_title, p_subtitle, p_tag,
                        non_defaults, multiline_col_title, environment())
 
@@ -391,7 +440,7 @@ baseline_plotter <- function(col_fct = NULL,
 
 
 
-add_top_labels <- function(plot_list) {
+add_top_labels <- function(plot_list, add_bot_labs = TRUE) {
     top_labs <- levels(wasp_resp_fct) |>
         map(\(x) {
             grob <- richtext_grob(scenario_title(x, TRUE, TRUE),
@@ -405,6 +454,9 @@ add_top_labels <- function(plot_list) {
                                                              lineheight = 0.8))
                         wrap_elements(panel = grob)
                     })
-    out <- c(plot_list, top_labs, bot_labs)
+    if (add_bot_labs) out <- c(plot_list, top_labs, bot_labs)
+    else out <- c(plot_list, top_labs)
     return(out)
 }
+
+
