@@ -223,37 +223,60 @@ one_manip_plotter <- function(wasp_resp, par_name,
 
 # Line plot for a parameter, with fill split into prob. emergence and outbreak size
 # If parameter is zeta, it doesn't split by wasp_resp bc that only differs by zeta.
-supp_line_plotter <- function(par_name, seeds) {
+supp_line_plotter <- function(par_name, seeds, .incl_ninf = FALSE) {
     stopifnot(length(par_name) == 1 && is.character(par_name))
+    stopifnot(length(.incl_ninf) == 1 && is.logical(.incl_ninf))
     stopifnot(is.numeric(seeds))
     if (par_name != "zeta") {
         stopifnot(length(seeds) == 2)
+        .outcomes <- c("p_emerge", "outbreak_size")
+        if (.incl_ninf) .outcomes <- c(.outcomes, "n_infected")
+        no <- length(.outcomes)
+
         pl <- map2(levels(wasp_resp_fct), seeds,
                    \(wr, seed) {
                        pl <- one_manip_plotter(wr, par_name,
-                                               outcomes = c("p_emerge", "outbreak_size"),
+                                               outcomes = .outcomes,
                                                .return_list = TRUE, .seed = seed)
                        pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr, TRUE, TRUE))
+                       pl[[1]] <- pl[[1]] + theme(axis.text.x = element_blank())
+                       if (wr == tail(levels(wasp_resp_fct),1)) {
+                           pl <- map(pl, \(x) x + theme(axis.text.y=element_blank()))
+                       }
                        return(pl)
                    }) |>
             do.call(what = c) |>
             (\(x) {
-                for (i in c(1,3)) x[[i]] <- x[[i]] + theme(axis.text.x=element_blank())
-                for (i in c(3,4)) x[[i]] <- x[[i]] + theme(axis.text.y=element_blank())
-                list(x[[1]], x[[3]], plot_spacer(), plot_spacer(), x[[2]], x[[4]])
+                if (.incl_ninf) {
+                    z <- list(x[[1]], x[[4]], plot_spacer(), plot_spacer(),
+                              x[[2]], x[[5]], plot_spacer(), plot_spacer(),
+                              x[[3]], x[[6]])
+                } else {
+                    z <- list(x[[1]], x[[3]], plot_spacer(), plot_spacer(),
+                              x[[2]], x[[4]])
+                }
+                return(z)
             })()
         hts <- c(1, 0.05, 1)
     } else {
         stopifnot(length(seeds) == 1)
         pl <- one_manip_plotter(levels(wasp_resp_fct), par_name,
-                                outcomes = c("p_emerge", "outbreak_size"),
+                                outcomes = .outcomes,
                                 .return_list = TRUE, .seed = seeds) |>
             (\(x) {
-                x[[1]] <- x[[1]] + theme(axis.text.x=element_blank())
-                list(plot_spacer(), x[[1]], plot_spacer(), x[[2]])
+                x[[1]] <- x[[1]] + theme(axis.text.x = element_blank())
+                #
+                if (.incl_ninf) {
+                    z <- list(plot_spacer(), x[[1]], plot_spacer(), x[[2]],
+                              plot_spacer(), x[[3]])
+                } else {
+                    z <- list(plot_spacer(), x[[1]], plot_spacer(), x[[2]])
+                }
+                return(z)
             })()
         hts <- c(0.05, 1, 0.1, 1)
     }
+    if (.incl_ninf) hts <- c(hts, tail(hts, 2))
     pl |>
         wrap_plots(nrow = length(hts), guides = "collect", axis_titles = "collect",
                    heights = hts) +
@@ -265,17 +288,18 @@ supp_line_plotter <- function(par_name, seeds) {
 
 
 # supp_line_plotter("K", c(1609768752, 1975481712))
-# supp_line_plotter("pseudo_surv", c(1546463762, 915602074))
+# supp_line_plotter("pseudo_surv", c(1546463762, 915602074), .incl_ninf = TRUE)
 
 
 
 if (.overwrite) {
-    save_plot("_plots/extremes-manip-lines-K-all-outcomes.pdf",
-              supp_line_plotter("K", c(1609768752, 1975481712)),
-              width = 6.5, height = 5)
     save_plot("_plots/extremes-manip-lines-pseudo_surv-all-outcomes.pdf",
               supp_line_plotter("pseudo_surv", c(1546463762, 915602074)),
               width = 6.5, height = 5)
+    # Because K isn't shown in main text, we also want to plot n_infected
+    save_plot("_plots/extremes-manip-lines-K-all-outcomes.pdf",
+              supp_line_plotter("K", c(1609768752, 1975481712), .incl_ninf = TRUE),
+              width = 6.5, height = 7)
     # Because the `wasp_resp` only differs by zeta, we plot that differently:
     save_plot("_plots/extremes-manip-lines-zeta-all-outcomes.pdf",
               supp_line_plotter("zeta", 65130342),
@@ -576,6 +600,27 @@ source("_scripts/02b-heatmap-funs.R")
 #     pseudo_eff_heatmap("n_infected", "strong", "Y0", "N0") +
 #     plot_layout(nrow = 1, guides = "collect")
 
+
+
+
+
+#
+# _ extremes ----
+#
+
+
+manip2_sims |>
+    select(wasp_resp, Y0, N0, n_pseudo, n_infected:outbreak_size) |>
+    pivot_longer(n_infected:outbreak_size, names_to = "outcome") |>
+    # filter(!is.na(value)) |> ## << can't do this bc it mucks up first summarize
+    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size",
+                                          "n_infected"))) |>
+    group_by(wasp_resp, Y0, N0, outcome) |>
+    summarize(value = value[n_pseudo == 3] - value[n_pseudo == 0],
+              .groups = "drop") |>
+    group_by(wasp_resp, outcome) |>
+    summarize(min_val = min(value, na.rm = TRUE),
+              max_val = max(value, na.rm = TRUE), .groups = "drop")
 
 
 
