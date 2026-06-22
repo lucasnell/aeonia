@@ -143,10 +143,12 @@ large_inf_disp_simmer <- function(n_pseudo,
         landscape <- landscape[,,1:n_sims,drop=FALSE]
     } else landscape <- array(c(1L, rep(0L, 99999L)), c(100L, 100L, n_sims))
 
+    zeta <- switch(wasp_resp, weak = 0.1, moderate = 0.5, strong = 0.9)
+
     args <- list(landscape = landscape,
                  virus_attract = virus_attract,
                  fly_p = fly_p,
-                 zeta = ifelse(wasp_resp == "weak", 0.1, 0.9),
+                 zeta = zeta,
                  p_load_alate = p_load,
                  p_load_plant = p_load,
                  sd_N = 0,
@@ -177,9 +179,9 @@ large_inf_disp_simmer <- function(n_pseudo,
 
 
 
-# Takes ~50 sec
+# Takes ~1.3 min
 set.seed(876826518)
-inf_sims <- crossing(wasp_resp = levels(wasp_resp_fct),
+inf_sims <- crossing(wasp_resp = c(levels(wasp_resp_fct), "moderate"),
                      n_pseudo = c(0L, 3000L, 7000L),
                      virus_attract = c(1, 5, 100)) |>
     pmap(\(wasp_resp, n_pseudo, virus_attract) {
@@ -194,7 +196,7 @@ inf_sims <- crossing(wasp_resp = levels(wasp_resp_fct),
                    virus_attract = .env$virus_attract)
     }, .progress = .prog_args) |>
     list_rbind() |>
-    mutate(wasp_resp = factor(wasp_resp, levels = levels(wasp_resp_fct)))
+    mutate(wasp_resp = factor(wasp_resp, levels = c(levels(wasp_resp_fct), "moderate")))
 
 
 MAX_ALATES <- inf_sims |>
@@ -273,7 +275,7 @@ one_combined_gif <- function(wasp_resp, n_pseudo, virus_attract, fps = 5, ...) {
 
 if (.overwrite || !dir.exists("_plots/virus-attract-gifs")) {
 
-    # Takes ~ 7 min
+    # Takes ~ 10 min
     inf_gifs <- inf_sims |>
         distinct(wasp_resp, n_pseudo, virus_attract) |>
         mutate(gif = pmap(list(wasp_resp, n_pseudo, virus_attract), one_combined_gif,
@@ -310,8 +312,8 @@ if (.overwrite || !dir.exists("_plots/virus-attract-gifs")) {
 
 # Static figures ----
 
-wr = "weak"
-np = 7000L
+wr = "moderate"
+np = 0L
 va = 100
 inf_t = 50L  # time(s) at which new infection explosion occurs
 
@@ -322,171 +324,87 @@ inf_t = 50L  # time(s) at which new infection explosion occurs
 #     group_by(virus_attract) |>
 #     summarize(n_infected = sum(virus))
 
-inf_sims |>
-    filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
-    filter(virus == 1) |>
-    filter(time %in% list_c(map(inf_t, \(x) (x-1):x))) |>
-    ggplot(aes(x, y)) +
-    geom_point(aes(size = disps), color = "red") +
-    scale_y_reverse() +
-    scale_size_area("Incoming<br>alates",
-                    limits = inf_sims |>
-                        filter(wasp_resp == wr, n_pseudo == np) |>
-                        getElement("disps") |>
-                        max() |> (\(x) c(0, x))(),
-                    max_size = 4) +
-    facet_wrap(~ time, labeller = label_both) +
-    coord_equal(xlim = c(0, 100), ylim = c(0, 100))
+inf_p_list <- c(1, 5) |>
+    set_names() |>
+    map(
+        \(va) {
+            max_disps <- inf_sims |>
+                filter(wasp_resp == wr, n_pseudo == np, virus_attract < 100) |>
+                getElement("disps") |>
+                max()
+            inf_sims |>
+                filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
+                filter(virus == 1) |>
+                filter(time %in% (inf_t-11L):inf_t) |>
+                arrange(disps) |>
+                ggplot(aes(x, y)) +
+                geom_point(aes(size = disps, color = disps)) +
+                scale_y_reverse() +
+                scale_size_area("Incoming<br>alates",
+                                limits = c(0, max_disps),
+                                max_size = 2) +
+                scale_color_viridis_c("Incoming<br>alates",
+                                      limits = c(0, max_disps),
+                                      option = "plasma", direction = -1,
+                                      end = 0.9,
+                                      guide = guide_colourbar(theme = theme(
+                                          # legend.key.size = unit(12, "in"),
+                                          legend.key.height = unit(0.24, "in"),
+                                          legend.key.width  = unit(1.2, "in")
+                                      ))) +
+                facet_wrap(~ time, labeller = label_both, nrow = 3, axes = "all") +
+                coord_equal(xlim = c(0, 100), ylim = c(0, 100), expand = FALSE) +
+                labs(title = serify(pretty_params("virus_attract",FALSE,TRUE,TRUE),
+                                    paste(" =", va), "")) +
+                # This fixes a very annoying bug where using
+                # `legend.text = ggtext::element_markdown(...)` makes the legend
+                # really large and doesn't allow me to change its size
+                replace_theme(theme_get(),
+                              legend.text = element_text(color = "black", size = 9)) +
+                theme(legend.position = "top",
+                      axis.text.x = element_blank(),
+                      axis.text.y = element_blank(),
+                      axis.title.x = element_blank(),
+                      axis.title.y = element_blank(),
+                      axis.ticks.x = element_blank(),
+                      axis.ticks.y = element_blank())
+        })
 
 
-inf_sims |>
-    filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
-    filter(virus == 1) |>
-    filter(time %in% (inf_t-7)) |>
-    ggplot(aes(x, y)) +
-    geom_point(aes(size = disps), color = "red") +
-    scale_y_reverse() +
-    scale_size_area("Incoming<br>alates",
-                    limits = inf_sims |>
-                        filter(wasp_resp == wr, n_pseudo == np) |>
-                        getElement("disps") |>
-                        max() |> (\(x) c(0, x))(),
-                    max_size = 4) +
-    facet_wrap(~ time, labeller = label_both) +
-    coord_equal(xlim = c(0, 100), ylim = c(0, 100))
+if (.overwrite) {
+    for (x in names(inf_p_list)) {
+        fn <- sprintf("_plots/virus-attract-nu-%03i.pdf", as.integer(x))
+        save_plot(fn, inf_p_list[[x]], width = 7.5, height = 7.5)
+    }; rm(x, fn)
+}
 
 
 
-
-# # If interested in showing how alates are more common near initially infectious
-# # plant at the beginning of the time series when virus_attract > 1
-# inf_sims |>
-#     filter(wasp_resp == "weak", n_pseudo == 7000L) |>
-#     filter(time %in% c(30, 40, 50)) |>
-#     mutate(time = factor(time)) |>
-#     mutate(dist = sqrt((x-1)^2 + (y-1)^2)) |>
-#     ggplot(aes(dist, alates)) +
-#     geom_point(shape = 1) +
-#     facet_grid(virus_attract ~ time, scales = "free_y",
-#                axes = "all", axis.labels = "margins")
-# inf_sims |>
-#     filter(wasp_resp == "weak", virus_attract == 100, n_pseudo == 7000L) |>
-#     filter(virus == 1) |>
-#     filter(time %in%  c(50:52, 60)) |>
-#     ggplot(aes(x, y)) +
-#     geom_point(size = 0.5, color = "red") +
-#     scale_y_reverse() +
-#     coord_cartesian(xlim = c(0, 100), ylim = c(0, 100)) +
-#     facet_wrap(~ time)
-
-
-landscape <- "_scripts/interm-data/large-landscapes.rds" |>
-    read_rds() |>
-    filter(n_pseudo == 3000L,
-           # uniform, virus starts on uninhabited plant:
-           wt_pp == 1, wt_vp < 1) |>
-    getElement("landscape") |>
-    getElement(1) |>
-    base::`[`(,,1:12,drop=FALSE)
-
-# a <- large_simmer(landscape, wasp_resp = "weak", virus_attract = 1, p_load = 0.2,
-#                   sd_N = 0, pseudo_repel = 1, total_exp_days = 1,
-#                   n_sims = dim(landscape)[3])
-# b <- large_simmer(landscape, wasp_resp = "weak", virus_attract = 5, p_load = 0.2,
-#                   sd_N = 0, pseudo_repel = 1, total_exp_days = 1,
-#                   n_sims = dim(landscape)[3])
-# mean(a$n_infected); mean(b$n_infected)
-# # [1] 9959.2
-# # [1] 9769.4
-#
-# a <- large_simmer(landscape, wasp_resp = "strong", virus_attract = 1, p_load = 0.25,
-#                   sd_N = 0, pseudo_repel = 1, total_exp_days = 1,
-#                   n_sims = dim(landscape)[3])
-# b <- large_simmer(landscape, wasp_resp = "strong", virus_attract = 5, p_load = 0.25,
-#                   sd_N = 0, pseudo_repel = 1, total_exp_days = 1,
-#                   n_sims = dim(landscape)[3])
-# mean(a$n_infected); mean(b$n_infected)
-# # [1] 4978.4
-# # [1] 8624.4
 
 
 landscape <- array(c(1L, rep(0L, 100^2-1)), c(100, 100, 24))
 
-
+# Takes ~1 min
 set.seed(1011497921)
-w1_sims <- crossing(wr = wasp_resp_fct,
-                    va = c(1, 5, 100)) |>
+w1_sims <- crossing(va = c(1, 5, 100)) |>
     pmap(\(wr, va) {
-        ni <- large_simmer(landscape, wasp_resp = paste(wr), virus_attract = va,
+        ni <- large_simmer(landscape, wasp_resp = "moderate", virus_attract = va,
                            p_load = 1,
                            w = 1,
                            total_exp_days = 1,
-                           fly_p = 1,
+                           fly_p = 0.1,
                            sd_N = 0, pseudo_repel = 1) |>
             getElement("n_infected")
         boots <- booter(ni)
-        tibble(wasp_resp = wr, virus_attract = va, n_infected = mean(ni),
+        tibble(virus_attract = va, n_infected = mean(ni),
                lo  = boots[["Lower"]], hi  = boots[["Upper"]])
-    }) |>
+    }, .progress = .prog_args) |>
     list_rbind()
 
 w1_sims
 
-# LEFT OFF ---
-#
-# Stop trying to simulate a bunch of scenarios.
-# Instead, use simulations to illustrate what I describe in the results.
-#
-
-
-
-wr = "weak"
-
-# heatmap of times to infection:
-inf_sims |>
-    filter(wasp_resp == wr) |>
-    mutate(virus_attract = factor(virus_attract)) |>
-    group_by(virus_attract, x, y) |>
-    summarize(time = (\(t, v) {if (any(v == 1)) min(t[v == 1]) else NA})(time, virus),
-              .groups = "drop") |>
-    filter(!is.na(time)) |>
-    ggplot(aes(x, y)) +
-    geom_raster(aes(fill = time)) +
-    geom_contour(aes(z = time)) +
-    scale_y_reverse() +
-    scale_color_viridis_c(option = "plasma", aesthetics = c("color", "fill")) +
-    coord_equal(xlim = c(0, 100), ylim = c(0, 100)) +
-    facet_wrap(~ virus_attract, nrow = 1)
-
-
-# Histograms of times to infection
-# (vertical line is peak alates + 7 for incubation period)
-ma <- inf_sims |>
-    filter(wasp_resp == wr) |>
-    group_by(virus_attract, time) |>
-    summarize(alates = sum(alates), .groups = "drop_last") |>
-    filter(alates == max(alates)) |>
-    ungroup() |>
-    mutate(time = time + 7L, virus_attract = factor(virus_attract))
-inf_sims |>
-    filter(wasp_resp == wr) |>
-    mutate(virus_attract = factor(virus_attract)) |>
-    group_by(virus_attract, x, y) |>
-    summarize(time = (\(t, v) {if (any(v == 1)) min(t[v == 1]) else NA})(time, virus),
-              .groups = "drop") |>
-    filter(!is.na(time)) |>
-    ggplot(aes(time)) +
-    geom_histogram(color = "black", linewidth = 0.25, fill = "firebrick2", binwidth = 1) +
-    geom_vline(data = ma, aes(xintercept = time), linetype = "22") +
-    labs(x = "Time to infection", y = "Number of plants") +
-    facet_wrap(~ virus_attract)
-
-
-
-
-
-
-
-large_dispersal_simmer
-
-
+#   virus_attract n_infected    lo    hi
+#           <dbl>      <dbl> <dbl> <dbl>
+# 1             1      3888. 3705. 4084.
+# 2             5      2563  2382. 2737.
+# 3           100       160   140.  179.
