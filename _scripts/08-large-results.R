@@ -239,10 +239,11 @@ large_manip_plots <- crossing(cf = c("pseudo_repel", "virus_attract", "sd_N") |>
     }) |>
     do.call(what = c)
 
-wrap_plots(large_manip_plots, ncol = 7, guides = "collect", axes = "collect",
-           widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
-           heights = c(1, 0.05, 1, 0.05, 1)) &
-    illustrator_theme
+# wrap_plots(large_manip_plots, ncol = 7, guides = "collect", axes = "collect",
+#            widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
+#            heights = c(1, 0.05, 1, 0.05, 1)) &
+#     illustrator_theme
+
 
 
 # # If you want to combine by `wasp_resp`:
@@ -498,55 +499,57 @@ if (.overwrite) {
 
 
 
+
 # =============================================================================*
 # =============================================================================*
-# w=1 ----
+# sd_N ----
 # =============================================================================*
 # =============================================================================*
 
 
-# from 07-large-w1.sh:
-w1_sim_df <- process_large_sim_files("w1", 1627402402)
+
+N0 <- 55
+sd_N <- 50
+# Converting to mu and sigma for underlying normal distribution:
+mu_N <- log(N0^2 / sqrt(N0^2 + sd_N^2))
+sigma_N <- sqrt(log(1 + sd_N^2 / N0^2))
 
 
-large_w1_manip_p <- crossing(wr = wasp_resp_fct,
-                             onp = c(FALSE, TRUE)) |>
-    # Bc factors behave weird sometimes (but are needed for sorting crossing):
-    mutate(across(where(is.factor), paste)) |>
-    # Used for tags:
-    mutate(tg = LETTERS[1:n()]) |>
-    pmap(\(wr, onp, tg) {
-        cf <- "virus_attract"
-        non_defs <- list()
-        col_pal <- c("black", lighten(par_pal[[cf]], 0.4), par_pal[[cf]])
-        if (onp) {
-            non_defs <- list(wt_vp = "on *Pseudo.*")
-        }
-        p <- baseline_plotter(outcomes = "n_infected", col_fct = cf,
-                              color_vals = col_pal, non_defaults = non_defs,
-                              obs_breaks = 0:2 * 3000, obs_max = 7780,
-                              data_df = w1_sim_df |> filter(wasp_resp == wr),
-                              multiline_col_title = FALSE,
-                              p_tag = tg)
-        if (wr != levels(wasp_resp_fct)[1] || onp) {
-            p <- p + theme(axis.text.y = element_blank())
-        }
-        return(p)
-    }) |>
-    add_top_labels() |>
-    wrap_plots(design = "EEE#FFF\nG#H#I#J\nA#B#C#D",
-               guides = "collect", axis_titles = "collect",
-               widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1), heights = c(0.4, 0.3, 1)) &
-    theme(plot.tag.location = "panel",
-          plot.tag.position = c(0.05, 1.05),
-          legend.position = "top", legend.title.position = "top")
+sd_sims_args <- list(max_t = 30L,
+                     n_reps = 100L,
+                     insects_ptr = make_insects_ptr(pseudo_surv = 1, zeta = 0.5))
 
+
+set.seed(1573430855)
+variable_N_df <- map(1:sd_sims_args$n_reps, \(i) {
+    test_insect_pops(N0 = rlnorm(1, mu_N, sigma_N), max_t = sd_sims_args$max_t,
+                     W0 = 0, M0 = 0, Y0 = 0,
+                     sd_sims_args$insects_ptr) |>
+        mutate(rep = i)
+}) |>
+    list_rbind() |>
+    mutate(aphids = aphids + alates + parasitized) |>
+    select(rep, time, aphids, wasps)
+
+fixed_N_df <- test_insect_pops(N0 = 55, max_t = sd_sims_args$max_t,
+                               W0 = 0, M0 = 0, Y0 = 0,
+                               sd_sims_args$insects_ptr) |>
+    mutate(aphids = aphids + alates + parasitized) |>
+    select(time, aphids, wasps)
+
+sd_N_dens_p <- variable_N_df |>
+    ggplot(aes(time, aphids)) +
+    geom_line(aes(group = rep), color = "dodgerblue", alpha = 0.1) +
+    geom_line(data = variable_N_df |>
+                  group_by(time) |>
+                  summarize(aphids = mean(aphids)),
+              color = "dodgerblue", linewidth = 1) +
+    geom_line(data = fixed_N_df, linewidth = 1) +
+    labs(x = "Time (days)", y = "Total aphids")
 
 if (.overwrite) {
-    save_plot("_plots/large-manips-w1.pdf", large_w1_manip_p,
-              width = 6.5, height = 4)
+    save_plot("_plots/sd_N-densities.pdf", sd_N_dens_p, width = 6, height = 4)
 }
-
 
 
 # =============================================================================*
@@ -569,6 +572,16 @@ if (!file.exists(interm_files$large_zeta_sims)) stop("Run 11-large-emp-zeta.R fi
 
 zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddld")
 
+add_n_pseudo_fct <- function(d, label_both = FALSE) {
+    fmt <- ifelse(label_both, "%.0f%% *Pseudo.*", "%.0f%%")
+    n_pseudo_labs <- n_pseudo_lvls |>
+        (\(x) x / 10e3 * 100)() |>
+        (\(x) sprintf(fmt, x))()
+    d |>
+        mutate(n_pseudo_fct = factor(n_pseudo, levels = n_pseudo_lvls,
+                                     labels = n_pseudo_labs))
+}
+
 # Takes ~ 2 min
 set.seed(1540192361)
 zeta_sim_summs <- zeta_sims |>
@@ -581,12 +594,8 @@ zeta_sim_summs <- zeta_sims |>
     unnest(ci) |>
     mutate(pseudo = factor(pseudo, levels = c(FALSE, TRUE),
                            labels = c("Plants without<br>*Pseudomonas*",
-                                      "Plants with<br>*Pseudomonas*")),
-           n_pseudo_fct = factor(n_pseudo,
-                                 levels = n_pseudo_lvls,
-                                 labels = n_pseudo_lvls |>
-                                     (\(x) x / 10e3 * 100)() |>
-                                     (\(x) sprintf("%.0f%% *Pseudo.*", x))()))
+                                      "Plants with<br>*Pseudomonas*"))) |>
+    add_n_pseudo_fct(TRUE)
 
 
 # approximate using linear interpolation where lines equal 1:
@@ -605,6 +614,7 @@ zeta_one_ests <- zeta_sim_summs |>
 
 # They are the same across whether Pseudomonas is on plant:
 zeta_one_ests$zeta_d |> max()
+# [1] 1.332268e-15
 
 zeta_one_ests |> select(n_pseudo, zeta)
 #   n_pseudo  zeta
@@ -665,43 +675,54 @@ no_pseudo_df <- zeta_sims |>
     unnest(ci)
 
 
+
+
+
 zeta_ninf_p <- zeta_ninf_sim_summs |>
     filter(n_pseudo > 0) |>
-    mutate(n_pseudo = factor(n_pseudo, levels = n_pseudo_lvls,
-                             labels = sprintf("%.0f%%", n_pseudo_lvls / 10e3 * 100))) |>
-    ggplot(aes(zeta, n_infected, color = n_pseudo)) +
-    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo), alpha = 0.25, color = NA) +
+    add_n_pseudo_fct() |>
+    ggplot(aes(zeta, n_infected, color = n_pseudo_fct)) +
+    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo_fct), alpha = 0.25, color = NA) +
     geom_line() +
     geom_hline(yintercept = no_pseudo_df$n_infected) +
     geom_hline(yintercept = as.numeric(no_pseudo_df[,c("Lower", "Upper")]),
                linetype = "22") +
+    geom_point(data = zeta_one_ests |>
+                   # Use linear interpolation to estimate value of n_infected for each zeta:
+                   mutate(n_infected = map2_dbl(n_pseudo, zeta, \(np, z) {
+                       d <- zeta_ninf_sim_summs |> filter(n_pseudo == np)
+                       f <- approxfun(d$zeta, d$n_infected)
+                       return(f(z))
+                   })) |>
+                   add_n_pseudo_fct(),
+               size = 3) +
     scale_color_manual("*Pseudo.*<br>plants",
                        values = full_np_pal[paste(n_pseudo_lvls)] |>
                            set_names(sprintf("%.0f%%", n_pseudo_lvls / 10e3 * 100)),
                        aesthetics = c("color", "fill")) +
     labs(x = pretty_params("zeta", cap1 = TRUE),
-         y = "Mean number of infected plants")
+         y = "Mean peak infected plants")
 
 # zeta_ninf_p
 
 
-# What proportion are above # infected when no Pseudomonas?
-zeta_ninf_sim_summs |>
-    getElement("n_infected") |>
-    (\(x) mean(x > no_pseudo_df$n_infected))()
-# [1] 0.4222222
-
-zeta_ninf_sim_summs |>
-    filter(n_pseudo < 9000) |>
-    getElement("n_infected") |>
-    (\(x) mean(x > no_pseudo_df$n_infected))()
-# [1] 0.5
-
-zeta_ninf_sim_summs |>
-    filter(n_pseudo == 5000) |>
-    getElement("n_infected") |>
-    (\(x) mean(x > no_pseudo_df$n_infected))()
-# [1] 0.4444444
+# # What proportion are above # infected when no Pseudomonas?
+# zeta_ninf_sim_summs |>
+#     getElement("n_infected") |>
+#     (\(x) mean(x > no_pseudo_df$n_infected))()
+# # [1] 0.4222222
+#
+# zeta_ninf_sim_summs |>
+#     filter(n_pseudo < 9000) |>
+#     getElement("n_infected") |>
+#     (\(x) mean(x > no_pseudo_df$n_infected))()
+# # [1] 0.5
+#
+# zeta_ninf_sim_summs |>
+#     filter(n_pseudo == 5000) |>
+#     getElement("n_infected") |>
+#     (\(x) mean(x > no_pseudo_df$n_infected))()
+# # [1] 0.4444444
 
 if (.overwrite) {
     save_plot("_plots/large-zeta-n_infected.pdf", zeta_ninf_p, width = 6, height = 4)

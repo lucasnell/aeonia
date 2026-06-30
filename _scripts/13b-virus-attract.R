@@ -1,6 +1,6 @@
 
 #'
-#' Density plots for larger landscape simulations.
+#' Virus attraction plots for larger landscape simulations.
 #'
 
 source("_scripts/00-preamble.R")
@@ -408,3 +408,52 @@ w1_sims
 # 1             1      3888. 3705. 4084.
 # 2             5      2563  2382. 2737.
 # 3           100       160   140.  179.
+
+
+# radius ----
+
+Rcpp::cppFunction(
+'arma::imat make_neigh_dxdy(const double& radius) {
+
+    typedef arma::uword uint32;
+    typedef arma::sword int32;
+
+    // Fill `neigh_dxdy` based on radius:
+    uint32 total_rows = 0;
+    int32 fl_radius = std::floor(radius);
+    std::vector<arma::imat> dxdy_vec;
+    dxdy_vec.reserve(fl_radius * 2U + 1U);
+    int32 max_dy;
+    uint32 rows_x;
+    double radius2 = radius * radius;
+    for (int32 dx = -fl_radius; dx <= fl_radius; dx++) {
+        max_dy = std::floor(std::sqrt(radius2 - static_cast<double>(dx * dx)));
+        rows_x = max_dy * 2U;
+        if (dx != 0) rows_x++;
+        dxdy_vec.emplace_back(rows_x, 2U, arma::fill::none);
+        arma::imat& dxdy_i(dxdy_vec.back());
+        uint32 i = 0;
+        for (int32 dy = -max_dy; dy <= max_dy; dy++) {
+            if (dy == 0 && dx == 0) continue;
+            dxdy_i.at(i,0) = dx;
+            dxdy_i.at(i,1) = dy;
+            i++;
+        }
+        total_rows += dxdy_i.n_rows;
+    }
+
+    arma::imat neigh_dxdy(total_rows, 2U);
+    uint32 k = 0;
+    for (const arma::imat& dxdy : dxdy_vec) {
+        for (uint32 j = 0; j < dxdy.n_rows; j++) {
+            neigh_dxdy.at(k,0) = dxdy.at(j,0);
+            neigh_dxdy.at(k,1) = dxdy.at(j,1);
+            k++;
+        }
+    }
+
+    return neigh_dxdy;
+}', depends = "RcppArmadillo")
+
+
+make_neigh_dxdy(an_environ$radius) |> nrow()
