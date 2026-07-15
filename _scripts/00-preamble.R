@@ -256,13 +256,22 @@ run_sim_combos <- function(wasp_resp,
 
 
 
-scenario_title <- function(.wasp_resp, .break = FALSE, .cap1 = FALSE, .nl = "<br>") {
-    .fmt <- ifelse(.break, "%s parasitoid<br>responsiveness to<br>aphid densities",
-                   "%s parasitoid responsiveness to aphid densities")
+scenario_title <- function(.wasp_resp,
+                           .value = TRUE,
+                           .break = TRUE,
+                           .cap1 = TRUE,
+                           .nl = "<br>") {
+    .fmt <- ifelse(.break, "%s parasitoid<br>response to aphids",
+                   "%s parasitoid response to aphids")
     if (.break && .nl != "<br>") .fmt <- .fmt |>
             str_replace_all("<br>", .nl)
     out <- sprintf(.fmt, .wasp_resp)
     if (.cap1) out <- first_cap(out)
+    if (.value) {
+        val <- sprintf("<i>&zeta;</i> = %.1f",
+                       ifelse(.wasp_resp == "weak", 0.1, 0.9))
+        out <- paste(out, serify("(", val, ")"), sep = ifelse(.break, .nl, " "))
+    }
     return(out)
 }
 
