@@ -33,7 +33,7 @@ void ps_out_none(DataFrame& out_df,
                  const uint32& max_t,
                  const bool& out_pseudo,
                  const bool& out_attack_surv,
-                 const bool& out_stages);
+                 const std::string& out_stages);
 
 
 
@@ -42,7 +42,7 @@ void ps_out_time(DataFrame& out_df,
                  const std::vector<ScapeSimmer>& simmers,
                  const arma::ucube& landscapes,
                  const uint32& max_t,
-                 const bool& out_stages);
+                 const std::string& out_stages);
 
 
 
@@ -50,7 +50,7 @@ void ps_out_all(DataFrame& out_df,
                 const std::vector<ScapeSimmer>& simmers,
                 const arma::ucube& landscapes,
                 const uint32& max_t,
-                const bool& out_stages,
+                const std::string& out_stages,
                 const uint32& infect_time_n,
                 const double& aphid_gone_thresh,
                 const double& wasp_gone_thresh);

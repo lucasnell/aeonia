@@ -21,7 +21,7 @@ sim_plantscape(
   infect_stop = FALSE,
   out_pseudo = FALSE,
   out_attack_surv = FALSE,
-  out_stages = FALSE,
+  out_stages = "none",
   out_dispersals = "none",
   show_progress = FALSE,
   n_threads = 0L
@@ -132,9 +132,13 @@ from parasitoid attack (weighted mean by abundance for each aphid stage)
 in output. Ignored if \code{summ != "none"}.
 Defaults to \code{FALSE}.}
 
-\item{out_stages}{Single logical for whether to separate output for aphids
-by juvenile vs adults.
-Defaults to \code{FALSE}.}
+\item{out_stages}{Single string for whether and how to separate output for
+aphids stage.
+If \code{"none"}, no stages are output.
+If \code{"two"}, adult and juvenile alates and apterous aphids are separated.
+If \code{"all"}, every age stage is separated, typically \code{29} each for
+aphids and alates.
+Defaults to \code{"none"}.}
 
 \item{out_dispersals}{String for whether / how to output dispersal info.
 If \code{summ \%in\% c("time", "all")} and \code{out_dispersals = "all"},

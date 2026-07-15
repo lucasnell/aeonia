@@ -15,7 +15,8 @@ using namespace Rcpp;
 CharacterVector col_namer__(const std::string& summ,
                             const bool& out_pseudo,
                             const bool& out_attack_surv,
-                            const bool& out_stages) {
+                            const std::string& out_stages,
+                            const uint32& n_age_stages) {
 
     CharacterVector out = {"rep"};
     if (summ != "all") out.push_back("time");
@@ -27,7 +28,14 @@ CharacterVector col_namer__(const std::string& summ,
     }
     if (summ != "all") {
         out.push_back("virus");
-        if (out_stages) {
+        if (out_stages == "all") {
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("aphids_" + std::to_string(i+1U));
+            }
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("alates_" + std::to_string(i+1U));
+            }
+        } else if (out_stages == "two") {
             out.push_back("aphids_juv");
             out.push_back("aphids_adu");
             out.push_back("alates_juv");
@@ -41,7 +49,20 @@ CharacterVector col_namer__(const std::string& summ,
         out.push_back("wasps");
     } else {
         out.push_back("p_alates");
-        if (out_stages) {
+        if (out_stages == "all") {
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("log_aphids_" + std::to_string(i+1U));
+            }
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("aphids_" + std::to_string(i+1U));
+            }
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("log_alates_" + std::to_string(i+1U));
+            }
+            for (uint32 i = 0; i < n_age_stages; i++) {
+                out.push_back("alates_" + std::to_string(i+1U));
+            }
+        } else if (out_stages == "two") {
             out.push_back("log_aphids_juv");
             out.push_back("log_aphids_adu");
             out.push_back("aphids_juv");
@@ -79,12 +100,15 @@ CharacterVector col_namer__(const std::string& summ,
 CharacterVector col_namer_cpp(const ScapeSimmer& simmer,
                             const bool& out_pseudo,
                             const bool& out_attack_surv,
-                            const bool& out_stages,
+                            const std::string& out_stages,
                             const uint32& n_cols) {
 
     const std::string& summ(simmer.summ);
+    const AphidPop& aphid_pop(simmer.aphid_pop());
+    uint32 n_age_stages = aphid_pop.n_age_stages();
 
-    CharacterVector out = col_namer__(summ, out_pseudo, out_attack_surv, out_stages);
+    CharacterVector out = col_namer__(summ, out_pseudo, out_attack_surv,
+                                      out_stages, n_age_stages);
 
     if (out.size() != n_cols) {
         if (out.size() == 0) {
@@ -115,13 +139,18 @@ CharacterVector col_namer_cpp(const ScapeSimmer& simmer,
 CharacterVector col_namer(const std::string& summ,
                           const bool& out_pseudo,
                           const bool& out_attack_surv,
-                          const bool& out_stages) {
+                          const std::string& out_stages,
+                          const uint32& n_age_stages = 29) {
 
     if (summ != "none" && summ != "time" && summ != "all") {
         stop("`summ` should be 'none', 'time', or 'all'");
     }
+    if (out_stages != "none" && out_stages != "two" && out_stages != "all") {
+        stop("`summ` should be 'none', 'two', or 'all'");
+    }
 
-    CharacterVector out = col_namer__(summ, out_pseudo, out_attack_surv, out_stages);
+    CharacterVector out = col_namer__(summ, out_pseudo, out_attack_surv,
+                                      out_stages, n_age_stages);
 
     return out;
 
@@ -146,7 +175,7 @@ void list_to_data_frame(DataFrame& out_df,
 
 
 
-std::vector<arma::span> make_spans(const bool& out_stages,
+std::vector<arma::span> make_spans(const std::string& out_stages,
                                    const AphidPop& aphid_pop) {
 
     // Needed for calculating aphid by age and morphological stage:
@@ -157,7 +186,13 @@ std::vector<arma::span> make_spans(const bool& out_stages,
     }
 
     std::vector<arma::span> spans;
-    if (out_stages) {
+    if (out_stages == "all") {
+        // Used if ALL stages are output:
+        spans.reserve(2U * n_age_stages);
+        for (uint32 i = 0; i < (2U * n_age_stages); i++) {
+            spans.push_back(arma::span(i, i));
+        }
+    } else if (out_stages == "two") {
         // Used if stages are output:
         spans.reserve(4);
         spans.push_back(arma::span(0U, adult_age - 1U));
@@ -237,15 +272,18 @@ void ps_out_none(DataFrame& out_df,
                  const uint32& max_t,
                  const bool& out_pseudo,
                  const bool& out_attack_surv,
-                 const bool& out_stages) {
+                 const std::string& out_stages) {
 
     const AphidPop& aphid_pop(simmers[0].aphid_pop());
     const WaspPop& wasp_pop(simmers[0].scape.wasps);
 
+    uint32 n_age_stages = aphid_pop.n_age_stages();
+
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows;
     uint32 n_cols = 10;
-    if (out_stages) n_cols += 2;
+    if (out_stages == "two") n_cols += 2;
+    if (out_stages == "all") n_cols += (2U * n_age_stages - 2U);
     if (out_pseudo) n_cols++;
     if (out_attack_surv) n_cols++;
 
@@ -260,7 +298,6 @@ void ps_out_none(DataFrame& out_df,
                                               n_cols);
 
     // Check if we need to also add dispersal events:
-    uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
     bool out_any_dispersals = simmers[0].out_any_dispersals;
     if (simmers[0].out_all_dispersals)
         stop("Cannot output all dispersals when summ = \"none\"");
@@ -274,7 +311,10 @@ void ps_out_none(DataFrame& out_df,
 
 
     double tot_virus, tot_parasitized, tot_mummies;
-    arma::vec tot_aphids(((out_stages) ? 4U : 2U), arma::fill::none);
+    uint32 tot_aphids_len = 2U;
+    if (out_stages == "two") tot_aphids_len = 4U;
+    if (out_stages == "all") tot_aphids_len = 2U * n_age_stages;
+    arma::vec tot_aphids(tot_aphids_len, arma::fill::none);
 
     // Used if attack survivals are output:
     arma::vec X, A_surv, A_surv_apt;
@@ -428,8 +468,6 @@ List make_disp_col(const std::vector<ScapeSimmer>& simmers,
 
     List disp_col(n_actual_rows);
 
-    // Whether to output any dispersals:
-    const bool& out_any_dispersals(simmers[0].out_any_dispersals);
     // Whether to output all (vs just incoming) dispersals:
     const bool& out_all_dispersals(simmers[0].out_all_dispersals);
 
@@ -478,23 +516,24 @@ void ps_out_time(DataFrame& out_df,
                  const std::vector<ScapeSimmer>& simmers,
                  const arma::ucube& landscapes,
                  const uint32& max_t,
-                 const bool& out_stages) {
+                 const std::string& out_stages) {
 
     const AphidPop& aphid_pop(simmers[0].aphid_pop());
+
+    uint32 n_age_stages = aphid_pop.n_age_stages();
 
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps * (max_t + (uint32)1U);
 
     uint32 n_cols = 8;
-    if (out_stages) n_cols += 2;
+    if (out_stages == "two") n_cols += 2;
+    if (out_stages == "all") n_cols += (2U * n_age_stages - 2U);
 
     CharacterVector col_names = col_namer_cpp(simmers[0], false, false,
                                               out_stages, n_cols);
 
     // Check if we need to also add dispersal events:
-    uint32 n_plants = landscapes.n_rows * landscapes.n_cols;
     bool out_any_dispersals = simmers[0].out_any_dispersals;
-    bool out_all_dispersals = simmers[0].out_all_dispersals;
     if (out_any_dispersals) {
         col_names.push_back("disps");
         n_cols++;
@@ -552,18 +591,21 @@ void ps_out_all(DataFrame& out_df,
                 const std::vector<ScapeSimmer>& simmers,
                 const arma::ucube& landscapes,
                 const uint32& max_t,
-                const bool& out_stages,
+                const std::string& out_stages,
                 const uint32& infect_time_n,
                 const double& aphid_gone_thresh,
                 const double& wasp_gone_thresh) {
 
     const AphidPop& aphid_pop(simmers[0].aphid_pop());
 
+    uint32 n_age_stages = aphid_pop.n_age_stages();
+
     uint32 n_reps = landscapes.n_slices;
     uint32 n_rows = n_reps;
 
     uint32 n_cols = 16;
-    if (out_stages) n_cols += 4;
+    if (out_stages == "two") n_cols += 4;
+    if (out_stages == "all") n_cols += (4U * n_age_stages - 4U);
 
     CharacterVector col_names = col_namer_cpp(simmers[0], false, false,
                                               out_stages, n_cols);
@@ -591,7 +633,7 @@ void ps_out_all(DataFrame& out_df,
     // make spans for summing by desired stages:
     std::vector<arma::span> spans = make_spans(out_stages, aphid_pop);
     // make spans for apterous vs alate (used for `p_alate` column)
-    std::vector<arma::span> ava_spans = make_spans(false, aphid_pop);
+    std::vector<arma::span> ava_spans = make_spans("none", aphid_pop);
     double alate_rt, apterous_rt, total_aphids_rt;
 
     uint32 k;

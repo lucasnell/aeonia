@@ -50,8 +50,10 @@ void ScapeSimmer::run(const bool& infect_stop,
  output here, but they get summarized differently in the `sim_plantscape`
  function.
  Note lastly that for each of the column lists below,
- if `out_stages = TRUE`, there are two columns each for aphids and alates,
+ if `out_stages = "two"`, there are two columns each for aphids and alates,
  one for juveniles and one for adults.
+ If `out_stages = "all"`, there are 29 columns each for aphids and alates,
+ one for each age stage.
 
  If `summ == "none"`, `n_x * n_y` rows are output for each time point.
  The columns are...
@@ -542,9 +544,13 @@ void check_plantscape_args(const arma::ucube& landscapes,
 //'     from parasitoid attack (weighted mean by abundance for each aphid stage)
 //'     in output. Ignored if `summ != "none"`.
 //'     Defaults to `FALSE`.
-//' @param out_stages Single logical for whether to separate output for aphids
-//'     by juvenile vs adults.
-//'     Defaults to `FALSE`.
+//' @param out_stages Single string for whether and how to separate output for
+//'     aphids stage.
+//'     If `"none"`, no stages are output.
+//'     If `"two"`, adult and juvenile alates and apterous aphids are separated.
+//'     If `"all"`, every age stage is separated, typically `29` each for
+//'     aphids and alates.
+//'     Defaults to `"none"`.
 //' @param out_dispersals String for whether / how to output dispersal info.
 //'     If `summ %in% c("time", "all")` and `out_dispersals = "all"`,
 //'     dispersals are a column list
@@ -596,7 +602,7 @@ DataFrame sim_plantscape(const arma::ucube& landscapes,
                          const bool& infect_stop = false,
                          const bool& out_pseudo = false,
                          const bool& out_attack_surv = false,
-                         const bool& out_stages = false,
+                         const std::string& out_stages = "none",
                          const std::string& out_dispersals = "none",
                          const bool& show_progress = false,
                          uint32 n_threads = 0) {
