@@ -105,7 +105,7 @@ dens_sims <- crossing(wr = wasp_resp_fct,
         maxxer <- function(x, p) max(x[!is.na(p)]) # max per plant
 
         large_simmer(.landscape, wasp_resp = paste(wr),
-                     summ = "none", out_stages = TRUE,
+                     summ = "none", out_stages = "two",
                      n_sims = dim(.landscape)[3]) |>
             mutate(plant = interaction(y, x),
                    aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,

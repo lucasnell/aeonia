@@ -161,7 +161,7 @@ large_inf_disp_simmer <- function(n_pseudo,
                  out_dispersals = "in",
                  force_disps = TRUE,
                  summ = "none",
-                 out_stages = TRUE)
+                 out_stages = "two")
 
 
     sims <- do.call(big_plantscape, args) |>

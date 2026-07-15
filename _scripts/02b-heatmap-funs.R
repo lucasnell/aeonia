@@ -33,7 +33,7 @@ heatmaps_make_objs <- function(yvar,
     if (is.character(.add_title)) {
         .title <- .add_title
     } else if (is.logical(.add_title) && .add_title) {
-        .title <- scenario_title(wasp_resp, TRUE, TRUE)
+        .title <- scenario_title(wasp_resp)
     }
 
     assign("par_name_a", par_name_a, envir = env)

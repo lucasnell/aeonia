@@ -180,7 +180,7 @@ large_manip_clust_p <- crossing(wr = wasp_resp_fct,
 #                               data_df = sim_df |> filter(wasp_resp == wr),
 #                               multiline_col_title = FALSE,
 #                               p_tag = tg,
-#                               p_title = scenario_title(wr, TRUE, TRUE))
+#                               p_title = scenario_title(wr))
 #         if (wr != levels(wasp_resp_fct)[1]) {
 #             p <- p + theme(axis.text.y = element_blank())
 #         }
@@ -325,7 +325,7 @@ large_small_outcomes_p <- baseline_plotter(outcomes = "all",
                                            multiline_ylab = TRUE,
                                            p_tag = as.list(LETTERS[1:6]),
                                            p_title = c(map(levels(wasp_resp_fct),
-                                                           \(wr) scenario_title(wr, TRUE, TRUE)),
+                                                           \(wr) scenario_title(wr)),
                                                        rep(list(waiver()), 4)),
                                            return_list = TRUE) |>
     wrap_plots(design = "A#B\n###\nC#D\n###\nE#F",
@@ -418,12 +418,12 @@ large_small_outs_p <- function() {
     grid.draw(patchworkGrob(large_small_outs_main_p))
     pushViewport(viewport(x = 0.17, y = 1, width = 1/3, height = 0.1, name = "top-left",
                           just = c("left", "top")))
-    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[1], TRUE, TRUE),
+    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[1]),
                             gp = gpar(fontsize = 13, lineheight = 0.8)))
     popViewport()
     pushViewport(viewport(x = 0.54, y = 1, width = 1/3, height = 0.1, name = "top-right",
                           just = c("left", "top")))
-    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[2], TRUE, TRUE),
+    grid.draw(richtext_grob(scenario_title(levels(wasp_resp_fct)[2]),
                             gp = gpar(fontsize = 13, lineheight = 0.8)))
     popViewport()
 }

@@ -443,7 +443,7 @@ baseline_plotter <- function(col_fct = NULL,
 add_top_labels <- function(plot_list, add_bot_labs = TRUE) {
     top_labs <- levels(wasp_resp_fct) |>
         map(\(x) {
-            grob <- richtext_grob(scenario_title(x, TRUE, TRUE),
+            grob <- richtext_grob(scenario_title(x),
                                   gp = gpar(fontsize = 13, lineheight = 0.8))
             wrap_elements(panel = grob)
         })
