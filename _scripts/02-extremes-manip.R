@@ -238,7 +238,7 @@ supp_line_plotter <- function(par_name, seeds, .incl_ninf = FALSE) {
                        pl <- one_manip_plotter(wr, par_name,
                                                outcomes = .outcomes,
                                                .return_list = TRUE, .seed = seed)
-                       pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr, TRUE, TRUE))
+                       pl[[1]] <- pl[[1]] + labs(title = scenario_title(wr))
                        pl[[1]] <- pl[[1]] + theme(axis.text.x = element_blank())
                        if (wr == tail(levels(wasp_resp_fct),1)) {
                            pl <- map(pl, \(x) x + theme(axis.text.y=element_blank()))
@@ -453,7 +453,7 @@ thresh_sims <- crossing(wasp_resp = sort(unique(manip_sims$wasp_resp)),
         out <- run_sim_combos(wasp_resp = wasp_resp, n_pseudo = n_pseudo,
                               Y0 = Y0, N0 = N0,
                               large_sims = TRUE, summ = "time",
-                              out_stages = TRUE) |>
+                              out_stages = "two") |>
             mutate(aphids = aphids_juv + aphids_adu + alates_juv + alates_adu + parasitized,
                    alates = alates_adu) |>
             group_by(time) |>
@@ -485,7 +485,7 @@ thresh_p <- thresh_sims |>
         wasp_resp <- paste(wasp_resp)
         thresh <- paste(thresh)
         if (thresh == "below") {
-            .title <- scenario_title(wasp_resp, TRUE, TRUE)
+            .title <- scenario_title(wasp_resp)
         } else .title <- waiver()
         .subtitle <- serify("", "*Y*<sub>0</sub> / *N*<sub>0</sub>",
                            list(below = " too high", above = " too low")[[thresh]])
@@ -638,7 +638,7 @@ manip2_sims |>
 
 # Heatmaps of Y0 and N0, with fill split into prob. emergence and outbreak size
 yn_hm_p <- {pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
-                               .add_title = scenario_title("weak", TRUE, TRUE)) +
+                               .add_title = scenario_title("weak")) +
         geom_segment(data = tibble(Y0 = 1, N0 = 75, Y0_s = Y0 + 0.5, N0_s = 150),
                      aes(Y0_s, N0_s, xend = Y0, yend = N0),
                      inherit.aes = FALSE,
@@ -649,7 +649,7 @@ yn_hm_p <- {pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
                   hjust = 0, vjust = 1, color = "black",
                   size.unit = "pt", size = 14, lineheight = 0.7)} +
     pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0", .z_pal = "broc",
-                       .add_title = scenario_title("strong", TRUE, TRUE)) +
+                       .add_title = scenario_title("strong")) +
     {pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0", .z_pal = "vik") +
             geom_text(data = tibble(Y0 = 5.5, N0 = 60), aes(Y0, N0),
                       label = "no outbreaks", inherit.aes = FALSE,

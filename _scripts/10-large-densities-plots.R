@@ -58,7 +58,7 @@ total_dens_p_list <- levels(wasp_resp_fct) |>
             scale_y_continuous(n.breaks = 4L, expand = expansion(c(0.05, 0.2))) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
-                 title = scenario_title(wr, TRUE))
+                 title = scenario_title(wr))
     })
 
 
@@ -82,7 +82,7 @@ max_plant_dens_p_list <- levels(wasp_resp_fct) |>
             scale_color_manual(values = full_np_pal) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             labs(x = "Time (days)", y = "Maximum per-plant density",
-                 title = scenario_title(wr, TRUE))
+                 title = scenario_title(wr))
     })
 
 
