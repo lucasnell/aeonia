@@ -90,8 +90,8 @@ leslie_matrix <- function(instar_days, surv_juv, surv_adult, repro) {
 #'
 #' @export
 #'
-col_namer <- function(summ, out_pseudo, out_attack_surv, out_stages) {
-    .Call(`_aeonia_col_namer`, summ, out_pseudo, out_attack_surv, out_stages)
+col_namer <- function(summ, out_pseudo, out_attack_surv, out_stages, n_age_stages = 29L) {
+    .Call(`_aeonia_col_namer`, summ, out_pseudo, out_attack_surv, out_stages, n_age_stages)
 }
 
 #' Create a pointer object in which to store disease (and dispersal) info.
@@ -313,9 +313,13 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #'     from parasitoid attack (weighted mean by abundance for each aphid stage)
 #'     in output. Ignored if `summ != "none"`.
 #'     Defaults to `FALSE`.
-#' @param out_stages Single logical for whether to separate output for aphids
-#'     by juvenile vs adults.
-#'     Defaults to `FALSE`.
+#' @param out_stages Single string for whether and how to separate output for
+#'     aphids stage.
+#'     If `"none"`, no stages are output.
+#'     If `"two"`, adult and juvenile alates and apterous aphids are separated.
+#'     If `"all"`, every age stage is separated, typically `29` each for
+#'     aphids and alates.
+#'     Defaults to `"none"`.
 #' @param out_dispersals String for whether / how to output dispersal info.
 #'     If `summ %in% c("time", "all")` and `out_dispersals = "all"`,
 #'     dispersals are a column list
@@ -350,7 +354,7 @@ make_disease_ptr <- function(radius, virus_attract, pseudo_repel, p_load_alate, 
 #' @importFrom tibble as_tibble
 #'
 #'
-sim_plantscape <- function(landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract = NULL, max_t = 100L, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = FALSE, out_pseudo = FALSE, out_attack_surv = FALSE, out_stages = FALSE, out_dispersals = "none", show_progress = FALSE, n_threads = 0L) {
+sim_plantscape <- function(landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract = NULL, max_t = 100L, summ = "none", infect_time_n = 0L, aphid_gone_thresh = 1, wasp_gone_thresh = 1, infect_stop = FALSE, out_pseudo = FALSE, out_attack_surv = FALSE, out_stages = "none", out_dispersals = "none", show_progress = FALSE, n_threads = 0L) {
     .Call(`_aeonia_sim_plantscape`, landscapes, N0, W0, M0, Y0, insect_ptr, disease_ptr, wasp_plant_attract, max_t, summ, infect_time_n, aphid_gone_thresh, wasp_gone_thresh, infect_stop, out_pseudo, out_attack_surv, out_stages, out_dispersals, show_progress, n_threads)
 }
 

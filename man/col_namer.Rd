@@ -4,7 +4,7 @@
 \alias{col_namer}
 \title{Just create column names, for use in R.}
 \usage{
-col_namer(summ, out_pseudo, out_attack_surv, out_stages)
+col_namer(summ, out_pseudo, out_attack_surv, out_stages, n_age_stages = 29L)
 }
 \arguments{
 \item{summ}{Single string to indicate how to summarize output.
@@ -26,9 +26,13 @@ from parasitoid attack (weighted mean by abundance for each aphid stage)
 in output. Ignored if \code{summ != "none"}.
 Defaults to \code{FALSE}.}
 
-\item{out_stages}{Single logical for whether to separate output for aphids
-by juvenile vs adults.
-Defaults to \code{FALSE}.}
+\item{out_stages}{Single string for whether and how to separate output for
+aphids stage.
+If \code{"none"}, no stages are output.
+If \code{"two"}, adult and juvenile alates and apterous aphids are separated.
+If \code{"all"}, every age stage is separated, typically \code{29} each for
+aphids and alates.
+Defaults to \code{"none"}.}
 }
 \description{
 Just create column names, for use in R.

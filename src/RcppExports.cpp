@@ -177,16 +177,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // col_namer
-CharacterVector col_namer(const std::string& summ, const bool& out_pseudo, const bool& out_attack_surv, const bool& out_stages);
-RcppExport SEXP _aeonia_col_namer(SEXP summSEXP, SEXP out_pseudoSEXP, SEXP out_attack_survSEXP, SEXP out_stagesSEXP) {
+CharacterVector col_namer(const std::string& summ, const bool& out_pseudo, const bool& out_attack_surv, const std::string& out_stages, const uint32& n_age_stages);
+RcppExport SEXP _aeonia_col_namer(SEXP summSEXP, SEXP out_pseudoSEXP, SEXP out_attack_survSEXP, SEXP out_stagesSEXP, SEXP n_age_stagesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type summ(summSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_attack_surv(out_attack_survSEXP);
-    Rcpp::traits::input_parameter< const bool& >::type out_stages(out_stagesSEXP);
-    rcpp_result_gen = Rcpp::wrap(col_namer(summ, out_pseudo, out_attack_surv, out_stages));
+    Rcpp::traits::input_parameter< const std::string& >::type out_stages(out_stagesSEXP);
+    Rcpp::traits::input_parameter< const uint32& >::type n_age_stages(n_age_stagesSEXP);
+    rcpp_result_gen = Rcpp::wrap(col_namer(summ, out_pseudo, out_attack_surv, out_stages, n_age_stages));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -209,7 +210,7 @@ BEGIN_RCPP
 END_RCPP
 }
 // sim_plantscape
-DataFrame sim_plantscape(const arma::ucube& landscapes, arma::cube N0, arma::cube W0, arma::cube M0, arma::vec Y0, SEXP insect_ptr, SEXP disease_ptr, Nullable<NumericMatrix> wasp_plant_attract, const uint32& max_t, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_attack_surv, const bool& out_stages, const std::string& out_dispersals, const bool& show_progress, uint32 n_threads);
+DataFrame sim_plantscape(const arma::ucube& landscapes, arma::cube N0, arma::cube W0, arma::cube M0, arma::vec Y0, SEXP insect_ptr, SEXP disease_ptr, Nullable<NumericMatrix> wasp_plant_attract, const uint32& max_t, const std::string& summ, uint32 infect_time_n, const double& aphid_gone_thresh, const double& wasp_gone_thresh, const bool& infect_stop, const bool& out_pseudo, const bool& out_attack_surv, const std::string& out_stages, const std::string& out_dispersals, const bool& show_progress, uint32 n_threads);
 RcppExport SEXP _aeonia_sim_plantscape(SEXP landscapesSEXP, SEXP N0SEXP, SEXP W0SEXP, SEXP M0SEXP, SEXP Y0SEXP, SEXP insect_ptrSEXP, SEXP disease_ptrSEXP, SEXP wasp_plant_attractSEXP, SEXP max_tSEXP, SEXP summSEXP, SEXP infect_time_nSEXP, SEXP aphid_gone_threshSEXP, SEXP wasp_gone_threshSEXP, SEXP infect_stopSEXP, SEXP out_pseudoSEXP, SEXP out_attack_survSEXP, SEXP out_stagesSEXP, SEXP out_dispersalsSEXP, SEXP show_progressSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -230,7 +231,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool& >::type infect_stop(infect_stopSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_pseudo(out_pseudoSEXP);
     Rcpp::traits::input_parameter< const bool& >::type out_attack_surv(out_attack_survSEXP);
-    Rcpp::traits::input_parameter< const bool& >::type out_stages(out_stagesSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type out_stages(out_stagesSEXP);
     Rcpp::traits::input_parameter< const std::string& >::type out_dispersals(out_dispersalsSEXP);
     Rcpp::traits::input_parameter< const bool& >::type show_progress(show_progressSEXP);
     Rcpp::traits::input_parameter< uint32 >::type n_threads(n_threadsSEXP);
@@ -332,7 +333,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_aeonia_inv_logit", (DL_FUNC) &_aeonia_inv_logit, 1},
     {"_aeonia_sad_leslie", (DL_FUNC) &_aeonia_sad_leslie, 1},
     {"_aeonia_leslie_matrix", (DL_FUNC) &_aeonia_leslie_matrix, 4},
-    {"_aeonia_col_namer", (DL_FUNC) &_aeonia_col_namer, 4},
+    {"_aeonia_col_namer", (DL_FUNC) &_aeonia_col_namer, 5},
     {"_aeonia_make_disease_ptr", (DL_FUNC) &_aeonia_make_disease_ptr, 8},
     {"_aeonia_sim_plantscape", (DL_FUNC) &_aeonia_sim_plantscape, 20},
     {"_aeonia_sim_plant_types", (DL_FUNC) &_aeonia_sim_plant_types, 13},
