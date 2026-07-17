@@ -400,10 +400,14 @@ baseline_plotter <- function(col_fct = NULL,
             yb <- switch(yvar, p_emerge = 0:2/2,
                          outbreak_size = obs_breaks,
                          n_infected = obs_breaks)
-            y_lab <- yvar_desc[[yvar]] |>
-                (\(x) ifelse(yvar != "p_emerge", paste("mean", x), x))() |>
-                first_cap()
+            y_lab <- first_cap(yvar_desc[[yvar]])
             if (multiline_ylab) y_lab <- str_replace_all(y_lab, " ", "<br>")
+            if (yvar != "p_emerge") {
+                y_lab <- paste0(y_lab, "<br><span style='font-size:8pt;'>",
+                                "(mean across 100 sims)</span>")
+                if (multiline_ylab)
+                    y_lab <- str_replace_all(y_lab, "across 100", "across<br>100")
+            }
             p <- dd |>
                 ggplot(aes(n_pseudo / 10e3 * 100, value)) +
                 geom_hline(yintercept = y_lines, color = "gray70") +
