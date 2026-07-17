@@ -314,7 +314,6 @@ if (.overwrite || !dir.exists("_plots/virus-attract-gifs")) {
 
 wr = "moderate"
 np = 0L
-va = 100
 inf_t = 50L  # time(s) at which new infection explosion occurs
 
 
@@ -332,6 +331,12 @@ inf_p_list <- c(1, 5) |>
                 filter(wasp_resp == wr, n_pseudo == np, virus_attract < 100) |>
                 getElement("disps") |>
                 max()
+            .title <- serify("No virus attraction (", "<i>&nu;</i> = 1", ")")
+            if (va > 1) {
+                .title <- .title |>
+                    str_replace("No virus", "Virus") |>
+                    str_replace("= 1", paste("=", va))
+            }
             inf_sims |>
                 filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
                 filter(virus == 1) |>
@@ -354,8 +359,7 @@ inf_p_list <- c(1, 5) |>
                                       ))) +
                 facet_wrap(~ time, labeller = label_both, nrow = 3, axes = "all") +
                 coord_equal(xlim = c(0, 100), ylim = c(0, 100), expand = FALSE) +
-                labs(title = serify(pretty_params("virus_attract",FALSE,TRUE,TRUE),
-                                    paste(" =", va), "")) +
+                labs(title = .title) +
                 # This fixes a very annoying bug where using
                 # `legend.text = ggtext::element_markdown(...)` makes the legend
                 # really large and doesn't allow me to change its size
@@ -371,43 +375,145 @@ inf_p_list <- c(1, 5) |>
         })
 
 
-if (.overwrite) {
-    for (x in names(inf_p_list)) {
-        fn <- sprintf("_plots/virus-attract-nu-%03i.pdf", as.integer(x))
-        save_plot(fn, inf_p_list[[x]], width = 7.5, height = 7.5)
-    }; rm(x, fn)
+# inf_p_list[["1"]]
+# inf_p_list[["5"]]
+
+
+
+
+infection_plotter <- function(va, np = 0L, wr = "moderate") {
+
+    # va = 1; np = 0L; wr = "moderate"
+    # rm(va, np, wr, d_virus_df, inf_t, max_disps, max_bot)
+    # rm(.title, spat_p, time_p)
+
+    max_disps <- inf_sims |>
+        filter(wasp_resp == wr, n_pseudo == np, virus_attract < 100) |>
+        getElement("disps") |>
+        max()
+    max_bot <- inf_sims |>
+        filter(wasp_resp == wr, n_pseudo == np, virus_attract < 100) |>
+        group_by(virus_attract, time) |>
+        summarize(virus = sum(virus),
+                  alates = sum(alates),
+                  .groups = "drop") |>
+        mutate(d_virus = virus - lag(virus)) |>
+        summarize(across(alates:d_virus, \(x) max(x, na.rm = TRUE))) |>
+        as.list()
+    # alates --> d_virus scale
+    f <- function(x) x / max_bot$alates * max_bot$d_virus
+    # d_virus --> alates scale
+    g <- function(x) x / max_bot$d_virus * max_bot$alates
+
+    d_virus_df <- inf_sims |>
+        filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
+        select(-wasp_resp, -n_pseudo, -virus_attract) |>
+        group_by(time) |>
+        summarize(virus = sum(virus),
+                  alates = sum(alates),
+                  .groups = "drop") |>
+        mutate(d_virus = virus - lag(virus),
+               alates = f(alates))
+    # top three times for max increase in new infected plants
+    inf_t <- d_virus_df |>
+        mutate(dd_virus = d_virus - lag(d_virus)) |>
+        arrange(desc(dd_virus)) |>
+        head(n = 3) |>
+        getElement("time") |>
+        sort()
+    .title <- serify("No virus attraction (", "<i>&nu;</i> = 1", ")")
+    if (va > 1) {
+        .title <- .title |>
+            str_replace("No virus", "Virus") |>
+            str_replace("= 1", paste("=", va))
+    }
+    spat_p <- inf_sims |>
+        filter(wasp_resp == wr, n_pseudo == np, virus_attract == va) |>
+        filter(virus == 1) |>
+        filter(time %in% (inf_t-7L)) |>
+        arrange(disps) |>
+        ggplot(aes(x, y)) +
+        geom_point(aes(size = disps, color = disps)) +
+        scale_y_reverse() +
+        scale_size_area("Incoming<br>alates",
+                        limits = c(0, max_disps),
+                        max_size = 2) +
+        scale_color_viridis_c("Incoming<br>alates",
+                              limits = c(0, max_disps),
+                              option = "plasma", direction = -1,
+                              end = 0.9,
+                              guide = guide_colourbar(theme = theme(
+                                  # legend.key.size = unit(12, "in"),
+                                  legend.key.height = unit(1.2, "in"),
+                                  legend.key.width  = unit(0.24, "in")
+                              ))) +
+        facet_wrap(~ time, labeller = label_both, nrow = 1, axes = "all") +
+        coord_equal(xlim = c(0, 100), ylim = c(0, 100), expand = FALSE) +
+        labs(title = .title) +
+        # This fixes a very annoying bug where using
+        # `legend.text = ggtext::element_markdown(...)` makes the legend
+        # really large and doesn't allow me to change its size
+        replace_theme(theme_get(),
+                      legend.text = element_text(color = "black", size = 9)) +
+        theme(# legend.position = "top",
+              axis.text.x = element_blank(),
+              axis.text.y = element_blank(),
+              axis.title.x = element_blank(),
+              axis.title.y = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.ticks.y = element_blank(),
+              plot.margin = margin(0,0,0,0))
+    # spat_p
+
+    time_p <- d_virus_df |>
+        ggplot(aes(time, d_virus)) +
+        geom_hline(yintercept = 0, color = "gray70") +
+        # geom_area(aes(y = alates), fill = "dodgerblue", alpha = 0.5) +
+        geom_line(aes(y = alates), color = "dodgerblue", linewidth = 1) +
+        geom_line(linewidth = 1, na.rm = TRUE) +
+        # geom_vline(xintercept = inf_t -7L, linetype = "solid", color = "gray80",
+        #            linewidth = 0.75) +
+        geom_vline(xintercept = inf_t, linetype = "22", color = "gray60",
+                   linewidth = 0.75) +
+        scale_y_continuous(sec.axis = sec_axis(g, "Adult alates")) +
+        coord_cartesian(xlim = c(0, 100), ylim = c(0, max_bot$d_virus)) +
+        labs(x = "Time (days)", y = "New infected plants") +
+        theme(plot.margin = margin(0,0,0,0),
+              axis.title.y.right = element_markdown(color = "dodgerblue"),
+              axis.text.y.right = element_markdown(color = "dodgerblue"),
+              axis.ticks.y.right = element_line(color = "dodgerblue"))
+    # time_p
+    #
+    if (va > 1) {
+        time_p <- time_p + theme(axis.text.y = element_blank())
+    }
+    if (va <= 1) {
+        time_p <- time_p + theme(axis.text.y.right = element_blank())
+    }
+
+    return(list(spat_p, time_p))
 }
 
 
 
 
+inf_p <- map(c(1, 5), infection_plotter) |>
+    do.call(what = c) |>
+    base::`[`(c(1,3,2,4)) |>
+    wrap_plots(design = "A#B\nC#D", axis_titles = "collect", guides = "collect",
+               widths = c(1, 0.05, 1)) +
+    plot_annotation(tag_levels = "A")
 
-landscape <- array(c(1L, rep(0L, 100^2-1)), c(100, 100, 24))
+# inf_p
 
-# Takes ~1 min
-set.seed(1011497921)
-w1_sims <- crossing(va = c(1, 5, 100)) |>
-    pmap(\(wr, va) {
-        ni <- large_simmer(landscape, wasp_resp = "moderate", virus_attract = va,
-                           p_load = 1,
-                           w = 1,
-                           total_exp_days = 1,
-                           fly_p = 0.1,
-                           sd_N = 0, pseudo_repel = 1) |>
-            getElement("n_infected")
-        boots <- booter(ni)
-        tibble(virus_attract = va, n_infected = mean(ni),
-               lo  = boots[["Lower"]], hi  = boots[["Upper"]])
-    }, .progress = .prog_args) |>
-    list_rbind()
 
-w1_sims
 
-#   virus_attract n_infected    lo    hi
-#           <dbl>      <dbl> <dbl> <dbl>
-# 1             1      3888. 3705. 4084.
-# 2             5      2563  2382. 2737.
-# 3           100       160   140.  179.
+
+if (.overwrite) {
+    save_plot("_plots/virus-attract.pdf", inf_p, width = 7.5, height = 4)
+}
+
+
 
 
 # radius ----
