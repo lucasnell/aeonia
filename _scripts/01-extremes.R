@@ -147,8 +147,8 @@ tot_empty_data <- weak_strong_sims |>
 total_plotter <- function(wasp_resp,
                           delay_virus = FALSE,
                           .data_df = weak_strong_sims) {
-    # wasp_resp = "weak"; delay_virus = FALSE
-    # rm(wasp_resp, delay_virus, dd)
+    # wasp_resp = "weak"; delay_virus = FALSE; .data_df = weak_strong_sims
+    # rm(wasp_resp, delay_virus, .data_df, dd)
 
     dd <- .data_df
     if ("wasp_resp" %in% colnames(dd)) dd <- dd |> filter(wasp_resp == .env$wasp_resp)
@@ -303,7 +303,7 @@ timeseries_p <- crossing(wasp_resp = sort(unique(weak_strong_sims$wasp_resp)),
 
 if (.overwrite) {
     save_plot("_plots/extremes/timeseries.pdf",
-              timeseries_p & illustrator_theme, width = 6.9, height = 6)
+              timeseries_p & illustrator_theme, width = 6.7, height = 6)
 }
 
 
@@ -671,185 +671,6 @@ if (.overwrite) {
 # Density-dep. dispersal ----
 # ============================================================================*
 
-# Function to determine if it's a plant with Pseudomonas:
-has_pseudo_fun <- function(x, y, np) {
-    n <- length(x)
-    stopifnot(length(y) == n)
-    stopifnot(length(np) %in% c(1L, n))
-    if (length(np) == 1L) {
-        if (np <= 0) return(rep(FALSE, n))
-        return((x == 3 & y == 1) | (x == 2 & y == 2) | (x == 1 & y == 3))
-    }
-    out <- logical(n)
-    nz_i <- which(np > 0)
-    if (length(nz_i) == 0L) return(out)
-    x <- x[nz_i]
-    y <- y[nz_i]
-    out[nz_i] <- (x == 3 & y == 1) | (x == 2 & y == 2) | (x == 1 & y == 3)
-    return(out)
-}
-dd_disp_simmer <- function(dd_disp, zeta, n_pseudo, out_stages = "two") {
-
-    if (dd_disp) {
-        b0 <- eval(formals(make_insects_ptr)[["alate_b0"]])
-        b1 <- eval(formals(make_insects_ptr)[["alate_b1"]])
-    } else {
-        b0 <- logit(0.05)
-        b1 <- 0
-    }
-    sims <- run_sim_combos(wasp_resp = "weak",  # < doesn't matter bc of zeta
-                           zeta = zeta,
-                           n_pseudo = n_pseudo,
-                   large_sims = TRUE, summ = "none", out_stages = out_stages,
-                   out_attack_surv = TRUE,
-                   alate_b1 = b1, alate_b0 = b0)
-    if (out_stages == "two") {
-        out <- sims |>
-            mutate(aphids = aphids_juv + aphids_adu + alates_juv +
-                       alates_adu + parasitized,
-                   alates = alates_adu,
-                   plant = interaction(x, y),
-                   has_pseudo = has_pseudo_fun(x, y, .env$n_pseudo)) |>
-            rename(parasitoids = wasps) |>
-            select(rep, time, plant, has_pseudo, attack_surv, aphids, alates,
-                   alates_juv, parasitoids, virus) |>
-            group_by(time, plant, has_pseudo) |>
-            summarize(across(attack_surv:virus, mean), .groups = "drop")
-    } else out <- sims
-    out |>
-        mutate(dd_disp = .env$dd_disp,
-               zeta = .env$zeta,
-               n_pseudo = .env$n_pseudo) |>
-        select(dd_disp, zeta, n_pseudo, everything())
-}
-
-
-# Time series showing alate_p = 0.05 works best for high and low values
-# (when comparing to Figure 2 A,B):
-#
-# Takes ~16 sec
-set.seed(1145518329)
-dd_disp_ts_sims <- crossing(dd_disp = c(TRUE, FALSE),
-                            zeta = c(0, 1),
-                            n_pseudo = c(0L, 3L)) |>
-    pmap(dd_disp_simmer, .progress = .prog_args) |>
-    list_rbind()
-
-
-
-
-#
-# Exploratory plot looking at attack survival and insect pops through time.
-#
-
-.zeta = 1
-
-
-dd_disp_ts_sims |>
-    filter(!is.na(plant)) |>
-    filter(zeta == .zeta, !has_pseudo, time == 29) |>
-    select(-zeta, -has_pseudo, -time) |>
-    group_by(dd_disp, n_pseudo) |>
-    summarize(aphids = mean(aphids))
-
-
-ps <- dd_disp_ts_sims |>
-    filter(!is.na(plant)) |>
-    filter(zeta == .zeta) |>
-    group_by(dd_disp, n_pseudo, time, has_pseudo) |>
-    summarize(across(attack_surv:virus, mean), .groups = "drop") |>
-    filter(!has_pseudo) |>
-    mutate(dd_disp_fct = factor(dd_disp, levels = c(TRUE, FALSE),
-                                labels = c("density-dep.",
-                                           "fixed p = 0.05")),
-           n_pseudo = factor(n_pseudo)) |>
-    select(-virus) |>
-    pivot_longer(aphids:parasitoids, names_to = "species",
-                 values_to = "density") |>
-    group_by(species, dd_disp_fct) |>
-    mutate(attack_surv = attack_surv * max(density)) |>
-    ungroup() |>
-    mutate(species = factor(species, levels =
-                                c("aphids", "alates", "alates_juv", "parasitoids"),
-                            labels = c("aphids", "adult<br>alates",
-                                       "juven.<br>alates", "parasitoids")),
-           id = interaction(n_pseudo, has_pseudo)) |>
-    ggplot(aes(time, density)) +
-    geom_hline(yintercept = 0, color = "gray70") +
-    geom_line(aes(group = id, color = n_pseudo, y = attack_surv),
-              linetype = "22") +
-    geom_line(aes(color = n_pseudo, group = id), linewidth = 1) +
-    labs(x = "Time (days)", y = "Per-plant density") +
-    scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
-    scale_y_continuous(breaks = \(x) {
-        if (max(x) < 10) return(c(1, 5, 9))
-        scales::extended_breaks(n = 4)(x)}) +
-    scale_color_manual("*Pseudo.*<br>plants:", values = np_pal) +
-    facet_wrap(species ~ dd_disp_fct, scales = "free_y", ncol = 2) +
-    theme(strip.text.y.left = element_markdown(
-        size = 9, angle = 0, hjust = 1),
-        strip.placement = "outside") +
-    guides(color = guide_legend(override.aes = list(linewidth = 1)))
-
-# ps
-
-
-# Takes ~10 sec
-set.seed(456140768)
-all_dd_sims <- crossing(dd_disp = c(TRUE, FALSE),
-         zeta = 1,
-         n_pseudo = c(0L, 3L),
-         out_stages = "all") |>
-    pmap(dd_disp_simmer, .progress = .prog_args) |>
-    list_rbind() |>
-    select(-zeta)
-
-# *** LEFT OFF ----
-# Use the above simulations to get a more detailed map of alate attack survival
-# by stage
-# all_dd_sims |> colnames()
-# Last stage of juvenile alates:
-stage0 <- paste0("alates_", sum(an_dev_times$instar_days$lowT[1:4]))
-# First stage of adult alates:
-stage1 <- paste0("alates_", sum(an_dev_times$instar_days$lowT[1:4])+1)
-
-p <- all_dd_sims |>
-    filter(!is.na(x)) |>
-    mutate(plant = interaction(x, y)) |>
-    filter(!has_pseudo_fun(x, y, n_pseudo)) |>
-    group_by(dd_disp, n_pseudo, rep, plant) |>
-    mutate(recruit = .data[[stage1]] / lag(.data[[stage0]])) |>
-    filter(!is.na(recruit), is.finite(recruit)) |>
-    group_by(dd_disp, n_pseudo, time) |>
-    summarize(recruit = mean(recruit),
-              attack_surv = mean(attack_surv), .groups = "drop") |>
-    mutate(dd_disp_fct = factor(dd_disp, levels = c(TRUE, FALSE),
-                                labels = c("density-dep.",
-                                           "fixed p = 0.05")),
-           n_pseudo = factor(n_pseudo)) |>
-    ggplot(aes(time, recruit)) +
-    geom_hline(yintercept = 0, color = "gray70") +
-    geom_blank(data = tibble(time = 0, recruit = 1)) +
-    geom_line(aes(color = n_pseudo, y = attack_surv),
-              linetype = "22") +
-    geom_line(aes(color = n_pseudo), linewidth = 1) +
-    labs(x = "Time (days)", y = "Adult alate recruitment %") +
-    scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
-    # scale_y_continuous(breaks = \(x) {
-    #     if (max(x) < 10) return(c(1, 5, 9))
-    #     scales::extended_breaks(n = 4)(x)}) +
-    scale_color_manual("*Pseudo.*<br>plants:", values = np_pal) +
-    facet_wrap( ~ dd_disp_fct, scales = "free_y", ncol = 2) +
-    theme(strip.text.y.left = element_markdown(
-        size = 9, angle = 0, hjust = 1),
-        strip.placement = "outside") +
-    guides(color = guide_legend(override.aes = list(linewidth = 1)))
-
-
-# ps + p + plot_layout(ncol = 1, heights = c(4, 1))
-
-
-
 
 if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
 
@@ -865,7 +686,7 @@ if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
                 b0 <- logit(0.05)
                 b1 <- 0
             }
-            sims <- run_sim_combos(wasp_resp = "weak", # << this doesn't matter bc of zeta
+            sims <- run_sim_combos(wasp_resp = "weak", # << doesn't matter bc of zeta
                                    n_pseudo = n_pseudo,
                                    zeta = zeta,
                                    large_sims = TRUE,
@@ -896,7 +717,7 @@ if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
 
 } else {
 
-    dd_disp_sims <- read_csv(interm_files$dd_disp_sims, col_types = "ddicddd") |>
+    dd_disp_sims <- read_csv(interm_files$dd_disp_sims, col_types = "ldicddd") |>
         mutate(outcome = factor(outcome,
                                 levels = c("p_emerge", "outbreak_size",
                                            "n_infected")))
@@ -904,8 +725,7 @@ if (.overwrite || !file.exists(interm_files$dd_disp_sims)) {
 }
 
 
-# dd_disp_p <-
-dd_disp_sims |>
+dd_disp_p <- dd_disp_sims |>
     mutate(n_pseudo = factor(n_pseudo),
            dd_disp = factor(dd_disp, levels = c(TRUE, FALSE),
                             labels = c("density<br>dependent",
@@ -923,9 +743,10 @@ dd_disp_sims |>
         # .strip <- switch(yvar, p_emerge = element_markdown(),
         #                  outbreak_size = element_blank())
         .title <- ifelse(yvar == "p_emerge", list(.dd_disp), list(waiver()))[[1]]
-        y_lab <- yvar_desc[[yvar]] |>
-            (\(x) ifelse(yvar != "p_emerge", paste("mean", x), x))() |>
-            first_cap()
+        y_lab <- first_cap(yvar_desc[[yvar]])
+        if (yvar != "p_emerge")
+            y_lab <- paste0(y_lab, "<br><span style='font-size:8pt;'>",
+                            "(mean across 1000 sims)</span>")
         leg_pos <- ifelse(yvar == "p_emerge" && .dd_disp == tail(levels(ddd$dd_disp),1),
                           list(c(0.5, 0.1)), list("none"))[[1]]
         p <- ddd |>
@@ -968,7 +789,7 @@ dd_disp_sims |>
 # dd_disp_p
 
 if (.overwrite) {
-    save_plot("_plots/dens-dep-dispersal.pdf", dd_disp_p, width = 7.5, height = 6)
+    save_plot("_plots/dens-dep-dispersal.pdf", dd_disp_p, width = 6, height = 7)
 }
 
 
