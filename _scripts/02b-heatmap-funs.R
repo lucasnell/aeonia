@@ -183,15 +183,15 @@ pseudo_eff_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
 
     z_dir = -1
     if (yvar == "outbreak_size") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>outbreak size"
+        z_lab <- "Effect of<br>*Pseudo.* on<br>outbreak size"
         z_breaks <- -2:2 * 2
         z_lim <- c(-1, 1) * 4
     } else if (yvar == "p_emerge") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>emergence prob."
+        z_lab <- "Effect of<br>*Pseudo.* on<br>emergence prob."
         z_breaks <- -2:2 * 0.5
         z_lim <- c(-1, 1) * 1
     } else if (yvar == "n_infected") {
-        z_lab <- "Effect of<br>*Pseudomonas* on<br>infected plants"
+        z_lab <- "Effect of<br>*Pseudo.* on<br>peak infected<br>plants"
         z_breaks <- -1:2 * 2
         z_lim <- c(-2.75, 5.2)
     } else {
