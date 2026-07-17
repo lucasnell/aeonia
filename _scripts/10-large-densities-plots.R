@@ -23,18 +23,20 @@ dens_sims <- read_csv(interm_files$dens_sims, col_types = "ciidddddddd") |>
 total_dens_blank <- dens_sims |>
     select(wasp_resp, n_pseudo, time, aphids_sum, alates_sum, wasps_sum) |>
     rename_with(\(x) str_remove(x, "_sum")) |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    rename(parasitoids = wasps) |>
+    pivot_longer(aphids:parasitoids, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "parasitoids"))) |>
     group_by(species) |>
     summarize(density = max(density)) |>
     mutate(time = 50)
 max_plant_dens_blank <- dens_sims |>
     select(time, aphids_max, alates_max, wasps_max) |>
     rename_with(\(x) str_remove(x, "_max")) |>
+    rename(parasitoids = wasps) |>
     group_by(time) |>
-    summarize(across(aphids:wasps, max), .groups = "drop") |>
-    pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
-    mutate(species = factor(species, levels = c("aphids", "alates", "wasps"))) |>
+    summarize(across(aphids:parasitoids, max), .groups = "drop") |>
+    pivot_longer(aphids:parasitoids, names_to = "species", values_to = "density") |>
+    mutate(species = factor(species, levels = c("aphids", "alates", "parasitoids"))) |>
     group_by(species) |>
     summarize(density = max(density)) |>
     mutate(time = 50)
@@ -47,17 +49,18 @@ total_dens_p_list <- levels(wasp_resp_fct) |>
             filter(wasp_resp == wr) |>
             select(n_pseudo, time, aphids_sum, alates_sum, wasps_sum) |>
             rename_with(\(x) str_remove(x, "_sum")) |>
-            pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+            rename(parasitoids = wasps) |>
+            pivot_longer(aphids:parasitoids, names_to = "species", values_to = "density") |>
             mutate(species = factor(species, levels = levels(total_dens_blank$species)),
                    n_pseudo = factor(n_pseudo)) |>
             ggplot(aes(time, density / 1e6)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_blank(data = total_dens_blank) +
             geom_line(aes(color = n_pseudo), linewidth = 0.75) +
-            scale_color_manual(values = full_np_pal) +
+            scale_color_manual("*Pseudo.*<br>plants", values = full_np_pal) +
             scale_y_continuous(n.breaks = 4L, expand = expansion(c(0.05, 0.2))) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
-            labs(x = "Time (days)", y = "Total density (&times; 10<sup>6</sup>)",
+            labs(x = "Time (days)", y = "Total density (millions)",
                  title = scenario_title(wr))
     })
 
@@ -72,14 +75,15 @@ max_plant_dens_p_list <- levels(wasp_resp_fct) |>
             filter(wasp_resp == wr) |>
             select(n_pseudo, time, aphids_max, alates_max, wasps_max) |>
             rename_with(\(x) str_remove(x, "_max")) |>
-            pivot_longer(aphids:wasps, names_to = "species", values_to = "density") |>
+            rename(parasitoids = wasps) |>
+            pivot_longer(aphids:parasitoids, names_to = "species", values_to = "density") |>
             mutate(species = factor(species, levels = levels(max_plant_dens_blank$species)),
                    n_pseudo = factor(n_pseudo)) |>
             ggplot(aes(time, density)) +
             geom_hline(yintercept = 0, color = "gray70") +
             geom_blank(data = max_plant_dens_blank) +
             geom_line(aes(color = n_pseudo), linewidth = 0.75) +
-            scale_color_manual(values = full_np_pal) +
+            scale_color_manual("*Pseudo.*<br>plants", values = full_np_pal) +
             facet_wrap(~ species, ncol = 1, scales = "free_y") +
             labs(x = "Time (days)", y = "Maximum per-plant density",
                  title = scenario_title(wr))
