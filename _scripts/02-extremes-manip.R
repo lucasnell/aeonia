@@ -1,13 +1,14 @@
 #'
-#' Heatmaps and line graphs of outbreak sizes for simulations of two
+#' Heatmaps and line graphs of virus transmission for simulations of two
 #' levels of wasp responsiveness to aphid densities:
-#' "weak" (so Pseudomonas increases outbreak size)
-#' "strong" (so Pseudomonas decreases outbreak size)
+#' "weak" (so Pseudomonas increases virus transmission)
+#' "strong" (so Pseudomonas decreases virus transmission)
 #' ... where we manipulate one or two parameters at a time.
 #'
 
 
 source("_scripts/00-preamble.R")
+source("_scripts/02b-heatmap-funs.R")
 
 .overwrite <- FALSE
 
@@ -416,13 +417,6 @@ manip2_sims |>
     filter(Y0 == min(Y0[p_emerge == 0])) |>
     group_by(wasp_resp) |>
     summarize(rel = median(Y0 / N0))
-manip2_sims |>
-    group_by(wasp_resp, N0) |>
-    filter(Y0 == min(Y0[p_emerge == 0])) |>
-    ungroup() |>
-    ggplot(aes(Y0, N0)) +
-    geom_point() +
-    facet_wrap(~ wasp_resp, nrow = 1)
 
 # ... for when outbreaks always occur
 manip2_sims |>
@@ -431,14 +425,6 @@ manip2_sims |>
     filter(Y0 == max(Y0)) |>
     group_by(wasp_resp) |>
     summarize(rel = median(Y0 / N0))
-manip2_sims |>
-    filter(p_emerge == 1) |>
-    group_by(wasp_resp, N0) |>
-    filter(Y0 == max(Y0)) |>
-    ungroup() |>
-    ggplot(aes(Y0, N0)) +
-    geom_point() +
-    facet_wrap(~ wasp_resp, nrow = 1)
 
 
 
@@ -512,8 +498,6 @@ thresh_p <- thresh_sims |>
             geom_blank(data = thresh_empty_data) +
             geom_line(aes(color = n_pseudo), linewidth = 1) +
             scale_color_manual("*Pseudo.*<br>plants", values = np_pal) +
-            # scale_linetype_manual("*Pseudo.*<br>plants", values = np_linetypes) +
-            # scale_linewidth_manual("*Pseudo.*<br>plants", values = np_linewidths) +
             labs(x = "Time (days)", y = "Density", title = .title,
                  subtitle = .subtitle) +
             scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
@@ -546,68 +530,6 @@ if (.overwrite) {
 
 
 
-# --------------------------------------*
-# _ heatmap fxns ----
-# --------------------------------------*
-
-
-source("_scripts/02b-heatmap-funs.R")
-
-
-
-# #
-# # Minimum and maximums for the effect of Pseudomonas on each measure.
-# # Used for in `pseudo_eff_heatmap` above.
-# #
-# manip2_sims |>
-#     select(wasp_resp, Y0, N0, n_pseudo, n_infected:outbreak_size) |>
-#     group_by(wasp_resp, Y0, N0) |>
-#     summarize(across(n_infected:outbreak_size,
-#                      \(x) x[n_pseudo != "0"] - x[n_pseudo == "0"]),
-#               .groups = "drop") |>
-#     summarize(across(n_infected:outbreak_size,
-#                      \(x) list(range(x, na.rm = TRUE)))) |>
-#     unnest(n_infected:outbreak_size)
-# #   n_infected p_emerge outbreak_size
-# #        <dbl>    <dbl>         <dbl>
-# # 1      -2.70   -0.438         -2.29
-# # 2       5.18    0.96           3.97
-
-
-
-# outbreak_heatmap("p_emerge", "weak", "Y0", "N0") /
-#     outbreak_heatmap("p_emerge", "strong", "Y0", "N0") +
-#     plot_layout(guides = "collect")
-#
-# outbreak_heatmap("outbreak_size", "weak", "Y0", "N0") /
-#     outbreak_heatmap("outbreak_size", "strong", "Y0", "N0") +
-#     plot_layout(guides = "collect")
-#
-#
-# pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0") +
-#     pseudo_eff_heatmap("p_emerge", "strong", "Y0", "N0") +
-#     plot_layout(nrow = 1, guides = "collect")
-#
-# pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0") +
-#     pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0") +
-#     plot_layout(nrow = 1, guides = "collect")
-#
-# pseudo_eff_heatmap("n_infected", "weak", "Y0", "N0") +
-#     pseudo_eff_heatmap("n_infected", "strong", "Y0", "N0") +
-#     plot_layout(nrow = 1, guides = "collect")
-#
-# pseudo_eff_heatmap("outbreak_size", "weak", "Y0", "N0") +
-#     pseudo_eff_heatmap("outbreak_size", "strong", "Y0", "N0") +
-#     plot_layout(nrow = 1, guides = "collect")
-#
-# pseudo_eff_heatmap("n_infected", "weak", "Y0", "N0") +
-#     pseudo_eff_heatmap("n_infected", "strong", "Y0", "N0") +
-#     plot_layout(nrow = 1, guides = "collect")
-
-
-
-
-
 #
 # _ extremes ----
 #
@@ -632,12 +554,6 @@ manip2_sims |>
 #
 # _ supp. plots ----
 #
-
-
-
-
-
-
 
 
 # Heatmaps of Y0 and N0, with fill split into prob. emergence and outbreak size
@@ -668,59 +584,13 @@ yn_hm_p <- {pseudo_eff_heatmap("p_emerge", "weak", "Y0", "N0", .z_pal = "broc",
           plot.tag.location = "panel",
           plot.tag.position = c(0.05, 1.0))
 
-
+# yn_hm_p
 
 
 
 if (.overwrite) {
     save_plot("_plots/extremes-manip-Y0-N0-heatmaps.pdf", yn_hm_p, 6.5, 7.5)
 }
-
-
-
-# ============================================================================*
-# ============================================================================*
-# Histograms of 2D diffs ----
-# ============================================================================*
-# ============================================================================*
-
-manip2_sims |>
-    select(wasp_resp, Y0, N0, n_pseudo, p_emerge, outbreak_size) |>
-    group_by(wasp_resp, Y0, N0) |>
-    summarize(p_emerge = p_emerge[n_pseudo > 0] - p_emerge[n_pseudo == 0],
-              outbreak_size = outbreak_size[n_pseudo > 0] -
-                  outbreak_size[n_pseudo == 0],
-              .groups = "drop") |>
-    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
-    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"),
-                            labels = c("Probabililty of emergence",
-                                       "Mean outbreak size"))) |>
-    filter(!is.na(value)) |>
-    (\(x) {
-        x |>
-            group_by(wasp_resp, outcome) |>
-            summarize(min = min(value),
-                      mean = mean(value),
-                      med = median(value),
-                      max = max(value), .groups = "drop") |>
-            print()
-        return(x)
-    })() |>
-    ggplot(aes(value, after_stat(density))) +
-    geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +
-    geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
-    geom_freqpoly(aes(color = wasp_resp, linetype = wasp_resp, linewidth = wasp_resp),
-                  bins = 25) +
-    scale_linetype_manual("Parasitoid<br>responsiveness<br>to aphids",
-                          values = c(strong = "22", weak = "solid")) +
-    scale_linewidth_manual("Parasitoid<br>responsiveness<br>to aphids",
-                           values = c(strong = 1.25, weak = 1)) +
-    scale_color_manual("Parasitoid<br>responsiveness<br>to aphids",
-                       values = c(strong = "firebrick4", weak = "dodgerblue")) +
-    labs(x = "Effect of <i>Pseudomonas</i>") +
-    facet_wrap(~ outcome, ncol = 1, scales = "free")
-
-
 
 
 
@@ -733,19 +603,21 @@ manip2_sims |>
 
 manip_sims |>
     filter(par_name == "zeta") |>
-    group_by(par_val, n_pseudo) |>
+    rename(zeta = par_val) |>
+    group_by(zeta, n_pseudo) |>
     summarize(p_emerge = mean(n_infected > 1),
               outbreak_size = mean(n_infected[n_infected > 1]),
+              n_infected = mean(n_infected),
               .groups = "drop") |>
-    pivot_longer(p_emerge:outbreak_size, names_to = "outcome") |>
-    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size"))) |>
-    group_by(par_val, outcome) |>
+    pivot_longer(p_emerge:n_infected, names_to = "outcome") |>
+    mutate(outcome = factor(outcome, levels = c("p_emerge", "outbreak_size", "n_infected"))) |>
+    group_by(zeta, outcome) |>
     summarize(diff = value[n_pseudo > 0] - value[n_pseudo == 0],
               .groups = "drop") |>
-    filter(par_val > 0.6, par_val < 0.8) |>
-    ggplot(aes(par_val, diff)) +
+    filter(zeta > 0.6, zeta < 0.8) |>
+    ggplot(aes(zeta, diff)) +
     geom_hline(yintercept = 0, color = "gray70") +
-    geom_vline(xintercept = c(0.7, 0.688), color = "gray70", linetype = "22") +
+    geom_vline(xintercept = c(0.7, 0.688, 0.693), color = "gray70", linetype = "22") +
     geom_line() +
     geom_point() +
     facet_wrap(~ outcome, ncol = 1)
@@ -761,21 +633,9 @@ manip_sims |>
 # ============================================================================*
 # ============================================================================*
 
-#' Variables:
-#'
-#' Y0
-#' N0
-#' K
-#' pseudo_surv
-#' zeta
-#'
-#' Of these, heatmaps:
-#' Y0 + N0
-#'
+
 
 if (!dir.exists("_plots/extremes-manip-subs")) dir.create("_plots/extremes-manip-subs")
-
-
 
 
 

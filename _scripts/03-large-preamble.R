@@ -1,5 +1,5 @@
 #'
-#' Preamble for larger landscape simulations
+#' Preamble for large landscape simulations
 #'
 
 #' I moved this script over to bioHPC using the following:
