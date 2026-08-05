@@ -6,18 +6,19 @@
 # prefix "an_") to avoid conflicts when I load gameofclones for testing.
 
 
-
-library(gameofclones)  # v1.0.2
+# ** Uncomment these to run this script **
+# if (!require("gameofclones", quietly = TRUE)) remotes::install_github("lucasnell/gameofclones@v1.0.2")
+# library(gameofclones)  # v1.0.2
 
 # Development times for aphids and wasps.
-an_dev_times <- gameofclones::dev_times
+an_dev_times <- dev_times
 # Save to package:
 usethis::use_data(an_dev_times, overwrite = TRUE)
 
 
 
 # Population rates and starting values for aphids and wasps.
-an_populations <- gameofclones::populations
+an_populations <- populations
 # Rename and remove some items:
 an_populations[["K"]] <- 12.5e3
 an_populations[["K_p_mult"]] <- 1 / 1.57
@@ -34,14 +35,14 @@ usethis::use_data(an_populations, overwrite = TRUE)
 
 
 # Wasp attack rate parameters.
-an_wasp_attack <- gameofclones::wasp_attack
+an_wasp_attack <- wasp_attack
 # Save to package:
 usethis::use_data(an_wasp_attack, overwrite = TRUE)
 
 
 
 # Parameters associated with environmental effects and stochasticity.
-an_environ <- gameofclones::environ
+an_environ <- environ
 # Remove some items:
 an_environ[["harvest_surv"]] <- NULL
 an_environ[["disp_aphid"]] <- NULL
