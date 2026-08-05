@@ -5,7 +5,6 @@
 ^README\.
 ^.*\.svg$
 ^data-raw$
-^vignettes/*_files$
 ^_scripts$
 ^_plots$
 ^\.positai$

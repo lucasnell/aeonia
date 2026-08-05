@@ -25,9 +25,7 @@ LinkingTo:
     RcppArmadillo,
     RcppThread
 Suggests:
-    ggtext,
-    knitr,
-    rmarkdown
+    ggtext
 SystemRequirements:
     GNU make,
     C++20
@@ -40,6 +38,5 @@ RemoteRepo: aeonia
 RemoteUsername: lucasnell
 GithubRepo: aeonia
 GithubUsername: lucasnell
-VignetteBuilder: quarto
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0
