@@ -12,7 +12,7 @@
 # Check if running locally or on cluster:
 if (grepl("biohpc.cornell.edu$", Sys.info()[["nodename"]]) &&
     Sys.info()[["user"]] == "lan68") {
-    .libPaths("/home/lan68/R/x86_64-pc-linux-gnu-library/4.5")
+    .libPaths("/home/lan68/R/x86_64-pc-linux-gnu-library/4.6")
     n_threads <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))
     file_dir <- "/home2/lan68"
 } else {
