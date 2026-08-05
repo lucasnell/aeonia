@@ -1,3 +1,5 @@
+^renv$
+^renv\.lock$
 ^aeonia\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
