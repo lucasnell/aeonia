@@ -5,7 +5,7 @@
 #' I moved this script over to bioHPC using the following:
 #'
 #' cd ~/GitHub/Cornell/aeonia/_scripts \
-#'     && scp 03-large-preamble.R biohpc:/home2/$USER/
+#'     && scp ./02-large-hpc/00-large-hpc-preamble.R biohpc:/home2/$USER/
 #'
 
 

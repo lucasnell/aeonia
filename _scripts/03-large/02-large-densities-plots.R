@@ -2,7 +2,7 @@
 #'
 #' Density plots for larger landscape simulations.
 #'
-#' Must run 09-large-densities.R on the cluster first.
+#' Must run `./02-large-hpc/03-large-densities.R` on the cluster first.
 #'
 
 
@@ -13,7 +13,7 @@ source("_scripts/00-preamble.R")
 .overwrite <- FALSE
 
 
-if (!file.exists(interm_files$dens_sims)) stop("Run 09-large-densities.R first!")
+if (!file.exists(interm_files$dens_sims)) stop("Run 02-large-hpc/03-large-densities.R first!")
 
 
 dens_sims <- read_csv(interm_files$dens_sims, col_types = "ciidddddddd") |>

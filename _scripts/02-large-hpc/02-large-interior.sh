@@ -18,19 +18,19 @@
 # I first moved this script and the preamble over to bioHPC using the following:
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
-# scp 07b-large-interior.sh \
-#     biohpc:/home2/$USER/07b-large-interior/
+# scp ./02-large-hphc/02-large-interior.sh \
+#     biohpc:/home2/$USER/02-large-interior/
 #
 # This was then run on BioHPC in a non-interactive batch job started with the following:
 #
-# cd /home2/$USER/07b-large-interior/
+# cd /home2/$USER/02-large-interior/
 # mkdir -p logs
-# sbatch 07b-large-interior.sh
+# sbatch 02-large-interior.sh
 #
 # Then, when the jobs are done (assuming you're back on your desktop in
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp biohpc:/home2/$USER/07b-large-interior/large-interior*.rds \
+# scp biohpc:/home2/$USER/02-large-interior/large-interior*.rds \
 #     ./interm-data/large-interior/
 #
 #
@@ -41,7 +41,7 @@
 
 Rscript - << EOF
 
-source("../03-large-preamble.R")
+source("../00-large-hpc-preamble.R")
 
 # --------------*
 # Create new dataframe of landscapes with  viruses starting at x=50, y=50

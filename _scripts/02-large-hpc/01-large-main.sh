@@ -18,21 +18,19 @@
 # I first moved this script and the preamble over to bioHPC using the following:
 #
 # cd ~/GitHub/Cornell/aeonia/_scripts
-# scp 03-large-preamble.R \
-#     biohpc:/home2/$USER/
-# scp 06-large-main.sh \
-#     biohpc:/home2/$USER/06-large-main/
+# scp ./02-large-hpc/01-large-main.sh \
+#     biohpc:/home2/$USER/01-large-main/
 #
 # This was then run on BioHPC in a non-interactive batch job started with the following:
 #
-# cd /home2/$USER/06-large-main/
+# cd /home2/$USER/01-large-main/
 # mkdir -p logs
-# sbatch 06-large-main.sh
+# sbatch 01-large-main.sh
 #
 # Then, when the jobs are done (assuming you're back on your desktop in
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp biohpc:/home2/$USER/06-large-main/large-main*.rds \
+# scp biohpc:/home2/$USER/01-large-main/large-main*.rds \
 #     ./interm-data/large-main/
 #
 #
@@ -43,7 +41,7 @@
 
 Rscript - << EOF
 
-source("../03-large-preamble.R")
+source("../00-large-hpc-preamble.R")
 
 # --------------*
 # Create dataframe of possible landscapes and parameter values:
