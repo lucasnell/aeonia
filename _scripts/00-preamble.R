@@ -1,4 +1,5 @@
 
+
 suppressPackageStartupMessages({
     library(pillar) # num() for setting sig figs in tibble printing
     library(tidyverse)
@@ -46,11 +47,6 @@ if (interactive() && exists(".LAN_USER")) {
 
 
 
-color_pal <- c("#999999", "#0046D2", "#FF64FF",
-               viridisLite::inferno(100)[c(50, 25, 80)]) |>
-    set_names(c("no_pseudo", "pseudo", "virus", "aphids", "alates", "wasps"))
-# scales::show_col(color_pal, labels = FALSE)
-
 
 # For numbers of pseudomonas plants:
 # First, for number of Pseudomonas plants, from 0 to 9000, by increments of 1000
@@ -64,9 +60,6 @@ np_pal <- full_np_pal[c(1, 7)] |>
 # scales::show_col(np_pal, labels = FALSE)
 
 
-np_shapes <- c(`0` = 1, `3` = 19)
-np_linetypes <- c(`0` = "22", `3` = "solid")
-np_linewidths <- c(`0` = 1.25, `3` = 1)
 
 # For parameters:
 #

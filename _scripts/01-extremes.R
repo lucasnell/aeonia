@@ -176,10 +176,7 @@ total_plotter <- function(wasp_resp,
                    aes(yintercept = density), color = "gray70") +
         geom_line(aes(color = n_pseudo), linewidth = 1.25) +
         geom_blank(data = tot_empty_data, aes(y = density * 1.15)) +
-        # scale_color_manual(values = color_pal, aesthetics = c("color", "fill")) +
         scale_color_manual(values = np_pal, aesthetics = c("color", "fill")) +
-        # scale_linetype_manual(values = np_linetypes) +
-        # scale_linewidth_manual(values = np_linewidths) +
         labs(x = "Time (days)", y = "Total density") +
         scale_x_continuous(breaks = c(0, 25, 50, 75, 100)) +
         scale_y_continuous(breaks = \(x) {
@@ -315,39 +312,6 @@ if (.overwrite) {
 # z --> Pr(alates) ----
 # ============================================================================*
 
-z_pa_p_list <- weak_strong_sims |>
-    split(~ wasp_resp) |>
-    map(\(x) {
-        # x = weak_strong_sims |> filter(wasp_resp == "strong")
-        # rm(x, dd, max_z)
-        dd <- x |>
-            filter(!is.na(plant)) |>
-            mutate(n_pseudo = factor(n_pseudo)) |>
-            filter(! (plant %in% c("3.1", "2.2", "1.3") & n_pseudo != 0)) |>
-            group_by(n_pseudo, plant) |>
-            summarize(z = max(aphids + alates), .groups = "drop_last") |>
-            summarize(z = max(z)) |>
-            mutate(ap = alate_prop(z))
-        max_z <- ceiling((100 * bp_empty_data$density[bp_empty_data$species == "aphids"] * 1.15) / 100) * 100
-        tibble(z = 1:max_z, ap = alate_prop(z)) |>
-            ggplot(aes(z, ap)) +
-            geom_hline(yintercept = 0, color = "gray70") +
-            geom_line(linewidth = 1) +
-            geom_point(data = dd, aes(color = n_pseudo), size = 4, stroke = 1) +
-            scale_color_manual(values = np_pal) +
-            scale_x_continuous(breaks = c(0, 500, 1000, 1500)) +
-            theme(axis.text.x = element_markdown(size = 8),
-                  axis.text.y = element_markdown(size = 8))
-    })
-
-# wrap_plots(z_pa_p_list, ncol = 1, guides = "collect", axis_titles = "collect")
-
-if (.overwrite) {
-    for (n in names(z_pa_p_list)) {
-        save_plot(sprintf("_plots/extremes/z-p_alates-%s.pdf", n),
-                  z_pa_p_list[[n]] & illustrator_theme, width = 1.5, height = 1.5)
-    }; rm(n)
-}
 
 
 
@@ -590,80 +554,6 @@ if (.overwrite) {
 
 
 
-# ============================================================================*
-# Empirical zeta ----
-# ============================================================================*
-
-
-# In Ives et al. (1999), they found that parasitoids spent ~3.76 more time
-# foraging at plants where they encountered an aphid.
-# Bestrong simulates our model with varying zeta, then compares the observed
-# wasp abundances to those predicted when parasitoids never encounter an aphid
-# on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
-
-set.seed(1180209329)
-zeta_weak_strong_sims <- map(c(0.5, 0.6, 0.7, 0.8, 0.9), \(zeta) {
-        sims <- run_sim_combos(wasp_resp = "weak", n_pseudo = 3L, n_sims = 12L,
-                               out_attack_surv = TRUE, zeta = zeta) |>
-            filter(!is.na(x)) |>
-            mutate(plant = interaction(y, x),
-                   aphids = aphids + parasitized) |>
-            mutate(zeta = .env$zeta) |>
-            rename(parasitoids = wasps) |>
-            select(zeta, rep, plant, time, virus, aphids, alates, parasitoids,
-                   attack_surv) |>
-            split(~ rep + time) |>
-            map(\(x) {
-                Y <- sum(x$parasitoids)
-                p_plants <- x$plant %in% c("3.1", "2.2", "1.3")
-                pred_parasitoids <- numeric(nrow(x))
-                pred_parasitoids[p_plants] <- 1
-                pred_parasitoids[!p_plants] <- 3.76
-                pred_parasitoids <- Y * pred_parasitoids / sum(pred_parasitoids)
-                x[["pred_parasitoids"]] <- pred_parasitoids
-                return(x)
-            }) |>
-            list_rbind()
-    }) |>
-    list_rbind()
-
-
-
-empir_zeta_p <- zeta_weak_strong_sims |>
-    split(~ zeta + rep) |>
-    map(\(x) {
-        max_N_t <- x |>
-            group_by(time) |>
-            summarize(aphids = max(aphids + alates)) |>
-            filter(aphids == max(aphids)) |>
-            getElement("time") |> getElement(1)
-        return(x |> filter(time == max_N_t))
-    }) |>
-    list_rbind() |>
-    select(zeta, rep, plant, parasitoids, pred_parasitoids) |>
-    mutate(pseudo = factor(plant %in% c("3.1", "2.2", "1.3"),
-                           levels = c(TRUE, FALSE),
-                           labels = c("Plants with<br>*Pseudomonas*",
-                                      "Plants without<br>*Pseudomonas*")),
-           zeta = factor(zeta),
-           rep = factor(rep),
-           rel = parasitoids / pred_parasitoids) |>
-    ggplot(aes(zeta, rel)) +
-    geom_jitter(aes(color = zeta), height = 0, width = 0.2, shape = 1, size = 2, alpha = 0.5) +
-    geom_hline(yintercept = 1, color = "black", linewidth = 1.5, linetype = "22") +
-    # facet_wrap(~ plant, nrow = 3, scales = "free") +
-    facet_wrap(~ pseudo, nrow = 1, scales = "free") +
-    labs(x = pretty_params("zeta", cap1 = TRUE),
-         y = "Observed / predicted parasitoid density") +
-    scale_color_viridis_d(guide = "none")
-
-
-
-# empir_zeta_p
-
-if (.overwrite) {
-    save_plot("_plots/empirical-zeta.pdf", empir_zeta_p, width = 6, height = 3)
-}
 
 
 

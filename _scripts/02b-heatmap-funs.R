@@ -100,69 +100,25 @@ heatmaps_shared <- function(d, yvar, pars_og, par_name_a, par_name_b, .contour_a
 
 
 
-#' `yvar` is Pr(emerge), outbreak size, or # infected
-#' facets are by n_pseudo:
-outbreak_heatmap <- function(yvar, wasp_resp, par_name_a, par_name_b,
-                             .contour_args = list(),
-                             .tag = waiver(),
-                             .add_title = FALSE,
-                             .n_pseudo = NA,
-                             .shorten_K = FALSE) {
-
-    # yvar = "p_emerge"; wasp_resp = "strong"; par_name_a = "Y0"; par_name_b = "N0"
-    # .contour_args = list(); .tag = waiver(); .add_title = FALSE
-    # .n_pseudo = NA; .shorten_K = FALSE
-    # rm(yvar, wasp_resp, par_name_a, par_name_b, .contour_args, .tag, .add_title)
-    # rm(.n_pseudo, .shorten_K, dd, pars_og, .title, z_lab, z_breaks, z_lims, p)
-
-    # generate objects par_name_a, par_name_b, dd, pars_og, and .title
-    heatmaps_make_objs(yvar, wasp_resp, par_name_a, par_name_b, .add_title,
-                       environment())
-
-    if (yvar == "outbreak_size") {
-        z_lab <- "Outbreak<br>size"
-        z_breaks <- 1:4 * 2 + 1
-        z_lims <- c(2, 9)
-    } else if (yvar == "p_emerge") {
-        z_lab <- "Emergence<br>prob."
-        z_breaks <- 0:4 * 0.25
-        z_lims <- c(0, 1)
-    } else if (yvar == "n_infected") {
-        z_lab <- "Infected<br>plants"
-        z_breaks <- c(1, 3, 5, 7, 9)
-        z_lims <- c(1, 9)
-    } else {
-        stop("\nonly yvar == \"p_emerge\", \"outbreak_size\", and ",
-             "\"n_infected\" are programmed")
-    }
-    if (is.list(.contour_args) && !"breaks" %in% names(.contour_args)) {
-        .contour_args$breaks <- z_breaks
-    }
-
-    if (is.na(.n_pseudo)) {
-        p <- dd |>
-            mutate(n_pseudo = factor(paste(n_pseudo), levels = levels(n_pseudo),
-                                     labels = sprintf("n<sub>P</sub> = %s",
-                                                      levels(n_pseudo)))) |>
-            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
-                            .contour_args = .contour_args,
-                            ..tag = .tag, ..title = .title, .shorten_K = .shorten_K) +
-            facet_wrap(~ n_pseudo, nrow = 1)
-    } else {
-        p <- dd |>
-            filter(n_pseudo == .n_pseudo) |>
-            heatmaps_shared(yvar, pars_og, par_name_a, par_name_b,
-                            .contour_args = .contour_args,
-                            ..tag = .tag, ..title = .title, .shorten_K = .shorten_K)
-    }
-    p <- p +
-        scale_fill_scico(z_lab, limits = z_lims, breaks = z_breaks,
-                         palette = "tokyo", direction = -1)
-
-    return(p)
-}
 
 
+# #
+# # Minimum and maximums for the effect of Pseudomonas on each measure.
+# # Used for in `pseudo_eff_heatmap` below.
+# #
+# manip2_sims |>
+#     select(wasp_resp, Y0, N0, n_pseudo, n_infected:outbreak_size) |>
+#     group_by(wasp_resp, Y0, N0) |>
+#     summarize(across(n_infected:outbreak_size,
+#                      \(x) x[n_pseudo != "0"] - x[n_pseudo == "0"]),
+#               .groups = "drop") |>
+#     summarize(across(n_infected:outbreak_size,
+#                      \(x) list(range(x, na.rm = TRUE)))) |>
+#     unnest(n_infected:outbreak_size)
+# #   n_infected p_emerge outbreak_size
+# #        <dbl>    <dbl>         <dbl>
+# # 1      -2.70   -0.438         -2.29
+# # 2       5.18    0.96           3.97
 
 
 #' `yvar` is Pr(emerge), outbreak size, or # infected
