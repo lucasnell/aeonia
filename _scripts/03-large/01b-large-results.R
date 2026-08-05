@@ -1,6 +1,7 @@
 #'
 #' Plots for larger landscape simulations.
-#' This includes results from `06-large-main.sh` and `07-large-interior.sh`.
+#' This includes results from `01-large-main.sh` and `02-large-interior.sh`
+#' inside `_scripts/01-large-hpc`.
 #' It also includes the plot of total aphid abundance through time,
 #' with and without variation among plants in initial aphid abundances.
 #'
@@ -9,7 +10,7 @@ source("_scripts/00-preamble.R")
 
 
 # Plotting and data functions:
-source("_scripts/08b-large-plot-funs.R")
+source("_scripts/03-large/00-large-plot-funs.R")
 
 .overwrite <- FALSE
 
@@ -65,7 +66,7 @@ process_large_sim_files <- function(type, .seed) {
 
 
 # Takes a few seconds
-# from 06-large-main.sh:
+# from 01-large-main.sh:
 sim_df <- process_large_sim_files("main", 2120927824)
 
 
@@ -401,7 +402,7 @@ if (.overwrite) {
 # =============================================================================*
 
 
-# from 07b-large-interior.sh:
+# from 02-large-interior.sh:
 int_sim_df <- process_large_sim_files("interior", 1309766214)
 
 

@@ -7,18 +7,18 @@
 #' 12 simulations.
 #'
 #' Instead run on cluster using an interactive job:
-#' cd /home2/lan68/11-large-emp-zeta
+#' cd /home2/lan68/04-large-emp-zeta
 #' srun -N 1 -n 1 -c 50 --mem=200G --time=20:00:00 --job-name="lp-zeta" --pty R --vanilla
 #'
 #' Then, when the jobs are done (assuming you're back on your desktop in
 #' directory `~/GitHub/Cornell/aeonia/_scripts`):
 #'
-#' export RDS_DIR="/home2/lan68/11-large-emp-zeta"
+#' export RDS_DIR="/home2/lan68/04-large-emp-zeta"
 #' scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/large-zeta-sims.csv.gz \
 #'     ./interm-data/
 
 
-source("../03-large-preamble.R")
+source("../00-large-hpc-preamble.R")
 
 # Levels of Pseudomonas densities for large landscapes:
 n_pseudo_lvls <- as.integer(c(0, 0:4 * 2000 + 1000))

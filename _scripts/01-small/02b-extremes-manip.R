@@ -8,7 +8,7 @@
 
 
 source("_scripts/00-preamble.R")
-source("_scripts/02b-heatmap-funs.R")
+source("_scripts/01-small/02a-heatmap-funs.R")
 
 .overwrite <- FALSE
 

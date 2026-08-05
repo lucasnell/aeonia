@@ -19,7 +19,7 @@ source("_scripts/00-preamble.R")
 # wasp abundances to those predicted when parasitoids never encounter an aphid
 # on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
 
-if (!file.exists(interm_files$large_zeta_sims)) stop("Run 11-large-emp-zeta.R first!")
+if (!file.exists(interm_files$large_zeta_sims)) stop("Run 02-large-hpc/04-large-emp-zeta.R first!")
 
 # Takes a little while to read
 zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddld")

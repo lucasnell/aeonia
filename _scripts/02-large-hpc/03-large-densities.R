@@ -4,18 +4,18 @@
 #' Do NOT run this locally!
 #'
 #' Instead run on cluster using an interactive job:
-#' cd /home2/lan68/09-large-densities
+#' cd /home2/lan68/03-large-densities
 #' srun -N 1 -n 1 -c 50 --mem=200G --time=20:00:00 --job-name="lp-dens" --pty R --vanilla
 #'
 #' Then, when the jobs are done (assuming you're back on your desktop in
 #' directory `~/GitHub/Cornell/aeonia/_scripts`):
 #'
-#' export RDS_DIR="/home2/lan68/09-large-densities"
+#' export RDS_DIR="/home2/lan68/03-large-densities"
 #' scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/density-sims.csv \
 #'     ./interm-data/
 
 
-source("../03-large-preamble.R")
+source("../00-large-hpc-preamble.R")
 
 # Factor for parasitoid wasp responsiveness to aphid densities:
 wasp_resp_fct <- factor(1:2, labels = c("weak", "strong"))
