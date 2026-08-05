@@ -77,6 +77,9 @@ your working directory:
 
 ``` r
 renv::restore()
+# It doesn't store `aeonia` itself, presumably bc it's the same name as the
+# project:
+renv::install("lucasnell/aeonia@v0.0.2.3")
 ```
 
 If you’d rather avoid `renv`, then you can install all the packages (in
@@ -86,12 +89,10 @@ the versions I used) this way:
 if (!requireNamespace("jsonlite", quietly = TRUE)) install.package("jsonlite")
 pkg_list <- jsonlite::read_json("renv.lock")[["Packages"]]
 pkg_vers <- lapply(pkg_list, \(x) paste0(x[["Package"]], "@", x[["Version"]]))
-pkg_vers[["aeonia"]] <- NULL  # bc we're getting this one from github
 
 # Most packages from CRAN:
 install.packages(do.call(c, pkg_vers))
 
 # Now aeonia from GitHub:
-remotes::install_github(paste0("lucasnell/aeonia@",
-                               pkg_list[["aeonia"]][["RemoteSha"]]))
+remotes::install_github("lucasnell/aeonia@v0.0.2.3")
 ```
