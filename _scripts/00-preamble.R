@@ -17,7 +17,9 @@ interm_files <- list(extreme_manip = "extremes-manip-sims.rds",
                      extreme_manip2 = "extremes-manip2-sims.rds",
                      dens_sims = "density-sims.csv",
                      dd_disp_sims = "dd_disp-sims.csv",
-                     large_zeta_sims = "large-zeta-sims.csv.gz") |>
+                     large_zeta = "large-zeta-summs.csv",
+                     large_zeta_ninf = "large-zeta-ninf-summs.csv",
+                     large_zeta_nopseudo = "large-zeta-nopseudo-summs.csv") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 

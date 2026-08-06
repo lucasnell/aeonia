@@ -3,8 +3,6 @@
 #' Empirical zeta estimates for larger landscape simulations.
 #' Do NOT run this locally!
 #'
-#' Note: Because densities vary little across simulations, I'm only running
-#' 12 simulations.
 #'
 #' Instead run on cluster using an interactive job:
 #' cd /home2/lan68/04-large-emp-zeta
@@ -14,8 +12,7 @@
 #' directory `~/GitHub/Cornell/aeonia/_scripts`):
 #'
 #' export RDS_DIR="/home2/lan68/04-large-emp-zeta"
-#' scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/large-zeta-sims.csv.gz \
-#'     ./interm-data/
+#' scp lan68@cbsugreischar.biohpc.cornell.edu:${RDS_DIR}/*.csv ./interm-data/
 
 
 source("../00-large-hpc-preamble.R")
@@ -127,5 +124,48 @@ emp_zeta_sims <- crossing(np = n_pseudo_lvls,
     list_rbind()
 
 
-# Compressing this one bc it's pretty large (>5 GB) uncompressed
-write_csv(emp_zeta_sims, "large-zeta-sims.csv.gz")
+# # Not saving this file bc it's pretty large (>5 GB) uncompressed,
+# # so I'm saving summarized versions below instead
+# write_csv(emp_zeta_sims, "large-zeta-sims.csv.gz")
+
+
+
+# Takes ~ 2 min
+set.seed(1540192361)
+zeta_sim_summs <- emp_zeta_sims |>
+    mutate(rel = wasps / pred_wasps) |>
+    group_by(zeta, n_pseudo, pseudo) |>
+    summarize(ci = list(booter(rel)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              min = min(rel), max = max(rel),
+              rel = mean(rel), .groups = "drop") |>
+    unnest(ci)
+
+
+
+set.seed(19813000)
+zeta_ninf_sim_summs <- emp_zeta_sims |>
+    filter(n_pseudo > 0) |>
+    group_by(zeta, n_pseudo, rep) |>
+    summarize(n_infected = sum(max_virus), .groups = "drop_last") |>
+    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              n_infected = mean(n_infected), .groups = "drop") |>
+    unnest(ci)
+
+set.seed(694769807)
+no_pseudo_df <- emp_zeta_sims |>
+    filter(n_pseudo == 0) |>
+    group_by(zeta, rep) |>
+    summarize(n_infected = sum(max_virus), .groups = "drop") |>
+    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
+                            as.list() |> as_tibble()),
+              n_infected = mean(n_infected), .groups = "drop") |>
+    unnest(ci)
+
+
+
+
+write_csv(zeta_sim_summs, "large-zeta-summs.csv")
+write_csv(zeta_ninf_sim_summs, "large-zeta-ninf-summs.csv")
+write_csv(no_pseudo_df, "large-zeta-nopseudo-summs.csv")

@@ -17,7 +17,9 @@
 │   ├── large-main-01.rds
 │   ├── ...
 │   └── large-main-16.rds
-├── large-zeta-sims.csv.gz
+├── large-zeta-ninf-summs.csv
+├── large-zeta-nopseudo-summs.csv
+├── large-zeta-summs.csv
 └── README.md
 ```
 
@@ -53,9 +55,19 @@
   alate repellence from *Pseudomonas*-inhabited plants; 
   this folder contains 16 files, `large-main-01.rds` -- `large-main-16.rds`
   (created in `_scripts/02-large-hpc/01-large-main.sh`)
-- `large-zeta-sims.csv.gz`: Empirical zeta estimates for larger landscape 
-  simulations
+- `large-zeta-ninf-summs.csv`: In larger landscape simulations, number of
+  peak infected plants summarized by parasitoid responsiveness and
+  number of *Pseudomonas* plants on landscape
   (created in `_scripts/02-large-hpc/04-large-emp-zeta.R`)
+- `large-zeta-nopseudo-summs.csv`: In larger landscape simulations, number of
+  peak infected plants when there are no *Pseudomonas* plants on landscape
+  (created in `_scripts/02-large-hpc/04-large-emp-zeta.R`)
+- `large-zeta-summs.csv`: In larger landscape simulations, observed divided
+  by predicted (empirically) parasitoid density summarized by parasitoid 
+  responsiveness, number of *Pseudomonas* plants on landscape, and 
+  whether plant has *Pseudomonas*
+  (created in `_scripts/02-large-hpc/04-large-emp-zeta.R`)
+
 
 
 - `README.md`: this file
