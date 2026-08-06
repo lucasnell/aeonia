@@ -10,19 +10,16 @@ source("_scripts/00-preamble.R")
 
 
 
-
-
-
 # In Ives et al. (1999), they found that parasitoids spent ~3.76 more time
 # foraging at plants where they encountered an aphid.
 # Bestrong simulates our model with varying zeta, then compares the observed
 # wasp abundances to those predicted when parasitoids never encounter an aphid
 # on a Pseudomonas-inhabited plant but always do on plants without Pseudomonas.
+if (!all(file.exists(c(interm_files$large_zeta, interm_files$large_zeta_ninf,
+                       interm_files$large_zeta_nopseudo)))) {
+    stop("Run 02-large-hpc/04-large-emp-zeta.R first!")
+}
 
-if (!file.exists(interm_files$large_zeta_sims)) stop("Run 02-large-hpc/04-large-emp-zeta.R first!")
-
-# Takes a little while to read
-zeta_sims <- read_csv(interm_files$large_zeta_sims, col_types = "diicidddddld")
 
 add_n_pseudo_fct <- function(d, label_both = FALSE) {
     fmt <- ifelse(label_both, "%.0f%% *Pseudo.*", "%.0f%%")
@@ -34,20 +31,21 @@ add_n_pseudo_fct <- function(d, label_both = FALSE) {
                                      labels = n_pseudo_labs))
 }
 
-# Takes ~ 2 min
-set.seed(1540192361)
-zeta_sim_summs <- zeta_sims |>
-    mutate(rel = wasps / pred_wasps) |>
-    group_by(zeta, n_pseudo, pseudo) |>
-    summarize(ci = list(booter(rel)[c("Lower", "Upper")] |>
-                            as.list() |> as_tibble()),
-              min = min(rel), max = max(rel),
-              rel = mean(rel), .groups = "drop") |>
-    unnest(ci) |>
+zeta_sim_summs <- read_csv(interm_files$large_zeta, col_types = "dilddddd") |>
     mutate(pseudo = factor(pseudo, levels = c(FALSE, TRUE),
                            labels = c("Plants without<br>*Pseudomonas*",
                                       "Plants with<br>*Pseudomonas*"))) |>
     add_n_pseudo_fct(label_both = TRUE)
+
+
+zeta_ninf_sim_summs <- read_csv(interm_files$large_zeta_ninf,
+                                col_types = "diddd")
+
+no_pseudo_df <- read_csv(interm_files$large_zeta_nopseudo, col_types = "ddd")
+
+
+
+
 
 
 # approximate using linear interpolation where lines equal 1:
@@ -105,27 +103,6 @@ if (.overwrite) {
 
 
 
-# Now plot for zeta ~ n_infected plants
-set.seed(19813000)
-zeta_ninf_sim_summs <- zeta_sims |>
-    filter(n_pseudo > 0) |>
-    group_by(zeta, n_pseudo, rep) |>
-    summarize(n_infected = sum(max_virus), .groups = "drop_last") |>
-    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
-                            as.list() |> as_tibble()),
-              n_infected = mean(n_infected), .groups = "drop") |>
-    unnest(ci)
-
-set.seed(694769807)
-no_pseudo_df <- zeta_sims |>
-    filter(n_pseudo == 0) |>
-    group_by(zeta, rep) |>
-    summarize(n_infected = sum(max_virus), .groups = "drop") |>
-    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
-                            as.list() |> as_tibble()),
-              n_infected = mean(n_infected), .groups = "drop") |>
-    unnest(ci)
-
 
 
 
@@ -134,7 +111,8 @@ zeta_ninf_p <- zeta_ninf_sim_summs |>
     filter(n_pseudo > 0) |>
     add_n_pseudo_fct() |>
     ggplot(aes(zeta, n_infected, color = n_pseudo_fct)) +
-    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo_fct), alpha = 0.25, color = NA) +
+    geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo_fct),
+                alpha = 0.25, color = NA) +
     geom_line() +
     geom_hline(yintercept = no_pseudo_df$n_infected) +
     geom_hline(yintercept = as.numeric(no_pseudo_df[,c("Lower", "Upper")]),
