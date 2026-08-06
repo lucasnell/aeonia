@@ -30,6 +30,8 @@ This repo contains the following top-level files/folders:
 ├── NAMESPACE
 ├── R
 ├── README.md
+├── renv
+├── renv.lock
 └── src
 ```
 
@@ -53,6 +55,12 @@ Here are descriptions of each:
 * `NAMESPACE`: File defining imports and export for the `aeonia` package.
 * `R`: Folder containing the R files for the `aeonia` package.
 * `README.md`: This file, the top-level README.
+* `renv`: Contains necessary scripts to use R package `renv` to replicate
+  the environment used to run these scripts.
+  See "Replicating R environment" below for more.
+* `renv.lock`: File containing metadata about installed packages used in this
+  project so that they can be installed using the R package `renv`.
+  See "Replicating R environment" below for more.
 * `src`: Folder containing the C++ files for the `aeonia` package.
 
 
