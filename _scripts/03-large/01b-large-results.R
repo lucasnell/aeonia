@@ -2,7 +2,7 @@
 #' Plots for larger landscape simulations.
 #' This includes results from `01-large-main.sh` and `02-large-interior.sh`
 #' inside `_scripts/01-large-hpc`.
-#' It also includes the plot of total aphid abundance through time,
+#' It also includes the plot of total aphid density through time,
 #' with and without variation among plants in initial aphid abundances.
 #'
 
@@ -21,7 +21,7 @@ source("_scripts/03-large/00-large-plot-funs.R")
 #' Unsurprisingly, when we set `wt_vp = 100` and manually have them overlap,
 #' there is always overlap.
 #'
-# list.files("_scripts/interm-data", "large-main-.?.?.rds",
+# list.files("_scripts/interm-data/large-main", "large-main-.?.?.rds",
 #            full.names = TRUE) |>
 #     map(read_rds) |>
 #     list_rbind() |>
@@ -122,7 +122,7 @@ large_outcomes_p <- baseline_plotter(outcomes = "n_infected", col_fct = "wt_vp",
 
 
 if (.overwrite) {
-    save_plot("_plots/large-outcomes.pdf",
+    save_plot("_plots/main/large-outcomes.pdf",
               large_outcomes_p & illustrator_theme, width = 4.88, height = 1.5)
 }
 
@@ -177,7 +177,7 @@ large_manip_clust_p <- crossing(wr = wasp_resp_fct,
 # large_manip_clust_p
 
 if (.overwrite) {
-    save_plot("_plots/large-baseline-wt_pp.pdf",
+    save_plot("_plots/supp/large-baseline-wt_pp.pdf",
               large_manip_clust_p, width = 6.5, height = 4)
 }
 
@@ -225,7 +225,7 @@ large_manip_plots <- crossing(cf = par_lvls,
 
 
 if (.overwrite) {
-    save_plot("_plots/large-baselines.pdf",
+    save_plot("_plots/supp/large-baselines.pdf",
               wrap_plots(large_manip_plots, ncol = 7, guides = "collect",
                          axis_titles = "collect",
                          widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
@@ -265,7 +265,7 @@ large_small_outcomes_p <- baseline_plotter(outcomes = "all",
 # large_small_outcomes_p
 
 if (.overwrite) {
-    save_plot("_plots/large-outcomes-small-outbreaks.pdf",
+    save_plot("_plots/supp/large-outcomes-small-outbreaks.pdf",
               large_small_outcomes_p, width = 5, height = 5)
 }
 
@@ -384,7 +384,7 @@ large_small_outs_p <- function() {
 
 
 if (.overwrite) {
-    save_plot("_plots/large-small-manips.pdf", large_small_outs_p,
+    save_plot("_plots/supp/large-small-manips.pdf", large_small_outs_p,
               width = 8, height = 9)
 }
 
@@ -445,7 +445,7 @@ large_int_manip_p <- crossing(cf = par_lvls,
 
 
 if (.overwrite) {
-    save_plot("_plots/large-manips-interior.pdf", large_int_manip_p,
+    save_plot("_plots/supp/large-manips-interior.pdf", large_int_manip_p,
               width = 7.5, height = 6)
 }
 
@@ -503,6 +503,6 @@ sd_N_dens_p <- variable_N_df |>
     labs(x = "Time (days)", y = "Total aphids")
 
 if (.overwrite) {
-    save_plot("_plots/sd_N-densities.pdf", sd_N_dens_p, width = 6, height = 4)
+    save_plot("_plots/supp/sd_N-densities.pdf", sd_N_dens_p, width = 6, height = 4)
 }
 

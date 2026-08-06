@@ -100,7 +100,7 @@ zeta_p <- zeta_sim_summs |>
 # zeta_p
 
 if (.overwrite) {
-    save_plot("_plots/large-empirical-zeta.pdf", zeta_p, width = 6, height = 5)
+    save_plot("_plots/supp/large-empirical-zeta.pdf", zeta_p, width = 6, height = 5)
 }
 
 
@@ -163,5 +163,5 @@ zeta_ninf_p <- zeta_ninf_sim_summs |>
 
 
 if (.overwrite) {
-    save_plot("_plots/large-zeta-n_infected.pdf", zeta_ninf_p, width = 6, height = 4)
+    save_plot("_plots/supp/large-zeta-n_infected.pdf", zeta_ninf_p, width = 6, height = 4)
 }

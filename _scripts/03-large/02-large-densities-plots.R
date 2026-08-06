@@ -105,7 +105,7 @@ total_dens_p <- total_dens_p_list[[1]] +
 # total_dens_p
 
 if (.overwrite) {
-    save_plot("_plots/densities-large.pdf", total_dens_p, width = 5, height = 2)
+    save_plot("_plots/main/densities-large.pdf", total_dens_p, width = 5, height = 2)
 }
 
 

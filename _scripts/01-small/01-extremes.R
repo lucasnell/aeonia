@@ -299,7 +299,7 @@ timeseries_p <- crossing(wasp_resp = sort(unique(weak_strong_sims$wasp_resp)),
 
 
 if (.overwrite) {
-    save_plot("_plots/extremes/timeseries.pdf",
+    save_plot("_plots/main/extremes/timeseries.pdf",
               timeseries_p & illustrator_theme, width = 6.7, height = 6)
 }
 
@@ -324,7 +324,7 @@ z_pa_curve <- tibble(z = 1:3e3, ap = alate_prop(z)) |>
     scale_x_continuous(breaks = 0:3*1000)
 
 if (.overwrite) {
-    save_plot("_plots/z-p_alates.pdf", z_pa_curve + illustrator_theme,
+    save_plot("_plots/main/z-p_alates.pdf", z_pa_curve + illustrator_theme,
               width = 2, height = 2)
 }
 
@@ -462,7 +462,7 @@ if (.overwrite) {
         theme(plot.tag = element_markdown(face = "bold"),
               plot.tag.location = "panel",
               plot.tag.position = c(0.1, 1))
-    save_plot("_plots/extremes-disease-outcomes.pdf", .p,
+    save_plot("_plots/supp/extremes-disease-outcomes.pdf", .p,
               width = 6.5, height = 4.5)
     rm(.p)
 }
@@ -547,7 +547,7 @@ if (.overwrite) {
         wrap_plots(design = "A#B", widths = c(1, 0.1, 1),
                    guides = "collect", axis_titles = "collect") &
         illustrator_theme
-    save_plot("_plots/extremes/disease-n_infected.pdf", .p,
+    save_plot("_plots/main/extremes/disease-n_infected.pdf", .p,
               width = 6.2, height = 1.9)
     rm(.p)
 }
@@ -679,7 +679,7 @@ dd_disp_p <- dd_disp_sims |>
 # dd_disp_p
 
 if (.overwrite) {
-    save_plot("_plots/dens-dep-dispersal.pdf", dd_disp_p, width = 6, height = 7)
+    save_plot("_plots/supp/dens-dep-dispersal.pdf", dd_disp_p, width = 6, height = 7)
 }
 
 
