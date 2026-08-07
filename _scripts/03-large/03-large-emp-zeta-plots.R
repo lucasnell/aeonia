@@ -41,9 +41,6 @@ zeta_sim_summs <- read_csv(interm_files$large_zeta, col_types = "dilddddd") |>
 zeta_ninf_sim_summs <- read_csv(interm_files$large_zeta_ninf,
                                 col_types = "diddd")
 
-no_pseudo_df <- read_csv(interm_files$large_zeta_nopseudo, col_types = "ddd")
-
-
 
 
 
@@ -111,12 +108,13 @@ zeta_ninf_p <- zeta_ninf_sim_summs |>
     filter(n_pseudo > 0) |>
     add_n_pseudo_fct() |>
     ggplot(aes(zeta, n_infected, color = n_pseudo_fct)) +
+    geom_ribbon(data = zeta_ninf_sim_summs |> filter(n_pseudo == 0),
+                aes(ymin = Lower, ymax = Upper),
+                alpha = 0.25, color = NA, fill = "gray60") +
+    geom_line(data = zeta_ninf_sim_summs |> filter(n_pseudo == 0), color = "black") +
     geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = n_pseudo_fct),
                 alpha = 0.25, color = NA) +
     geom_line() +
-    geom_hline(yintercept = no_pseudo_df$n_infected) +
-    geom_hline(yintercept = as.numeric(no_pseudo_df[,c("Lower", "Upper")]),
-               linetype = "22") +
     geom_point(data = zeta_one_ests |>
                    # Use linear interpolation to estimate value of n_infected for each zeta:
                    mutate(n_infected = map2_dbl(n_pseudo, zeta, \(np, z) {
@@ -130,6 +128,8 @@ zeta_ninf_p <- zeta_ninf_sim_summs |>
                        values = full_np_pal[paste(n_pseudo_lvls)] |>
                            set_names(sprintf("%.0f%%", n_pseudo_lvls / 10e3 * 100)),
                        aesthetics = c("color", "fill")) +
+    scale_y_continuous(breaks = 0:2 * 2000) +
+    scale_x_continuous(breaks = 0:4 * 0.2 + 0.1) +
     labs(x = pretty_params("zeta", cap1 = TRUE),
          y = paste0("Peak infected plants",
                     "<br><span style='font-size:8pt;'>",
@@ -141,5 +141,6 @@ zeta_ninf_p <- zeta_ninf_sim_summs |>
 
 
 if (.overwrite) {
-    save_plot("_plots/supp/large-zeta-n_infected.pdf", zeta_ninf_p, width = 6, height = 4)
+    save_plot("_plots/main/large-zeta-n_infected.pdf",
+              zeta_ninf_p + illustrator_theme, width = 4.88, height = 2)
 }

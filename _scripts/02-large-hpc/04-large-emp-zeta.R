@@ -124,9 +124,10 @@ emp_zeta_sims <- crossing(np = n_pseudo_lvls,
     list_rbind()
 
 
-# # Not saving this file bc it's pretty large (>5 GB) uncompressed,
-# # so I'm saving summarized versions below instead
-# write_csv(emp_zeta_sims, "large-zeta-sims.csv.gz")
+# Saving this on the cluster but not using this file on my computer
+# bc it's pretty large (>5 GB).
+# Instead, I'm saving summarized versions below.
+write_csv(emp_zeta_sims, "large-zeta-sims.csv.gz")
 
 
 
@@ -145,19 +146,8 @@ zeta_sim_summs <- emp_zeta_sims |>
 
 set.seed(19813000)
 zeta_ninf_sim_summs <- emp_zeta_sims |>
-    filter(n_pseudo > 0) |>
     group_by(zeta, n_pseudo, rep) |>
     summarize(n_infected = sum(max_virus), .groups = "drop_last") |>
-    summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
-                            as.list() |> as_tibble()),
-              n_infected = mean(n_infected), .groups = "drop") |>
-    unnest(ci)
-
-set.seed(694769807)
-no_pseudo_df <- emp_zeta_sims |>
-    filter(n_pseudo == 0) |>
-    group_by(zeta, rep) |>
-    summarize(n_infected = sum(max_virus), .groups = "drop") |>
     summarize(ci = list(booter(n_infected)[c("Lower", "Upper")] |>
                             as.list() |> as_tibble()),
               n_infected = mean(n_infected), .groups = "drop") |>
@@ -168,4 +158,3 @@ no_pseudo_df <- emp_zeta_sims |>
 
 write_csv(zeta_sim_summs, "large-zeta-summs.csv")
 write_csv(zeta_ninf_sim_summs, "large-zeta-ninf-summs.csv")
-write_csv(no_pseudo_df, "large-zeta-nopseudo-summs.csv")

@@ -14,6 +14,7 @@
 │   ├── extremes-manip-lines-pseudo_surv.pdf
 │   ├── large-baselines.pdf
 │   ├── large-outcomes.pdf
+    ├── large-zeta-n_infected.pdf
 │   ├── lines-zeta.pdf
 │   └── z-p_alates.pdf
 ├── README.md
@@ -30,7 +31,6 @@
     ├── large-manips-interior.pdf
     ├── large-outcomes-small-outbreaks.pdf
     ├── large-small-manips.pdf
-    ├── large-zeta-n_infected.pdf
     ├── sd_N-densities.pdf
     └── virus-attract.pdf
 ```
@@ -66,6 +66,12 @@ No changes were made to the panels themselves in Illustrator.
       across occupancies of *Pseudomonas* and across whether 
       the virus starts on a *Pseudomonas* plant
       (created in `_scripts/03-large/01b-large-results.R`)
+    - `large-zeta-n_infected.pdf`: number of peak infected plants versus
+      parasitoid responsiveness to aphid densities, for varying levels
+      of *Pseudomonas* occupancy; also present on this figure are points 
+      indicating the levels of parasitoid responsiveness corresponding
+      to empirical estimates
+      (created in `_scripts/03-large/03-large-emp-zeta-plots.R`)
     - `lines-zeta.pdf`: number of peak infected plants in small landscapes 
       versus parasitoid responsiveness to aphid densities
       (created in `_scripts/01-small/02b-extremes-manip.R`)
@@ -130,12 +136,6 @@ No changes were made to the panels themselves in Illustrator.
       the virus starts on a *Pseudomonas* plant,
       *Pseudomonas* repels alates, and virus infection attracts alates
       (created in `_scripts/03-large/01b-large-results.R`)
-    - `large-zeta-n_infected.pdf`: number of peak infected plants versus
-      parasitoid responsiveness to aphid densities, for varying levels
-      of *Pseudomonas* occupancy; also present on this figure are points 
-      indicating the levels of parasitoid responsiveness corresponding
-      to empirical estimates
-      (created in `_scripts/03-large/03-large-emp-zeta-plots.R`)
     - `sd_N-densities.pdf`: total aphid density through time, with and 
       without variation among plants in initial aphid abundances
       (created in `_scripts/03-large/01b-large-results.R`)

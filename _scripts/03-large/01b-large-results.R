@@ -9,8 +9,9 @@
 source("_scripts/00-preamble.R")
 
 
+
 # Plotting and data functions:
-source("_scripts/03-large/00-large-plot-funs.R")
+source("_scripts/03-large/01a-large-plot-funs.R")
 
 .overwrite <- FALSE
 
@@ -112,9 +113,7 @@ sim_df |>
 # =============================================================================*
 # =============================================================================*
 
-large_outcomes_p <- baseline_plotter(outcomes = "n_infected", col_fct = "wt_vp",
-                                     color_vals = c("black", "#4EEE94"),
-                                     obs_breaks = 0:2 * 2000)
+large_outcomes_p <- baseline_plotter(outcomes = "n_infected", obs_breaks = 0:2 * 2000)
 # large_outcomes_p
 
 
