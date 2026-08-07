@@ -18,8 +18,7 @@ interm_files <- list(extreme_manip = "extremes-manip-sims.rds",
                      dens_sims = "density-sims.csv",
                      dd_disp_sims = "dd_disp-sims.csv",
                      large_zeta = "large-zeta-summs.csv",
-                     large_zeta_ninf = "large-zeta-ninf-summs.csv",
-                     large_zeta_nopseudo = "large-zeta-nopseudo-summs.csv") |>
+                     large_zeta_ninf = "large-zeta-ninf-summs.csv") |>
     map(\(x) paste0("_scripts/interm-data/", x))
 
 
@@ -37,17 +36,16 @@ options("readr.num_threads" = max(1L, parallel::detectCores()-2L))
                                   "[{cli::pb_elapsed}] |",
                                   "ETA: {cli::pb_eta}"))
 
-#' This only gets run if my local .Rprofile has been run and if it's an
-#' interactive session:
-if (interactive() && exists(".LAN_USER")) {
+# This only gets run if my global .Rprofile has been run and if it's an
+# interactive session on macOS:
+if (Sys.info()[["sysname"]] == "Darwin" &&
+    interactive() && exists(".LAN_USER")) {
     setHook(packageEvent("grDevices", "onLoad"),
             function(...) grDevices::quartz.options(width = 4, height = 4,
                                                     pointsize = 10))
     options("device" = "quartz")
     grDevices::graphics.off()
 }
-
-
 
 
 # For numbers of pseudomonas plants:

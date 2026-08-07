@@ -18,7 +18,6 @@
 │   ├── ...
 │   └── large-main-16.rds
 ├── large-zeta-ninf-summs.csv
-├── large-zeta-nopseudo-summs.csv
 ├── large-zeta-summs.csv
 └── README.md
 ```
@@ -58,9 +57,6 @@
 - `large-zeta-ninf-summs.csv`: In larger landscape simulations, number of
   peak infected plants summarized by parasitoid responsiveness and
   number of *Pseudomonas* plants on landscape
-  (created in `_scripts/02-large-hpc/04-large-emp-zeta.R`)
-- `large-zeta-nopseudo-summs.csv`: In larger landscape simulations, number of
-  peak infected plants when there are no *Pseudomonas* plants on landscape
   (created in `_scripts/02-large-hpc/04-large-emp-zeta.R`)
 - `large-zeta-summs.csv`: In larger landscape simulations, observed divided
   by predicted (empirically) parasitoid density summarized by parasitoid 
