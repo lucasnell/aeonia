@@ -100,7 +100,7 @@ install.packages(do.call(c, pkg_vers))
 
 
 Package `renv` doesn't store `aeonia` itself, presumably because it's the same 
-nameas the project, so there are three ways to install `aeonia`:
+name as the project, so there are three ways to install `aeonia`:
 
 ``` r
 # If using `renv`:
