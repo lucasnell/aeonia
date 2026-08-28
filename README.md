@@ -85,9 +85,6 @@ your working directory:
 
 ``` r
 renv::restore()
-# It doesn't store `aeonia` itself, presumably bc it's the same name as the
-# project:
-renv::install("lucasnell/aeonia@v0.0.2.3")
 ```
 
 If you’d rather avoid `renv`, then you can install all the packages (in
@@ -98,9 +95,22 @@ if (!requireNamespace("jsonlite", quietly = TRUE)) install.package("jsonlite")
 pkg_list <- jsonlite::read_json("renv.lock")[["Packages"]]
 pkg_vers <- lapply(pkg_list, \(x) paste0(x[["Package"]], "@", x[["Version"]]))
 
-# Most packages from CRAN:
 install.packages(do.call(c, pkg_vers))
-
-# Now aeonia from GitHub:
-remotes::install_github("lucasnell/aeonia@v0.0.2.3")
 ```
+
+
+Package `renv` doesn't store `aeonia` itself, presumably because it's the same 
+nameas the project, so there are three ways to install `aeonia`:
+
+``` r
+# If using `renv`:
+renv::install("lucasnell/aeonia@v0.0.2.3")
+
+# If not using `renv`:
+if (!requireNamespace("remotes", quietly = TRUE)) install.package("remotes")
+remotes::install_github("lucasnell/aeonia@v0.0.2.3")
+
+# If you've downloaded this repo, you can also install from source:
+if (!requireNamespace("devtools", quietly = TRUE)) install.package("devtools")
+pkg <- devtools::build()
+install.packages(pkg, repos = NULL, type = "source")
