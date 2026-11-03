@@ -10,11 +10,11 @@
 
 
 # Check if running locally or on cluster:
-if (grepl("biohpc.cornell.edu$", Sys.info()[["nodename"]]) &&
-    Sys.info()[["user"]] == Sys.getenv("USER")) {
-    .libPaths(paste0("/home/", Sys.getenv("USER"), "/R/x86_64-pc-linux-gnu-library/4.6"))
+if (grepl("biohpc.cornell.edu$", Sys.info()[["nodename"]])) {
+    .user <- Sys.info()[["user"]]
+    .libPaths(paste0("/home/", .user, "/R/x86_64-pc-linux-gnu-library/4.6"))
     n_threads <- as.integer(Sys.getenv("SLURM_CPUS_PER_TASK"))
-    file_dir <- paste0("/home2/", Sys.getenv("USER"))
+    file_dir <- paste0("/home2/", .user)
 } else {
     n_threads <- max(1L, parallel::detectCores()-2L)
     file_dir <- "_scripts/interm-data"
