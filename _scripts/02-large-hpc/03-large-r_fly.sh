@@ -29,8 +29,7 @@
 # Then, when the jobs are done (assuming you're back on your desktop in
 # directory `~/GitHub/Cornell/aeonia/_scripts`):
 #
-# scp biohpc:/home2/$USER/03-large-r_fly/large-r_fly*.rds \
-#     ./interm-data/large-r_fly/
+# scp biohpc:/home2/$USER/03-large-r_fly/large-r_fly*.rds ./interm-data/large-r_fly/
 #
 #
 

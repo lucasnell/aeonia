@@ -140,46 +140,6 @@ if (.overwrite) {
 #' - `sd_N`
 
 
-# Effects (or lack thereof) of clustering vs uniform Pseudomonas:
-large_manip_clust_p <- crossing(wr = wasp_resp_fct,
-         onp = c(FALSE, TRUE)) |>
-    # Bc factors behave weird sometimes (but are needed for sorting crossing):
-    mutate(across(where(is.factor), paste)) |>
-    # Used for tags:
-    mutate(tg = LETTERS[1:n()]) |>
-    pmap(\(wr, onp, tg) {
-        non_defs <- list()
-        if (onp) {
-            non_defs <- list(wt_vp = "on *Pseudo.*")
-        }
-        p <- baseline_plotter(outcomes = "n_infected", col_fct = "wt_pp",
-                              color_vals = c("black", "dodgerblue"),
-                              incl_vals = TRUE,
-                              non_defaults = non_defs,
-                              obs_breaks = 0:2 * 2000, obs_max = 4900,
-                              data_df = sim_df |> filter(wasp_resp == wr),
-                              multiline_col_title = FALSE,
-                              p_tag = tg)
-        if (wr != levels(wasp_resp_fct)[1] || onp) {
-            p <- p + theme(axis.text.y = element_blank())
-        }
-        return(p)
-    }) |>
-    add_top_labels() |>
-    wrap_plots(design = "EEE#FFF\nG#H#I#J\nA#B#C#D",
-               guides = "collect", axis_titles = "collect",
-               widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1), heights = c(0.4, 0.3, 1)) &
-    theme(plot.tag.location = "panel",
-          plot.tag.position = c(0.05, 1.05),
-          legend.position = "top", legend.title.position = "top")
-
-# large_manip_clust_p
-
-if (.overwrite) {
-    save_plot("_plots/supp/large-baseline-wt_pp.pdf",
-              large_manip_clust_p, width = 6.5, height = 4)
-}
-
 
 
 large_manip_plots <- crossing(cf = par_lvls,
@@ -504,4 +464,85 @@ sd_N_dens_p <- variable_N_df |>
 if (.overwrite) {
     save_plot("_plots/supp/sd_N-densities.pdf", sd_N_dens_p, width = 6, height = 4)
 }
+
+
+
+
+
+
+
+# =============================================================================*
+# =============================================================================*
+# Pseudo. clustering and r_fly ----
+# =============================================================================*
+# =============================================================================*
+
+
+
+
+# from 03-large-r_fly.sh:
+rad_sim_df <- process_large_sim_files("r_fly", 198879814)
+
+large_manip_clust_p <- crossing(wr = wasp_resp_fct,
+                                onp = c(FALSE, TRUE),
+                                rad = sort(unique(rad_sim_df$radius))) |>
+    arrange(rad, wr, onp) |>
+    # Bc factors behave weird sometimes (but are needed for sorting crossing):
+    mutate(across(where(is.factor), paste)) |>
+    # Used for tags:
+    mutate(tg = LETTERS[1:n()]) |>
+    pmap(\(wr, onp, rad, tg) {
+        non_defs <- list()
+        if (onp) {
+            non_defs <- list(wt_vp = "on *Pseudo.*")
+        }
+        max_pip <- case_when(rad == min(rad_sim_df$radius) ~ 2e3,
+                             rad == max(rad_sim_df$radius) ~ 10e3,
+                             .default = 5e3)
+        p <- baseline_plotter(outcomes = "n_infected", col_fct = "wt_pp",
+                              color_vals = c("black", "dodgerblue"),
+                              incl_vals = TRUE,
+                              non_defaults = non_defs,
+                              # obs_breaks = 0:2 * 2000,
+                              obs_max = max_pip,
+                              data_df = rad_sim_df |> filter(wasp_resp == wr,
+                                                             radius == rad),
+                              multiline_col_title = FALSE,
+                              p_tag = tg)
+        if (wr != levels(wasp_resp_fct)[1] || onp) {
+            p <- p + theme(axis.text.y = element_blank())
+        }
+        if (rad != max(rad_sim_df$radius)) {
+            p <- p + theme(axis.text.x = element_blank())
+        }
+        return(p)
+    }) |>
+    add_top_labels() |>
+    (\(pl) {
+        ml <- sort(unique(rad_sim_df$radius)) |>
+            map(\(x) {
+                z <- sprintf("<i>r</i><sub>fly</sub> = %.2f", x)
+                suf <- ifelse(x == an_environ$radius, " (default)", "")
+                grob <- richtext_grob(serify("", z, suf),
+                                      vjust = 0, y = unit(0, "npc"),
+                                      gp = gpar(fontsize = 13, lineheight = 0.8))
+                wrap_elements(panel = grob)
+            })
+        return(c(pl, ml))
+    })() |>
+    wrap_plots(design = paste0("MMM#NNN\nO#P#Q#R\nSSSSSSS\nA#B#C#D\n",
+                               "TTTTTTT\nE#F#G#H\nUUUUUUU\nI#J#K#L"),
+               guides = "collect", axis_titles = "collect",
+               widths = c(1, 0.05, 1, 0.2, 1, 0.05, 1),
+               heights = c(0.55, 0.4, rep(c(0.3, 1), 3))) &
+    theme(plot.tag.location = "panel",
+          plot.tag.position = c(0.1, 0.9),
+          legend.position = "top", legend.title.position = "top")
+
+
+if (.overwrite) {
+    save_plot("_plots/supp/large-baseline-wt_pp.pdf",
+              large_manip_clust_p, width = 6.5, height = 7)
+}
+
 

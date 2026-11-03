@@ -12,7 +12,7 @@ suppressPackageStartupMessages({
 add_no_pseudo_points <- function(data_df) {
     stopifnot(all(c("wt_vp", "wt_pp") %in% colnames(data_df)))
     split_cols <- c("wasp_resp", "p_load", "sd_N", "virus_attract",
-                    "pseudo_repel", "fly_p") |>
+                    "pseudo_repel", "fly_p", "radius") |>
         keep(\(x) x %in% colnames(data_df))
     stopifnot(length(split_cols) >= 1)
     split_form <- paste("~", paste(split_cols, collapse = "+")) |> as.formula()
